@@ -8,6 +8,7 @@ export enum HookKeysEnum {
   listAssetsQuery = "listAssetsQuery",
   addTableMutation = "addTableMutation",
   deleteTableMutation = "deleteTableMutation",
+  saveTableRowsMutation = "saveTableRowsMutation",
   updateTableMutation = "updateTableMutation",
   listTablesQuery = "listTablesQuery"
 }

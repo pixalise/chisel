@@ -111,6 +111,28 @@ class TableService extends BaseService {
     return table;
   }
 
+  public async saveTableRows(id: string, rows: DataTableRow[]): Promise<AnyDataTable> {
+    if (SYSTEM_TABLES.some((table) => table.id === id)) {
+      return this.saveSystemTableRows(id, rows);
+    }
+
+    const userTables = await this.listUserTables();
+    const existingTable = userTables.find((table) => table.id === id);
+    if (!existingTable) {
+      throw new Error(`Table ${id} does not exist`);
+    }
+
+    const table = zodParse(dataTableSchema, {
+      ...existingTable,
+      lastChangeAt: new Date().toISOString(),
+      rows,
+      version: existingTable.version + 1
+    });
+
+    await this.writeUserTables(userTables.map((entry) => (entry.id === id ? table : entry)));
+    return table;
+  }
+
   private async listUserTables(): Promise<DataTableSchema[]> {
     const tablesJson = await fileService.tryReadTablesJson(this.getPath());
     const tables = tablesJson?.tables ?? [];

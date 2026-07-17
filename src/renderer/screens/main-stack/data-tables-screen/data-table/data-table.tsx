@@ -1,4 +1,4 @@
-import { type FC, useEffect, useMemo, useState } from "react";
+import { type FC, useEffect, useMemo, useRef, useState } from "react";
 import { Info } from "lucide-react";
 import { nanoid } from "nanoid";
 import { Badge } from "@/components/ui/badge";
@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { INPUT_BINDINGS_TABLE_ID } from "@/constants/system-tables";
+import useSaveTableRowsMutation from "@/hooks/use-save-table-rows-mutation";
 import { cn } from "@/lib/utils";
-import { type DataColumnDefinition, type DataTableRow } from "../../../../../shared/schemas";
+import { dataTableRowSchema, type DataColumnDefinition, type DataTableRow } from "../../../../../shared/schemas";
 import { ColumnType } from "../../../../../shared/types";
 import { CellEditor, CellValue } from "./data-table-cells";
 import { tableTabKey, type TableTabEntry } from "./table-tabs/table-tab";
@@ -51,7 +53,7 @@ function isSystemTable(table: TableTabEntry): boolean {
 }
 
 function canMutateRows(table: TableTabEntry): boolean {
-  return !isSystemTable(table);
+  return !isSystemTable(table) || table.id === INPUT_BINDINGS_TABLE_ID;
 }
 
 function createEditorRow(columns: DataColumnDefinition[]): EditorRow {
@@ -71,6 +73,21 @@ function rowsFromTable(table: TableTabEntry, columns: DataColumnDefinition[]): E
       })
     )
   }));
+}
+
+function tableRowFromEditorRow(row: EditorRow, columns: DataColumnDefinition[]): DataTableRow {
+  return dataTableRowSchema.parse({
+    id: row.id,
+    values: columns.map((column) => ({
+      columnId: column.id,
+      type: column.type,
+      value: cellValue(row, column)
+    }))
+  });
+}
+
+function tableRowsFromEditorRows(rows: EditorRow[], columns: DataColumnDefinition[]): DataTableRow[] {
+  return rows.map((row) => tableRowFromEditorRow(row, columns));
 }
 
 function cellValue(row: EditorRow, column: DataColumnDefinition): unknown {
@@ -309,19 +326,42 @@ const DataTable: FC<DataTableProps> = (props) => {
   const [rows, setRows] = useState<EditorRow[]>([]);
   const [unlockedRows, setUnlockedRows] = useState<Set<string>>(() => new Set());
   const columns = useMemo(() => table?.columns ?? [], [table]);
+  const columnSignature = useMemo(() => JSON.stringify(columns), [columns]);
+  const tableRef = useRef<TableTabEntry | null>(table);
+  const columnsRef = useRef<DataColumnDefinition[]>(columns);
+  const { isSaveTableRowsLoading, saveTableRows } = useSaveTableRowsMutation();
   const tableKey = table ? tableTabKey(table) : "";
   const canMutateTableRows = table ? canMutateRows(table) : false;
 
   useEffect(() => {
-    if (!table) {
+    tableRef.current = table;
+    columnsRef.current = columns;
+  });
+
+  useEffect(() => {
+    const currentTable = tableRef.current;
+    const currentColumns = columnsRef.current;
+
+    if (!currentTable) {
       setRows([]);
       setUnlockedRows(new Set());
       return;
     }
 
-    setRows(rowsFromTable(table, columns));
+    setRows(rowsFromTable(currentTable, currentColumns));
     setUnlockedRows(new Set());
-  }, [columns, table, tableKey]);
+  }, [columnSignature, tableKey]);
+
+  function persistRows(nextRows: EditorRow[]): void {
+    if (!table || !canMutateTableRows) {
+      return;
+    }
+
+    void saveTableRows({
+      rows: tableRowsFromEditorRows(nextRows, columns),
+      tableId: table.id
+    });
+  }
 
   function addRow(): void {
     if (!canMutateTableRows) {
@@ -329,8 +369,10 @@ const DataTable: FC<DataTableProps> = (props) => {
     }
 
     const nextRow = createEditorRow(columns);
-    setRows((current) => [...current, nextRow]);
+    const nextRows = [...rows, nextRow];
+    setRows(nextRows);
     setUnlockedRows((current) => new Set([...current, nextRow.id]));
+    persistRows(nextRows);
   }
 
   function deleteRow(rowId: string): void {
@@ -338,12 +380,14 @@ const DataTable: FC<DataTableProps> = (props) => {
       return;
     }
 
-    setRows((current) => current.filter((row) => row.id !== rowId));
+    const nextRows = rows.filter((row) => row.id !== rowId);
+    setRows(nextRows);
     setUnlockedRows((current) => {
       const next = new Set(current);
       next.delete(rowId);
       return next;
     });
+    persistRows(nextRows);
   }
 
   function toggleRowLock(rowId: string): void {
@@ -363,20 +407,20 @@ const DataTable: FC<DataTableProps> = (props) => {
   }
 
   function updateCell(rowId: string, columnId: string, value: unknown): void {
-    setRows((current) =>
-      current.map((row) => {
-        if (row.id !== rowId) {
-          return row;
+    const nextRows = rows.map((row) => {
+      if (row.id !== rowId) {
+        return row;
+      }
+      return {
+        ...row,
+        values: {
+          ...row.values,
+          [columnId]: value
         }
-        return {
-          ...row,
-          values: {
-            ...row.values,
-            [columnId]: value
-          }
-        };
-      })
-    );
+      };
+    });
+    setRows(nextRows);
+    persistRows(nextRows);
   }
 
   if (!table) {
@@ -481,7 +525,7 @@ const DataTable: FC<DataTableProps> = (props) => {
             <span>
               {rows.length} rows / {columns.length} columns
             </span>
-            <span className="font-mono">{tableStoragePath(table)}</span>
+            <span className="font-mono">{isSaveTableRowsLoading ? "Saving..." : tableStoragePath(table)}</span>
           </div>
         </>
       )}

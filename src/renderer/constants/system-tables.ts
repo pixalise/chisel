@@ -1,4 +1,4 @@
-import { type DataColumnDefinition, type DataTableRow, type SystemDataTable } from "../../shared/schemas";
+import { type DataColumnDefinition, type SystemDataTable } from "../../shared/schemas";
 import { ColumnType, InputKeyEnum } from "../../shared/types";
 
 export const INPUT_BINDINGS_TABLE_ID = "input_bindings";
@@ -81,21 +81,6 @@ function column(seed: string, name: string, type: ColumnType, options: SystemCol
   return definition;
 }
 
-function tableCell(seed: string, type: ColumnType, value: unknown): DataTableRow["values"][number] {
-  return {
-    columnId: columnId(seed),
-    type,
-    value
-  } as DataTableRow["values"][number];
-}
-
-function tableRow(seed: string, values: DataTableRow["values"]): DataTableRow {
-  return {
-    id: columnId(seed),
-    values
-  };
-}
-
 export const INPUT_BINDINGS_TABLE = {
   columns: [
     column("input_sort_order", "sort_order", ColumnType.integer, { defaultValue: 0, min: 0 }),
@@ -113,48 +98,7 @@ export const INPUT_BINDINGS_TABLE = {
   lastChangeAt: SYSTEM_TABLE_TIMESTAMP,
   moduleId: "input",
   name: "Input Bindings",
-  rows: [
-    tableRow("row_input_00", [
-      tableCell("input_sort_order", ColumnType.integer, 0),
-      tableCell("input_action", ColumnType.string, "debug_toggle"),
-      tableCell("input_bindings", ColumnType.enumArray, [InputKeyEnum.F1])
-    ]),
-    tableRow("row_input_01", [
-      tableCell("input_sort_order", ColumnType.integer, 1),
-      tableCell("input_action", ColumnType.string, "quit"),
-      tableCell("input_bindings", ColumnType.enumArray, [InputKeyEnum.Escape])
-    ]),
-    tableRow("row_input_02", [
-      tableCell("input_sort_order", ColumnType.integer, 2),
-      tableCell("input_action", ColumnType.string, "camera_zoom_in"),
-      tableCell("input_bindings", ColumnType.enumArray, [InputKeyEnum.WheelUp])
-    ]),
-    tableRow("row_input_03", [
-      tableCell("input_sort_order", ColumnType.integer, 3),
-      tableCell("input_action", ColumnType.string, "camera_zoom_out"),
-      tableCell("input_bindings", ColumnType.enumArray, [InputKeyEnum.WheelDown])
-    ]),
-    tableRow("row_input_04", [
-      tableCell("input_sort_order", ColumnType.integer, 4),
-      tableCell("input_action", ColumnType.string, "camera_pan_left"),
-      tableCell("input_bindings", ColumnType.enumArray, [InputKeyEnum.A, InputKeyEnum.Left])
-    ]),
-    tableRow("row_input_05", [
-      tableCell("input_sort_order", ColumnType.integer, 5),
-      tableCell("input_action", ColumnType.string, "camera_pan_right"),
-      tableCell("input_bindings", ColumnType.enumArray, [InputKeyEnum.D, InputKeyEnum.Right])
-    ]),
-    tableRow("row_input_06", [
-      tableCell("input_sort_order", ColumnType.integer, 6),
-      tableCell("input_action", ColumnType.string, "camera_pan_up"),
-      tableCell("input_bindings", ColumnType.enumArray, [InputKeyEnum.W, InputKeyEnum.Up])
-    ]),
-    tableRow("row_input_07", [
-      tableCell("input_sort_order", ColumnType.integer, 7),
-      tableCell("input_action", ColumnType.string, "camera_pan_down"),
-      tableCell("input_bindings", ColumnType.enumArray, [InputKeyEnum.S, InputKeyEnum.Down])
-    ])
-  ],
+  rows: [],
   version: 1
 } satisfies SystemDataTable;
 
