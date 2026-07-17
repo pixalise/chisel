@@ -18,16 +18,7 @@ export interface DataSchemaFormProps {
 }
 
 const createDefaultData = (): CreateOrUpdateTable => ({
-  columns: [
-    {
-      defaultValue: createDefaultValueForColumnType(ColumnType.id),
-      id: nanoid(),
-      type: ColumnType.id,
-      name: "id",
-      required: true,
-      unique: true
-    }
-  ],
+  columns: [],
   description: "",
   name: "New Table"
 });

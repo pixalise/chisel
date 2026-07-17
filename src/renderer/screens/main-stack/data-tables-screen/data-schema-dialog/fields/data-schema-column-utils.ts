@@ -1,6 +1,5 @@
 import type { CreateOrUpdateTable } from "../../../../../../shared/schemas";
 import { ColumnType } from "../../../../../../shared/types";
-import { nanoid } from "nanoid";
 
 export type DataColumnDefaultValue = CreateOrUpdateTable["columns"][number]["defaultValue"];
 
@@ -31,9 +30,6 @@ export function isVectorColumnType(type: ColumnType): boolean {
 export function createDefaultValueForColumnType(type: ColumnType, enumValues: string[] = [], minValue?: unknown): DataColumnDefaultValue {
   const min = typeof minValue === "number" && Number.isFinite(minValue) ? minValue : 0;
 
-  if (type === ColumnType.id) {
-    return nanoid();
-  }
   if (type === ColumnType.integer) {
     return Math.trunc(min);
   }

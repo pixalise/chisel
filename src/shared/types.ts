@@ -290,7 +290,6 @@ export enum InputKeyEnum {
 }
 
 export enum ColumnType {
-  id = "id",
   string = "string",
   text = "text",
   integer = "integer",

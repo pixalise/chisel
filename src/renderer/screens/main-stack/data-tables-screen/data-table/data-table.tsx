@@ -3,13 +3,14 @@ import { Info } from "lucide-react";
 import { nanoid } from "nanoid";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { INPUT_BINDINGS_TABLE_ID } from "@/constants/system-tables";
 import useSaveTableRowsMutation from "@/hooks/use-save-table-rows-mutation";
 import { cn } from "@/lib/utils";
-import { dataTableRowSchema, type DataColumnDefinition, type DataTableRow } from "../../../../../shared/schemas";
+import { dataTableRowSchema, rowSlugSchema, type DataColumnDefinition, type DataTableRow } from "../../../../../shared/schemas";
 import { ColumnType } from "../../../../../shared/types";
 import { CellEditor, CellValue } from "./data-table-cells";
 import { tableTabKey, type TableTabEntry } from "./table-tabs/table-tab";
@@ -20,6 +21,7 @@ export interface DataTableProps {
 
 interface EditorRow {
   id: string;
+  slug: string;
   values: Record<string, unknown>;
 }
 
@@ -35,9 +37,6 @@ function defaultValueForColumn(column: DataColumnDefinition): unknown {
 }
 
 function defaultValueForNewRow(column: DataColumnDefinition): unknown {
-  if (column.type === ColumnType.id) {
-    return nanoid();
-  }
   return defaultValueForColumn(column);
 }
 
@@ -56,9 +55,35 @@ function canMutateRows(table: TableTabEntry): boolean {
   return !isSystemTable(table) || table.id === INPUT_BINDINGS_TABLE_ID;
 }
 
-function createEditorRow(columns: DataColumnDefinition[]): EditorRow {
+function nextDefaultSlug(rows: EditorRow[]): string {
+  const existingSlugs = new Set(rows.map((row) => row.slug));
+  if (!existingSlugs.has("NEW_ROW")) {
+    return "NEW_ROW";
+  }
+  for (let index = 2; index < Number.MAX_SAFE_INTEGER; index += 1) {
+    const slug = `NEW_ROW_${index}`;
+    if (!existingSlugs.has(slug)) {
+      return slug;
+    }
+  }
+  return `NEW_ROW_${nanoid()
+    .replace(/[^A-Za-z0-9]/g, "")
+    .toUpperCase()}`;
+}
+
+function normalizeSlugInput(value: string): string {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function createEditorRow(columns: DataColumnDefinition[], rows: EditorRow[]): EditorRow {
   return {
     id: nanoid(),
+    slug: nextDefaultSlug(rows),
     values: Object.fromEntries(columns.map((column) => [column.id, defaultValueForNewRow(column)]))
   };
 }
@@ -66,6 +91,7 @@ function createEditorRow(columns: DataColumnDefinition[]): EditorRow {
 function rowsFromTable(table: TableTabEntry, columns: DataColumnDefinition[]): EditorRow[] {
   return tableRows(table).map((row) => ({
     id: row.id,
+    slug: row.slug,
     values: Object.fromEntries(
       columns.map((column) => {
         const value = row.values.find((item) => item.columnId === column.id);
@@ -78,6 +104,7 @@ function rowsFromTable(table: TableTabEntry, columns: DataColumnDefinition[]): E
 function tableRowFromEditorRow(row: EditorRow, columns: DataColumnDefinition[]): DataTableRow {
   return dataTableRowSchema.parse({
     id: row.id,
+    slug: row.slug,
     values: columns.map((column) => ({
       columnId: column.id,
       type: column.type,
@@ -206,7 +233,16 @@ function validateCell(column: DataColumnDefinition, value: unknown, rows: Editor
 }
 
 function validateRow(row: EditorRow, columns: DataColumnDefinition[], rows: EditorRow[]): string[] {
-  return columns.flatMap((column) => validateCell(column, cellValue(row, column), rows, row.id));
+  const errors: string[] = [];
+  const slugParse = rowSlugSchema.safeParse(row.slug);
+  if (!slugParse.success) {
+    errors.push(slugParse.error.issues[0]?.message ?? "Slug must be UPPER_SNAKE_CASE");
+  }
+  const duplicateSlug = rows.some((entry) => entry.id !== row.id && entry.slug === row.slug);
+  if (duplicateSlug) {
+    errors.push("Slug must be unique");
+  }
+  return [...errors, ...columns.flatMap((column) => validateCell(column, cellValue(row, column), rows, row.id))];
 }
 
 function tableStoragePath(table: TableTabEntry): string {
@@ -356,6 +392,9 @@ const DataTable: FC<DataTableProps> = (props) => {
     if (!table || !canMutateTableRows) {
       return;
     }
+    if (nextRows.some((row) => validateRow(row, columns, nextRows).length > 0)) {
+      return;
+    }
 
     void saveTableRows({
       rows: tableRowsFromEditorRows(nextRows, columns),
@@ -368,7 +407,7 @@ const DataTable: FC<DataTableProps> = (props) => {
       return;
     }
 
-    const nextRow = createEditorRow(columns);
+    const nextRow = createEditorRow(columns, rows);
     const nextRows = [...rows, nextRow];
     setRows(nextRows);
     setUnlockedRows((current) => new Set([...current, nextRow.id]));
@@ -423,6 +462,20 @@ const DataTable: FC<DataTableProps> = (props) => {
     persistRows(nextRows);
   }
 
+  function updateSlug(rowId: string, value: string): void {
+    const nextRows = rows.map((row) => {
+      if (row.id !== rowId) {
+        return row;
+      }
+      return {
+        ...row,
+        slug: normalizeSlugInput(value)
+      };
+    });
+    setRows(nextRows);
+    persistRows(nextRows);
+  }
+
   if (!table) {
     return <div className="flex min-h-64 items-center justify-center p-4 text-sm text-muted-foreground">No table selected.</div>;
   }
@@ -442,93 +495,99 @@ const DataTable: FC<DataTableProps> = (props) => {
         </span>
       </div>
 
-      {columns.length === 0 ? (
-        <div className="flex min-h-64 items-center justify-center p-4 text-sm text-muted-foreground">This table has no columns.</div>
-      ) : (
-        <>
-          <ScrollArea className="min-h-0 min-w-0 flex-1">
-            <TooltipProvider delayDuration={120}>
-              <Table className="min-w-max">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12" />
-                    <TableHead className="w-20">Edit</TableHead>
-                    {columns.map((column) => (
-                      <TableHead key={column.id} className={cn("whitespace-nowrap", columnWidthClassName(column))}>
-                        <ColumnHeader column={column} />
-                      </TableHead>
-                    ))}
-                    <TableHead className="w-20" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row) => {
-                    const editable = canMutateTableRows && unlockedRows.has(row.id);
-                    const errors = validateRow(row, columns, rows);
+      <ScrollArea className="min-h-0 min-w-0 flex-1">
+        <TooltipProvider delayDuration={120}>
+          <Table className="min-w-max">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12" />
+                <TableHead className="w-20">Edit</TableHead>
+                <TableHead className="min-w-44 whitespace-nowrap">Slug</TableHead>
+                {columns.map((column) => (
+                  <TableHead key={column.id} className={cn("whitespace-nowrap", columnWidthClassName(column))}>
+                    <ColumnHeader column={column} />
+                  </TableHead>
+                ))}
+                <TableHead className="w-20" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => {
+                const editable = canMutateTableRows && unlockedRows.has(row.id);
+                const errors = validateRow(row, columns, rows);
 
-                    return (
-                      <TableRow className={cn(editable && "bg-accent/25 hover:bg-accent/35")} key={row.id}>
-                        <TableCell>
-                          {errors.length > 0 && (
-                            <Badge title={errors.join("\n")} variant="destructive">
-                              !
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {canMutateTableRows && (
-                            <Button onClick={() => toggleRowLock(row.id)} size="sm" type="button" variant="ghost">
-                              {editable ? "Lock" : "Unlock"}
-                            </Button>
-                          )}
-                          {!canMutateTableRows && <Badge variant="outline">Locked</Badge>}
-                        </TableCell>
-                        {columns.map((column) => (
-                          <TableCell className={cn("whitespace-nowrap", columnWidthClassName(column))} key={column.id}>
-                            {editable ? (
-                              <CellEditor
-                                column={column}
-                                value={cellValue(row, column)}
-                                onCommit={(value) => updateCell(row.id, column.id, value)}
-                              />
-                            ) : (
-                              <CellValue column={column} value={cellValue(row, column)} />
-                            )}
-                          </TableCell>
-                        ))}
-                        <TableCell>
-                          {editable && canMutateTableRows && (
-                            <Button onClick={() => deleteRow(row.id)} size="sm" type="button" variant="ghost">
-                              Delete
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {canMutateTableRows && (
-                    <TableRow className="cursor-pointer" onClick={addRow}>
-                      <TableCell />
-                      <TableCell>
-                        <Badge variant="secondary">+</Badge>
+                return (
+                  <TableRow className={cn(editable && "bg-accent/25 hover:bg-accent/35")} key={row.id}>
+                    <TableCell>
+                      {errors.length > 0 && (
+                        <Badge title={errors.join("\n")} variant="destructive">
+                          !
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {canMutateTableRows && (
+                        <Button onClick={() => toggleRowLock(row.id)} size="sm" type="button" variant="ghost">
+                          {editable ? "Lock" : "Unlock"}
+                        </Button>
+                      )}
+                      {!canMutateTableRows && <Badge variant="outline">Locked</Badge>}
+                    </TableCell>
+                    <TableCell className="min-w-44 whitespace-nowrap">
+                      {editable ? (
+                        <Input
+                          className="h-7 min-w-36 border border-border bg-background px-1.5 font-mono text-[0.7rem] shadow-sm"
+                          value={row.slug}
+                          onChange={(event) => updateSlug(row.id, event.target.value)}
+                        />
+                      ) : (
+                        <span className="font-mono">{row.slug}</span>
+                      )}
+                    </TableCell>
+                    {columns.map((column) => (
+                      <TableCell className={cn("whitespace-nowrap", columnWidthClassName(column))} key={column.id}>
+                        {editable ? (
+                          <CellEditor
+                            column={column}
+                            value={cellValue(row, column)}
+                            onCommit={(value) => updateCell(row.id, column.id, value)}
+                          />
+                        ) : (
+                          <CellValue column={column} value={cellValue(row, column)} />
+                        )}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground" colSpan={columns.length + 1}>
-                        Add row
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TooltipProvider>
-          </ScrollArea>
-          <div className="flex items-center justify-between gap-3 border-t border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-            <span>
-              {rows.length} rows / {columns.length} columns
-            </span>
-            <span className="font-mono">{isSaveTableRowsLoading ? "Saving..." : tableStoragePath(table)}</span>
-          </div>
-        </>
-      )}
+                    ))}
+                    <TableCell>
+                      {editable && canMutateTableRows && (
+                        <Button onClick={() => deleteRow(row.id)} size="sm" type="button" variant="ghost">
+                          Delete
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {canMutateTableRows && (
+                <TableRow className="cursor-pointer" onClick={addRow}>
+                  <TableCell />
+                  <TableCell>
+                    <Badge variant="secondary">+</Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground" colSpan={columns.length + 2}>
+                    Add row
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TooltipProvider>
+      </ScrollArea>
+      <div className="flex items-center justify-between gap-3 border-t border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+        <span>
+          {rows.length} rows / {columns.length} columns
+        </span>
+        <span className="font-mono">{isSaveTableRowsLoading ? "Saving..." : tableStoragePath(table)}</span>
+      </div>
     </div>
   );
 };

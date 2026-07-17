@@ -205,13 +205,16 @@ export const dataColumnValueSchema = z.object({
 });
 export type DataColumnValue = z.infer<typeof dataColumnValueSchema>;
 
+export const rowSlugSchema = z
+  .string()
+  .trim()
+  .min(1, "Slug is required")
+  .max(96, "Slug must be at most 96 characters")
+  .regex(/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/, "Slug must be UPPER_SNAKE_CASE");
+export type RowSlug = z.infer<typeof rowSlugSchema>;
+
 const dataColumnValueBaseSchema = z.object({
   columnId: z.nanoid()
-});
-
-export const idColumnValueSchema = dataColumnValueBaseSchema.extend({
-  type: z.literal(ColumnType.id),
-  value: z.string().nullish()
 });
 
 export const stringColumnValueSchema = dataColumnValueBaseSchema.extend({
@@ -290,7 +293,6 @@ export const jsonColumnValueSchema = dataColumnValueBaseSchema.extend({
 });
 
 export const typedDataColumnValueSchema = z.discriminatedUnion("type", [
-  idColumnValueSchema,
   stringColumnValueSchema,
   textColumnValueSchema,
   integerColumnValueSchema,
@@ -311,6 +313,7 @@ export type TypedDataColumnValue = z.infer<typeof typedDataColumnValueSchema>;
 
 export const dataTableRowSchema = z.object({
   id: z.nanoid(),
+  slug: rowSlugSchema,
   values: z.array(typedDataColumnValueSchema)
 });
 export type DataTableRow = z.infer<typeof dataTableRowSchema>;
@@ -406,13 +409,13 @@ export const validatedDataTableSchema = anyDataTableSchema.superRefine((table, c
     });
   }
 
-  // for (const duplicateRowId of duplicateValues(table.rows.map((row) => row.id))) {
-  //   context.addIssue({
-  //     code: "custom",
-  //     message: `Duplicate row id "${duplicateRowId}"`,
-  //     path: ["rows"]
-  //   });
-  // }
+  for (const duplicateRowSlug of duplicateValues(table.rows.map((row) => row.slug))) {
+    context.addIssue({
+      code: "custom",
+      message: `Duplicate row slug "${duplicateRowSlug}"`,
+      path: ["rows"]
+    });
+  }
 
   // const columnTypeById = new Map(table.columns.map((column) => [column.id, column.type]));
 
