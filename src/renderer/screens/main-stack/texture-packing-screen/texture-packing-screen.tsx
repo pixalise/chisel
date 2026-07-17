@@ -9,7 +9,6 @@ import ControlledInput from "@/components/controls/controlled-input";
 import ControlledTextarea from "@/components/controls/controlled-textarea";
 import ImagePreview from "@/components/image-preview";
 import { Section } from "@/components/layout/section";
-import PageHeader from "@/components/page-header";
 import { HookKeysEnum } from "@/constants/hook-keys-enum";
 import texturePackingService from "@/services/texture-packing-service";
 import CacheUtils from "@/utils/cache-utils";
@@ -73,68 +72,64 @@ export const TexturePackingScreen: FC = () => {
   const canRun = form.formState.isValid && !isBusy;
 
   return (
-    <section className="grid min-h-max w-full min-w-0 content-start gap-4 pb-8">
-      <PageHeader title="Texture Packing" description="Pack material channels into engine-ready textures." />
+    <Section title="Texture Packing" copy="Creates asset in form of GPPT and packs them ready for Terrain3D.">
+      <form className="grid gap-5" onSubmit={form.handleSubmit(createPackage)}>
+        <div className="grid gap-3 grid-cols-1">
+          <ControlledInput control={form.control} disabled={isBusy} label="Name" name="name" />
+          <ControlledTextarea control={form.control} disabled={isBusy} label="Note" name="note" rows={1} />
+        </div>
 
-      <Section title="Package" copy="GPPT asset output">
-        <form className="grid gap-5" onSubmit={form.handleSubmit(createPackage)}>
-          <div className="grid grid-cols-2 gap-3 max-[720px]:grid-cols-1">
-            <ControlledInput control={form.control} disabled={isBusy} label="Name" name="name" />
-            <ControlledTextarea control={form.control} disabled={isBusy} label="Note" name="note" rows={1} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 max-[960px]:grid-cols-1">
-            <div className="grid gap-3">
-              <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
-                <ControlledImageInput control={form.control} label="Albedo" name="albedo" />
-                <ControlledImageInput control={form.control} label="Height" name="height" />
-              </div>
-              <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
-                <ImagePreview path={albedoPath} />
-                <ImagePreview path={heightPath} />
-              </div>
+        <div className="grid grid-cols-2 gap-4 max-[960px]:grid-cols-1">
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
+              <ControlledImageInput control={form.control} label="Albedo" name="albedo" />
+              <ControlledImageInput control={form.control} label="Height" name="height" />
             </div>
-
-            <div className="grid gap-3">
-              <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
-                <ControlledImageInput control={form.control} label="Normal" name="normal" />
-                <ControlledImageInput control={form.control} label="Roughness" name="roughness" />
-              </div>
-              <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
-                <ImagePreview path={normalPath} />
-                <ImagePreview path={roughnessPath} />
-              </div>
+            <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
+              <ImagePreview path={albedoPath} />
+              <ImagePreview path={heightPath} />
             </div>
           </div>
 
-          {packedPreviews && (
-            <div className="grid grid-cols-2 gap-3 max-[760px]:grid-cols-1">
-              <div className="grid gap-2">
-                <span className="text-sm font-medium">Albedo + Height</span>
-                <ImagePreview path={packedPreviews.albedoHeight} />
-              </div>
-              <div className="grid gap-2">
-                <span className="text-sm font-medium">Normal + Roughness</span>
-                <ImagePreview path={packedPreviews.normalRoughness} />
-              </div>
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
+              <ControlledImageInput control={form.control} label="Normal" name="normal" />
+              <ControlledImageInput control={form.control} label="Roughness" name="roughness" />
             </div>
-          )}
-
-          {form.formState.errors.root && <FieldError errors={[form.formState.errors.root]} />}
-          {message && <p className="text-sm text-muted-foreground">{message}</p>}
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button disabled={!canRun} onClick={form.handleSubmit(createPreviews)} type="button" variant="outline">
-              <Eye />
-              Preview Packed Textures
-            </Button>
-            <Button disabled={!canRun} type="submit">
-              <PackagePlus />
-              Create GPPT Package
-            </Button>
+            <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
+              <ImagePreview path={normalPath} />
+              <ImagePreview path={roughnessPath} />
+            </div>
           </div>
-        </form>
-      </Section>
-    </section>
+        </div>
+
+        {packedPreviews && (
+          <div className="grid grid-cols-2 gap-3 max-[760px]:grid-cols-1">
+            <div className="grid gap-2">
+              <span className="text-sm font-medium">Albedo + Height</span>
+              <ImagePreview path={packedPreviews.albedoHeight} />
+            </div>
+            <div className="grid gap-2">
+              <span className="text-sm font-medium">Normal + Roughness</span>
+              <ImagePreview path={packedPreviews.normalRoughness} />
+            </div>
+          </div>
+        )}
+
+        {form.formState.errors.root && <FieldError errors={[form.formState.errors.root]} />}
+        {message && <p className="text-sm text-muted-foreground">{message}</p>}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button disabled={!canRun} onClick={form.handleSubmit(createPreviews)} type="button" variant="outline">
+            <Eye />
+            Preview Packed Textures
+          </Button>
+          <Button disabled={!canRun} type="submit">
+            <PackagePlus />
+            Create GPPT Package
+          </Button>
+        </div>
+      </form>
+    </Section>
   );
 };

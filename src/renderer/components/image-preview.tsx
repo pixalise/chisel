@@ -1,5 +1,4 @@
 import { type FC, useEffect, useState } from "react";
-import { isNil } from "lodash";
 
 export interface ImagePreviewProps {
   path?: string;
@@ -16,7 +15,7 @@ const ImagePreview: FC<ImagePreviewProps> = (props) => {
   const isDataUrl = path?.startsWith("data:image/") ?? false;
 
   useEffect(() => {
-    if (isNil(path) || isDataUrl) {
+    if (!path || isDataUrl) {
       return;
     }
 

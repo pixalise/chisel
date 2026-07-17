@@ -7,7 +7,6 @@ import AssetTable from "@/screens/main-stack/asset-library-screen/asset-table/as
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Section } from "@/components/layout/section";
 import { AssetPreview } from "@/screens/main-stack/asset-library-screen/asset-table/asset-preview";
-import PageHeader from "@/components/page-header";
 import AddAssetDialogButton from "@/components/asset-dialog/add-asset-dialog-button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
@@ -31,14 +30,13 @@ export const AssetLibraryScreen: FC = () => {
 
   return (
     <section className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <PageHeader
-        title="Asset Library"
-        description="Collection of all assets for the project"
-        actions={[<AddAssetDialogButton key="import-asset" />]}
-      />
       <div className="flex min-h-0 min-w-0 flex-1 gap-4 max-[1120px]:flex-col">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <Section title="Library" copy={`${filteredAssets.length} of ${assets.length} imported assets`}>
+          <Section
+            title="Asset Library"
+            copy={`${filteredAssets.length} of ${assets.length} imported assets`}
+            actions={[<AddAssetDialogButton key="import-asset" />]}
+          >
             <div className="mb-3 flex items-center gap-2 border border-input bg-background px-2">
               <Search className="size-4 text-muted-foreground" />
               <Input
@@ -48,7 +46,7 @@ export const AssetLibraryScreen: FC = () => {
                 onChange={(event) => setQuery(event.target.value)}
               />
             </div>
-            <ScrollArea className="h-[calc(100vh-18rem)] min-h-72 border border-border">
+            <ScrollArea className="h-[calc(100vh-13rem)] min-h-72 border border-border">
               <AssetTable assets={filteredAssets} selectedAsset={selectedAsset} onSelectAsset={setSelectedAsset} />
             </ScrollArea>
           </Section>
