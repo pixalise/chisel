@@ -1,0 +1,43 @@
+import { type FC } from "react";
+import { Controller } from "react-hook-form";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { assetTypeOptionValues } from "../../../../../../shared/types";
+import type { ColumnFieldEditorProps } from "./data-schema-column-editor.types";
+
+const anyAssetTypeValue = "__any_asset_type__";
+
+const AssetRefTypeFilterEditor: FC<ColumnFieldEditorProps> = (props) => {
+  const { control, disabled, fieldPrefix } = props;
+
+  return (
+    <Controller
+      control={control}
+      name={`${fieldPrefix}.assetType`}
+      render={({ field }) => (
+        <div className="space-y-1.5">
+          <Label>Asset picker type</Label>
+          <Select
+            disabled={disabled}
+            value={typeof field.value === "string" ? field.value : anyAssetTypeValue}
+            onValueChange={(value) => field.onChange(value === anyAssetTypeValue ? undefined : value)}
+          >
+            <SelectTrigger onBlur={field.onBlur}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={anyAssetTypeValue}>Any asset type</SelectItem>
+              {assetTypeOptionValues.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+    />
+  );
+};
+
+export default AssetRefTypeFilterEditor;
