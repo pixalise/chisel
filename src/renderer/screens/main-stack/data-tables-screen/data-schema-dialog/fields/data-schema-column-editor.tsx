@@ -1,7 +1,7 @@
 import { type FC, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ColumnType } from "../../../../../../shared/types";
-import AssetRefTypeFilterEditor from "./asset-ref-type-filter-editor";
+import AssetRefCategoryFilterEditor from "./asset-ref-category-filter-editor";
 import ColumnDefaultValueEditor from "./column-default-value-editor";
 import ColumnFlagsEditor from "./column-flags-editor";
 import ColumnNameEditor from "./column-name-editor";
@@ -162,7 +162,9 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
         </div>
       )}
 
-      {columnType === ColumnType.assetRef && <AssetRefTypeFilterEditor control={control} disabled={disabled} fieldPrefix={fieldPrefix} />}
+      {columnType === ColumnType.assetRef && (
+        <AssetRefCategoryFilterEditor control={control} disabled={disabled} fieldPrefix={fieldPrefix} />
+      )}
 
       {(columnType === ColumnType.enum || columnType === ColumnType.enumArray) && (
         <PossibleValuesEditor

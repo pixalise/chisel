@@ -62,12 +62,7 @@ const ColumnDefaultValueEditor: FC<ColumnDefaultValueEditorProps> = (props) => {
   if (columnType === ColumnType.text) {
     return <TextDefaultValueEditor {...typedProps} />;
   }
-  if (
-    columnType === ColumnType.cellMask ||
-    columnType === ColumnType.heightField ||
-    columnType === ColumnType.transform3 ||
-    columnType === ColumnType.json
-  ) {
+  if (columnType === ColumnType.json) {
     return <JsonDefaultValueEditor {...typedProps} />;
   }
   if (columnType === ColumnType.enum) {

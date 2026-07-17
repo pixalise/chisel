@@ -22,7 +22,7 @@ const AssetRefCellEditor: FC<AssetRefCellEditorProps> = (props) => {
   const assetId = typeof value === "string" ? value : "";
   const selectedAsset = assets.find((asset) => asset.id === assetId);
   const filteredAssets = assets.filter((asset) => {
-    if (column.assetType && asset.type !== column.assetType) {
+    if (column.assetCategory && asset.category !== column.assetCategory) {
       return false;
     }
     const normalizedQuery = query.trim().toLowerCase();
@@ -58,7 +58,9 @@ const AssetRefCellEditor: FC<AssetRefCellEditorProps> = (props) => {
           <DialogHeader>
             <DialogTitle>Pick Asset</DialogTitle>
             <DialogDescription>
-              {column.assetType ? `Showing ${column.assetType} assets for ${column.name}.` : `Showing all assets for ${column.name}.`}
+              {column.assetCategory
+                ? `Showing ${column.assetCategory} assets for ${column.name}.`
+                : `Showing all assets for ${column.name}.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -93,7 +95,7 @@ const AssetRefCellEditor: FC<AssetRefCellEditorProps> = (props) => {
                     {asset.note && <span className="block truncate text-xs text-muted-foreground">{asset.note}</span>}
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
-                    <span className="border border-border px-2 py-0.5 text-xs text-muted-foreground">{asset.type}</span>
+                    <span className="border border-border px-2 py-0.5 text-xs text-muted-foreground">{asset.category}</span>
                   </span>
                 </button>
               ))}

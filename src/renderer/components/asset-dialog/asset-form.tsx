@@ -2,7 +2,7 @@ import { type FC } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { AssetTypeEnum, assetTypeOptionValues } from "../../../shared/types";
+import { assetCategoryOptionValues } from "../../../shared/types";
 import ControlledInput from "@/components/controls/controlled-input";
 import ControlledSelectInput from "@/components/controls/controlled-select-input";
 import ControlledTextarea from "@/components/controls/controlled-textarea";
@@ -17,7 +17,6 @@ export interface AssetFormProps {
 
 const AssetForm: FC<AssetFormProps> = (props) => {
   const { defaultValues, disabled, onCancel, onSubmit } = props;
-  const selectableAssetTypes = assetTypeOptionValues.filter((option) => option.value !== AssetTypeEnum.terrainTexture);
   const form = useForm<CreateOrUpdateAsset>({
     defaultValues,
     mode: "onChange",
@@ -28,7 +27,13 @@ const AssetForm: FC<AssetFormProps> = (props) => {
     <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
         <ControlledInput control={form.control} disabled={disabled} label="Name" name="name" />
-        <ControlledSelectInput control={form.control} disabled={disabled} label="Type" name="type" options={selectableAssetTypes} />
+        <ControlledSelectInput
+          control={form.control}
+          disabled={disabled}
+          label="Category"
+          name="category"
+          options={assetCategoryOptionValues}
+        />
       </div>
 
       <ControlledTextarea

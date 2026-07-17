@@ -79,7 +79,7 @@ function isVectorColumnType(type: ColumnType): boolean {
 }
 
 function isStructuredColumnType(type: ColumnType): boolean {
-  return type === ColumnType.cellMask || type === ColumnType.heightField || type === ColumnType.transform3 || type === ColumnType.json;
+  return type === ColumnType.json;
 }
 
 function vectorValues(value: unknown, column: DataColumnDefinition): number[] {
@@ -113,41 +113,6 @@ function rangeLabel(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(4)));
 }
 
-function cellMaskSummary(value: unknown): string {
-  if (typeof value !== "object" || value === null) {
-    return "0 cells";
-  }
-  const mask = value as { cells?: unknown; height?: unknown; width?: unknown };
-  const cells = Array.isArray(mask.cells) ? mask.cells.length : 0;
-  const width = typeof mask.width === "number" ? mask.width : "?";
-  const height = typeof mask.height === "number" ? mask.height : "?";
-  return `${cells} cells (${width} x ${height})`;
-}
-
-function heightFieldSummary(value: unknown): string {
-  if (typeof value !== "object" || value === null) {
-    return "0 heights";
-  }
-  const field = value as { cornerHeight?: unknown; cornerWidth?: unknown; height?: unknown; values?: unknown; width?: unknown };
-  const values = Array.isArray(field.values) ? field.values.length : 0;
-  const width = typeof field.width === "number" ? field.width : "?";
-  const height = typeof field.height === "number" ? field.height : "?";
-  const cornerWidth = typeof field.cornerWidth === "number" ? field.cornerWidth : "?";
-  const cornerHeight = typeof field.cornerHeight === "number" ? field.cornerHeight : "?";
-  return `${values} heights (${width} x ${height} cells, ${cornerWidth} x ${cornerHeight} corners)`;
-}
-
-function transform3Summary(value: unknown): string {
-  if (typeof value !== "object" || value === null) {
-    return "pos 0,0,0 rot 0,0,0 scale 1,1,1";
-  }
-  const transform = value as { position?: unknown; rotationDegrees?: unknown; scale?: unknown };
-  const position = Array.isArray(transform.position) ? transform.position.join(", ") : "0, 0, 0";
-  const rotation = Array.isArray(transform.rotationDegrees) ? transform.rotationDegrees.join(", ") : "0, 0, 0";
-  const scale = Array.isArray(transform.scale) ? transform.scale.join(", ") : "1, 1, 1";
-  return `pos ${position} | rot ${rotation} | scale ${scale}`;
-}
-
 export const CellValue: FC<CellValueProps> = (props) => {
   const { column, value } = props;
 
@@ -169,18 +134,6 @@ export const CellValue: FC<CellValueProps> = (props) => {
 
   if (column.type === ColumnType.assetRef) {
     return <AssetRefCellValue value={value} />;
-  }
-
-  if (column.type === ColumnType.cellMask) {
-    return <span className="font-mono">{cellMaskSummary(value)}</span>;
-  }
-
-  if (column.type === ColumnType.heightField) {
-    return <span className="font-mono">{heightFieldSummary(value)}</span>;
-  }
-
-  if (column.type === ColumnType.transform3) {
-    return <span className="font-mono">{transform3Summary(value)}</span>;
   }
 
   if (column.type === ColumnType.color) {

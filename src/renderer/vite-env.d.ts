@@ -1,18 +1,7 @@
 /// <reference types="vite/client" />
 
-import type { Asset, ConvertImages, ConvertedImage, ImportAssetInput, PackTerrainTexture } from "../shared/schemas";
-import type {
-  FileMetadata,
-  GraphitePreviewEvent,
-  GraphitePreviewResetViewInput,
-  GraphitePreviewSettingsState,
-  GraphitePreviewStartInput,
-  GraphitePreviewState,
-  GraphitePreviewUpdateOptionsInput,
-  GraphitePreviewUpdateSettingsInput,
-  GraphitePreviewUpdateSnapshotInput,
-  TerrainTexturePreviewResult
-} from "../shared/types";
+import type { ConvertImages, ConvertedImage, ImportAssetInput } from "../shared/schemas";
+import type { Asset, FileMetadata } from "../shared/types";
 
 type OpenFileDialogOptions = {
   title?: string;
@@ -37,20 +26,9 @@ declare global {
       copyFile: (sourcePath: string, destinationPath: string) => Promise<void>;
       deleteFile: (path: string) => Promise<void>;
       getFileMetadata: (sourcePath: string) => Promise<FileMetadata>;
-      packTerrainTexture: (input: PackTerrainTexture) => Promise<Asset>;
       importAsset: (input: ImportAssetInput) => Promise<Asset>;
       convertImages: (input: ConvertImages) => Promise<ConvertedImage[]>;
       createImageConversionPreview: (inputPath: string) => Promise<string>;
-      createTerrainTexturePreview: (inputPath: string) => Promise<TerrainTexturePreviewResult>;
-      getGraphitePreviewStatus: () => Promise<GraphitePreviewState>;
-      getGraphitePreviewSettings: () => Promise<GraphitePreviewSettingsState>;
-      startGraphitePreview: (input: GraphitePreviewStartInput) => Promise<GraphitePreviewState>;
-      updateGraphitePreviewOptions: (input: GraphitePreviewUpdateOptionsInput) => Promise<GraphitePreviewState>;
-      updateGraphitePreviewSettings: (input: GraphitePreviewUpdateSettingsInput) => Promise<GraphitePreviewSettingsState>;
-      updateGraphitePreviewSnapshot: (input: GraphitePreviewUpdateSnapshotInput) => Promise<GraphitePreviewState>;
-      resetGraphitePreviewView: (input: GraphitePreviewResetViewInput) => Promise<GraphitePreviewState>;
-      stopGraphitePreview: () => Promise<GraphitePreviewState>;
-      onGraphitePreviewEvent: (callback: (event: GraphitePreviewEvent) => void) => () => void;
       getPathForFile: (file: File) => string;
     };
   }

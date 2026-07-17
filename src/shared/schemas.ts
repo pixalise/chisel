@@ -1,5 +1,5 @@
 import z from "zod";
-import { AssetTypeEnum, ColumnType } from "./types";
+import { AssetCategoryEnum, ColumnType } from "./types";
 
 export const projectSchema = z.object({
   id: z.nanoid(),
@@ -19,24 +19,61 @@ export const createOrUpdateProjectSchema = z.object({
 });
 export type CreateOrUpdateProject = z.infer<typeof createOrUpdateProjectSchema>;
 
-const assetInputSchema = z.object({
+function legacyAssetCategory(value: string): AssetCategoryEnum {
+  if (value === "texture" || value === "material" || value === "shader" || value === "ui") {
+    return AssetCategoryEnum.image;
+  }
+  if (value === "config") {
+    return AssetCategoryEnum.data;
+  }
+  if (Object.values(AssetCategoryEnum).includes(value as AssetCategoryEnum)) {
+    return value as AssetCategoryEnum;
+  }
+  return AssetCategoryEnum.other;
+}
+
+const assetCategorySchema = z.enum(AssetCategoryEnum);
+
+const legacyAssetCategorySchema = z.preprocess(
+  (value) => (typeof value === "string" ? legacyAssetCategory(value) : value),
+  assetCategorySchema
+);
+
+function normalizeAssetCategoryObject(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return value;
+  }
+  const record = { ...(value as Record<string, unknown>) };
+  if (typeof record.category !== "string" && typeof record.type === "string") {
+    record.category = legacyAssetCategory(record.type);
+  }
+  return record;
+}
+
+const assetInputFields = {
+  category: assetCategorySchema,
   name: z.string(),
-  type: z.enum(AssetTypeEnum),
   note: z.string().optional(),
   sizeBytes: z.number(),
   width: z.number(),
   height: z.number(),
   extension: z.string()
-});
+};
 
-const assetDocumentSchema = assetInputSchema
-  .extend({
-    id: z.nanoid(),
-    relativePath: z.string(),
-    note: z.string().optional(),
-    tag: z.string().optional(),
-    tags: z.array(z.string()).optional()
-  })
+const assetInputSchema = z.object(assetInputFields);
+
+const assetDocumentSchema = z
+  .preprocess(
+    normalizeAssetCategoryObject,
+    z.object({
+      ...assetInputFields,
+      category: legacyAssetCategorySchema,
+      id: z.nanoid(),
+      relativePath: z.string(),
+      tag: z.string().optional(),
+      tags: z.array(z.string()).optional()
+    })
+  )
   .transform((asset) => {
     const { tag, tags, ...rest } = asset;
     void tag;
@@ -89,50 +126,10 @@ export const importAssetSchema = z.object({
   projectPath: filePathSchema,
   sourcePath: filePathSchema,
   name: z.string().trim().min(1, "Asset name is required").max(96, "Asset name must be at most 96 characters"),
-  type: z.enum(AssetTypeEnum),
+  category: assetCategorySchema,
   note: z.string().optional()
 });
 export type ImportAssetInput = z.infer<typeof importAssetSchema>;
-
-const pngImagePathSchema = filePathSchema.refine((value) => /\.png$/i.test(value), "Image must be a PNG file");
-
-export const terrainTextureNameSchema = z
-  .string()
-  .trim()
-  .min(1, "Terrain Texture name is required")
-  .max(56, "Terrain Texture name must be at most 56 characters")
-  .regex(/^[A-Za-z0-9]+(?:[ _-]+[A-Za-z0-9]+)*$/, "Use letters, numbers, spaces, underscores, or hyphens");
-
-export const packBaseSchema = z.object({
-  albedo: pngImagePathSchema,
-  height: pngImagePathSchema
-});
-export type PackBase = z.infer<typeof packBaseSchema>;
-
-export const packSurfaceSchema = z.object({
-  normal: pngImagePathSchema,
-  ao: pngImagePathSchema.optional(),
-  roughness: pngImagePathSchema.optional(),
-  normalZChannel: z.enum(["red", "green", "blue", "alpha"]),
-  aoValue: z.int().min(0).max(255),
-  roughnessValue: z.int().min(0).max(255)
-});
-export type PackSurface = z.infer<typeof packSurfaceSchema>;
-
-export const packTerrainTextureSchema = z.object({
-  albedo: pngImagePathSchema,
-  ao: pngImagePathSchema.optional(),
-  aoValue: z.int().min(0).max(255),
-  height: pngImagePathSchema,
-  name: terrainTextureNameSchema,
-  normal: pngImagePathSchema,
-  normalZChannel: z.enum(["red", "green", "blue", "alpha"]),
-  note: z.string().optional(),
-  projectPath: filePathSchema,
-  roughness: pngImagePathSchema.optional(),
-  roughnessValue: z.int().min(0).max(255)
-});
-export type PackTerrainTexture = z.infer<typeof packTerrainTextureSchema>;
 
 export const convertImagesSchema = z.object({
   inputPaths: z.array(filePathSchema).min(1, "Choose at least one image"),
@@ -145,20 +142,32 @@ export interface ConvertedImage {
   outputPath: string;
 }
 
-export const dataColumnDefinitionSchema = z.object({
-  id: z.nanoid(),
-  type: z.enum(ColumnType),
-  name: z.string().transform((name) => name.toLowerCase()),
-  defaultValue: z.json().refine((value) => value !== null, "Default value is required"),
-  assetType: z.enum(AssetTypeEnum).optional(),
-  max: z.number().optional(),
-  maxChars: z.int().positive().optional(),
-  min: z.number().optional(),
-  possibleValues: z.array(z.string()).optional(),
-  required: z.boolean().default(true),
-  step: z.number().positive().optional(),
-  unique: z.boolean().default(false)
-});
+export const dataColumnDefinitionSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return value;
+    }
+    const record = { ...(value as Record<string, unknown>) };
+    if (typeof record.assetCategory !== "string" && typeof record.assetType === "string") {
+      record.assetCategory = legacyAssetCategory(record.assetType);
+    }
+    return record;
+  },
+  z.object({
+    id: z.nanoid(),
+    type: z.enum(ColumnType),
+    name: z.string().transform((name) => name.toLowerCase()),
+    defaultValue: z.json().refine((value) => value !== null, "Default value is required"),
+    assetCategory: legacyAssetCategorySchema.optional(),
+    max: z.number().optional(),
+    maxChars: z.int().positive().optional(),
+    min: z.number().optional(),
+    possibleValues: z.array(z.string()).optional(),
+    required: z.boolean().default(true),
+    step: z.number().positive().optional(),
+    unique: z.boolean().default(false)
+  })
+);
 export type DataColumnDefinition = z.infer<typeof dataColumnDefinitionSchema>;
 
 export const dataColumnValueSchema = z.object({
@@ -247,85 +256,6 @@ export const vector4ColumnValueSchema = dataColumnValueBaseSchema.extend({
   value: z.tuple([z.number(), z.number(), z.number(), z.number()]).nullish()
 });
 
-export const cellMaskValueSchema = z.object({
-  cellSizeMeters: z.number().positive(),
-  cells: z.array(z.tuple([z.int().min(0), z.int().min(0)])),
-  height: z.int().min(1),
-  width: z.int().min(1)
-});
-export type CellMaskValue = z.infer<typeof cellMaskValueSchema>;
-
-export const heightFieldValueSchema = z
-  .object({
-    cellSizeMeters: z.number().positive(),
-    cornerHeight: z.int().min(2),
-    cornerWidth: z.int().min(2),
-    height: z.int().min(1),
-    values: z.array(z.number()),
-    width: z.int().min(1)
-  })
-  .superRefine((field, context) => {
-    if (field.cornerWidth !== field.width + 1) {
-      context.addIssue({
-        code: "custom",
-        message: "Height field corner width must equal width + 1",
-        path: ["cornerWidth"]
-      });
-    }
-    if (field.cornerHeight !== field.height + 1) {
-      context.addIssue({
-        code: "custom",
-        message: "Height field corner height must equal height + 1",
-        path: ["cornerHeight"]
-      });
-    }
-    if (field.values.length !== field.cornerWidth * field.cornerHeight) {
-      context.addIssue({
-        code: "custom",
-        message: "Height field values must contain one value per corner",
-        path: ["values"]
-      });
-    }
-  });
-export type HeightFieldValue = z.infer<typeof heightFieldValueSchema>;
-
-export const transform3ValueSchema = z.object({
-  position: z.tuple([z.number(), z.number(), z.number()]),
-  rotationDegrees: z.tuple([z.number(), z.number(), z.number()]),
-  scale: z.tuple([z.number(), z.number(), z.number()])
-});
-export type Transform3Value = z.infer<typeof transform3ValueSchema>;
-
-export const cellMaskColumnValueSchema = dataColumnValueBaseSchema.extend({
-  type: z.literal(ColumnType.cellMask),
-  value: cellMaskValueSchema.nullish()
-});
-
-export const heightFieldColumnValueSchema = dataColumnValueBaseSchema.extend({
-  type: z.literal(ColumnType.heightField),
-  value: heightFieldValueSchema.nullish()
-});
-
-export const transform3ColumnValueSchema = dataColumnValueBaseSchema.extend({
-  type: z.literal(ColumnType.transform3),
-  value: transform3ValueSchema.nullish()
-});
-
-export const terrainLayerRefColumnValueSchema = dataColumnValueBaseSchema.extend({
-  type: z.literal(ColumnType.terrainLayerRef),
-  value: z.string().nullish()
-});
-
-export const stampMaskRefColumnValueSchema = dataColumnValueBaseSchema.extend({
-  type: z.literal(ColumnType.stampMaskRef),
-  value: z.string().nullish()
-});
-
-export const heightFieldRefColumnValueSchema = dataColumnValueBaseSchema.extend({
-  type: z.literal(ColumnType.heightFieldRef),
-  value: z.string().nullish()
-});
-
 export const jsonColumnValueSchema = dataColumnValueBaseSchema.extend({
   type: z.literal(ColumnType.json),
   value: z.json().nullish()
@@ -347,12 +277,6 @@ export const typedDataColumnValueSchema = z.discriminatedUnion("type", [
   vector2ColumnValueSchema,
   vector3ColumnValueSchema,
   vector4ColumnValueSchema,
-  cellMaskColumnValueSchema,
-  heightFieldColumnValueSchema,
-  transform3ColumnValueSchema,
-  terrainLayerRefColumnValueSchema,
-  stampMaskRefColumnValueSchema,
-  heightFieldRefColumnValueSchema,
   jsonColumnValueSchema
 ]);
 export type TypedDataColumnValue = z.infer<typeof typedDataColumnValueSchema>;

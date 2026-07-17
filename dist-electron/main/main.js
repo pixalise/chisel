@@ -6,7 +6,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const promises_1 = __importDefault(require("node:fs/promises"));
 const node_path_1 = __importDefault(require("node:path"));
-const texture_packing_1 = require("./texture-packing");
 const asset_store_1 = require("./asset-store");
 const image_conversion_1 = require("./image-conversion");
 const file_metadata_1 = require("./file-metadata");
@@ -153,8 +152,6 @@ function registerIpc() {
         }
         return result.filePaths[0];
     });
-    electron_1.ipcMain.handle("terrain:pack-base", (_event, input) => (0, texture_packing_1.packBaseInMemory)(input));
-    electron_1.ipcMain.handle("terrain:pack-surface", (_event, input) => (0, texture_packing_1.packSurfaceInMemory)(input));
     electron_1.ipcMain.handle("asset:import", (_event, input) => (0, asset_store_1.importAsset)(input));
     electron_1.ipcMain.handle("image:convert-to-png", (_event, input) => (0, image_conversion_1.convertImagesToPng)(input));
     electron_1.ipcMain.handle("image:conversion-preview", (_event, inputPath) => createImagePreview(inputPath));

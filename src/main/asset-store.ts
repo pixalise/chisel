@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { assetSchema, assetsJsonSchema, importAssetSchema, type Asset, type AssetsJson, type ImportAssetInput } from "../shared/schemas";
-import { AssetTypeEnum } from "../shared/types";
 
 function createNanoid(): string {
   return randomBytes(16).toString("base64url").slice(0, 21);
@@ -54,9 +53,6 @@ async function imageDimensions(filePath: string): Promise<{ width: number; heigh
 
 export async function importAsset(input: ImportAssetInput): Promise<Asset> {
   const request = importAssetSchema.parse(input);
-  if (request.type === AssetTypeEnum.terrainTexture) {
-    throw new Error("Terrain Texture assets must be created by the Terrain Texture packer.");
-  }
   const sourcePath = path.resolve(request.sourcePath);
   const extension = path.extname(sourcePath).toLowerCase();
   if (!extension) {
@@ -74,7 +70,7 @@ export async function importAsset(input: ImportAssetInput): Promise<Asset> {
   }
 
   const projectPath = path.resolve(request.projectPath);
-  const relativePath = path.posix.join(".chisel", "assets", request.type, `${stem}${extension}`);
+  const relativePath = path.posix.join(".chisel", "assets", request.category, `${stem}${extension}`);
   const destinationPath = path.join(projectPath, ...relativePath.split("/"));
   const assetsPath = path.join(projectPath, ".chisel", "assets.json");
   const document = await readAssets(assetsPath);
@@ -83,7 +79,7 @@ export async function importAsset(input: ImportAssetInput): Promise<Asset> {
   const asset = assetSchema.parse({
     id: existing?.id ?? createNanoid(),
     name: stem,
-    type: request.type,
+    category: request.category,
     relativePath,
     sizeBytes: sourceStat.size,
     width: dimensions.width,

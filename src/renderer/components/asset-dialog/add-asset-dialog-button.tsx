@@ -7,9 +7,27 @@ import useCopyAssetFile from "@/hooks/use-copy-asset-file";
 import { Nullish } from "../../../shared/nullish";
 import { isNil } from "lodash";
 import useAddAssetMutation from "@/hooks/use-add-asset-mutation";
-import { AssetTypeEnum, FileMetadata } from "../../../shared/types";
+import { AssetCategoryEnum, FileMetadata } from "../../../shared/types";
 import fileService from "@/services/file-service";
 import { CreateOrUpdateAsset } from "../../../shared/schemas";
+
+function categoryForFile(metadata: FileMetadata): AssetCategoryEnum {
+  if (metadata.isImage) {
+    return AssetCategoryEnum.image;
+  }
+
+  const extension = metadata.extension.toLowerCase();
+  if (["mp3", "ogg", "wav", "flac", "m4a"].includes(extension)) {
+    return AssetCategoryEnum.audio;
+  }
+  if (["otf", "ttf", "woff", "woff2"].includes(extension)) {
+    return AssetCategoryEnum.font;
+  }
+  if (["csv", "json", "jsonl", "tsv", "txt", "xml", "yaml", "yml"].includes(extension)) {
+    return AssetCategoryEnum.data;
+  }
+  return AssetCategoryEnum.other;
+}
 
 const AddAssetDialogButton: FC = () => {
   const [fileMetadata, setFileMetadata] = useState<Nullish<FileMetadata>>();
@@ -53,12 +71,12 @@ const AddAssetDialogButton: FC = () => {
             onCancel={() => setFileMetadata(undefined)}
             onSubmit={onCopy}
             defaultValues={{
+              category: categoryForFile(fileMetadata),
               extension: fileMetadata.extension,
               height: fileMetadata.height ?? 0,
               name: fileMetadata.stem,
               note: "",
               sizeBytes: fileMetadata.sizeBytes,
-              type: fileMetadata.isImage ? AssetTypeEnum.texture : AssetTypeEnum.other,
               width: fileMetadata.width ?? 0
             }}
           />

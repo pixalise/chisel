@@ -1,20 +1,5 @@
 export type { Asset } from "./schemas";
 
-export type NormalZChannel = "red" | "green" | "blue" | "alpha";
-
-export interface AssetPreviewResult {
-  dataUrl: string;
-  width: number;
-  height: number;
-}
-
-export interface TerrainTexturePreviewResult {
-  baseDataUrl: string;
-  height: number;
-  surfaceDataUrl: string;
-  width: number;
-}
-
 export interface FileMetadata {
   sourcePath: string;
   fileName: string;
@@ -29,261 +14,27 @@ export interface FileMetadata {
   height?: number;
 }
 
-export type GraphitePreviewStatus = "stopped" | "starting" | "running" | "error";
-export type GraphitePreviewViewPreset = "default" | "stamp" | "level" | "biome" | "foliage";
-export type GraphitePreviewViewMode = "terrain" | "stamp_bounds" | "sim" | "overlays" | "prefabs" | "all";
-export type GraphitePreviewSettingsMode = "default" | "splat";
-
-export interface GraphitePreviewCameraConfig {
-  distance: number;
-  fovDegrees: number;
-  pitchDegrees: number;
-  target: [number, number, number];
-  yawDegrees: number;
-}
-
-export interface GraphitePreviewStampConfig {
-  affectedDomains: string[];
-  blockerMask: string[];
-  debugName: string;
-  id: string;
-  position: [number, number];
-  priority: number;
-  radius: number;
-  rotationDegrees: number;
-  seed: number;
-  shape: string;
-  size: [number, number];
-  surfaceOverride?: string;
-  traversalCostDelta: number;
-}
-
-export interface GraphitePreviewTerrainStampConfig {
-  anchorHeightMeters: number;
-  blendMode: "add" | "replace";
-  cellSizeMeters: number;
-  height: number;
-  heightValuesMeters: number[];
-  id: string;
-  influenceValues: number[];
-  pivotMeters: [number, number];
-  position: [number, number];
-  priority: number;
-  rotationDegrees: number;
-  scale: number;
-  verticalStrength: number;
-  width: number;
-}
-
-export interface GraphitePreviewTerrainOverlayLayerConfig {
-  assetId: string;
-  albedoSaturation: number;
-  albedoTint: [number, number, number];
-  albedoTintStrength: number;
-  heightInfluence: number;
-  order: number;
-  terrainTexture: string;
-  textureOffset: [number, number];
-  textureRotationDegrees: number;
-  textureScale: [number, number];
-  weight: number;
-}
-
-export interface GraphitePreviewTerrainOverlayConfig {
-  algorithm: "height_patch_blend";
-  bleed: number;
-  cellSizeMeters: number;
-  debugName: string;
-  edgeJitter: number;
-  edgeBreakup: number;
-  enabled: boolean;
-  heightBlendWidth: number;
-  footprintCells: Array<[number, number]>;
-  heightSharpness: number;
-  id: string;
-  opacity: number;
-  layers: GraphitePreviewTerrainOverlayLayerConfig[];
-  patchScale: number;
-  roughnessBias: number;
-  seed: number;
-  size: [number, number];
-  textureScale: number;
-  wetnessBias: number;
-}
-
-export interface GraphitePreviewTerrainConfig {
-  chunkCount: [number, number];
-  chunkWorldSize: number;
-  editableCellCount: [number, number];
-  paddingCells: number;
-  settingsControlled?: boolean;
-  slotSize: number;
-}
-
-export type GraphitePreviewTerrainSamplingMode = "repeat" | "stochastic" | "wang";
-
-export interface GraphitePreviewSettingsConfig {
-  ambientColor: [number, number, number];
-  ambientIntensity: number;
-  chunkCount: [number, number];
-  chunkWorldSize: number;
-  contrast: number;
-  exposure: number;
-  hdriIntensity: number;
-  hdriPath: string;
-  reflectionIntensity: number;
-  seed: number;
-  sunColor: [number, number, number];
-  sunDirection: [number, number, number];
-  sunIntensity: number;
-}
-
-export interface GraphitePreviewHdriOption {
-  id: string;
-  label: string;
-  path: string;
-}
-
-export interface GraphitePreviewSettingsState {
-  hdriOptions: GraphitePreviewHdriOption[];
-  previewState: GraphitePreviewState;
-  settings: GraphitePreviewSettingsConfig;
-  settingsMode: GraphitePreviewSettingsMode;
-}
-
-export interface GraphitePreviewTerrainBiomeVariantConfig {
-  albedoMultiplier: [number, number, number];
-  albedoSaturation: number;
-  albedoTint: [number, number, number];
-  albedoTintStrength: number;
-  id: number;
-  normalStrength: number;
-  roughnessMultiplier: number;
-  terrainTexture: string;
-  heightBlendStrength: number;
-  textureOffset: [number, number];
-  textureScale: [number, number];
-  wetness: number;
-  zoneEnd: number;
-  zoneStart: number;
-  zoneWeight: number;
-}
-
-export interface GraphitePreviewTerrainBiomeConfig {
-  heightBlendWidth: number;
-  id: number;
-  key: string;
-  macroTintStrength: number;
-  macroScale: number;
-  macroStrength: number;
-  name: string;
-  samplingMode: GraphitePreviewTerrainSamplingMode;
-  samplingOffsetScale: number;
-  samplingScale: number;
-  samplingBlendWidth: number;
-  uvScale: number;
-  variantCount: number;
-  variants: GraphitePreviewTerrainBiomeVariantConfig[];
-  zoneBlendWidth: number;
-  zoneContrast: number;
-  zoneEdgeBreakup: number;
-  zoneNoiseScale: number;
-  zoneSeed: number;
-}
-
-export interface GraphitePreviewOptionsConfig {
-  gridEnabled: boolean;
-  viewMode: GraphitePreviewViewMode;
-}
-
-export interface GraphitePreviewSnapshotConfig {
-  camera: GraphitePreviewCameraConfig;
-  debugName: string;
-  kind: string;
-  previewOptions?: GraphitePreviewOptionsConfig;
-  previewSettings?: GraphitePreviewSettingsConfig;
-  schemaVersion: number;
-  snapshotVersion: number;
-  stamps?: GraphitePreviewStampConfig[];
-  terrainStamps?: GraphitePreviewTerrainStampConfig[];
-  terrainBiome?: GraphitePreviewTerrainBiomeConfig;
-  terrainOverlays?: GraphitePreviewTerrainOverlayConfig[];
-  terrainPreview?: GraphitePreviewTerrainConfig;
-}
-
-export interface GraphitePreviewStartInput {
-  previewOptions?: GraphitePreviewOptionsConfig;
-  projectPath: string;
-  settingsMode?: GraphitePreviewSettingsMode;
-  showSettingsWindow?: boolean;
-  snapshot?: GraphitePreviewSnapshotConfig;
-  snapshotKind?: string;
-}
-
-export interface GraphitePreviewUpdateOptionsInput {
-  previewOptions: GraphitePreviewOptionsConfig;
-}
-
-export interface GraphitePreviewUpdateSnapshotInput {
-  snapshot: GraphitePreviewSnapshotConfig;
-}
-
-export interface GraphitePreviewResetViewInput {
-  camera: GraphitePreviewCameraConfig;
-  preset: GraphitePreviewViewPreset;
-}
-
-export interface GraphitePreviewUpdateSettingsInput {
-  settings: GraphitePreviewSettingsConfig;
-}
-
-export interface GraphitePreviewState {
-  executablePath?: string;
-  message: string;
-  pid?: number;
-  running: boolean;
-  status: GraphitePreviewStatus;
-}
-
-export interface GraphitePreviewEvent extends GraphitePreviewState {
-  generation?: number;
-  snapshotKind?: string;
-  type: "started" | "ready" | "log" | "error" | "closed";
-}
-
-export enum AssetTypeEnum {
-  terrain = "terrain",
-  terrainTexture = "terrain_texture",
-  texture = "texture",
-  material = "material",
-  shader = "shader",
-  config = "config",
-  ui = "ui",
+export enum AssetCategoryEnum {
+  image = "image",
   audio = "audio",
   font = "font",
   data = "data",
   other = "other"
 }
-export const assetTypeEnumLabelMap: Record<AssetTypeEnum, string> = {
-  [AssetTypeEnum.terrain]: "Terrain",
-  [AssetTypeEnum.terrainTexture]: "Terrain Texture",
-  [AssetTypeEnum.texture]: "Texture",
-  [AssetTypeEnum.material]: "Material",
-  [AssetTypeEnum.shader]: "Shader",
-  [AssetTypeEnum.config]: "Config",
-  [AssetTypeEnum.ui]: "UI",
-  [AssetTypeEnum.audio]: "Audio",
-  [AssetTypeEnum.font]: "Font",
-  [AssetTypeEnum.data]: "Data",
-  [AssetTypeEnum.other]: "Other"
+export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
+  [AssetCategoryEnum.image]: "Image",
+  [AssetCategoryEnum.audio]: "Audio",
+  [AssetCategoryEnum.font]: "Font",
+  [AssetCategoryEnum.data]: "Data",
+  [AssetCategoryEnum.other]: "Other"
 };
 
-export const assetTypeOptionValues = Object.values(AssetTypeEnum).map((type) => ({
-  label: assetTypeEnumLabelMap[type],
-  value: type
+export const assetCategoryOptionValues = Object.values(AssetCategoryEnum).map((category) => ({
+  label: assetCategoryLabelMap[category],
+  value: category
 }));
 
-export type AssetType = `${AssetTypeEnum}`;
+export type AssetCategory = `${AssetCategoryEnum}`;
 
 export enum InputKeyEnum {
   A = "A",
@@ -554,11 +305,5 @@ export enum ColumnType {
   vector2 = "vector2",
   vector3 = "vector3",
   vector4 = "vector4",
-  cellMask = "cell_mask",
-  heightField = "height_field",
-  transform3 = "transform3",
-  terrainLayerRef = "terrain_layer_ref",
-  stampMaskRef = "stamp_mask_ref",
-  heightFieldRef = "height_field_ref",
   json = "json"
 }

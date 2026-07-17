@@ -18,7 +18,7 @@ const AssetTable: FC<AssetTableProps> = (props) => {
       <TableHeader>
         <TableRow>
           <TableHead>Name</TableHead>
-          <TableHead>Type</TableHead>
+          <TableHead>Category</TableHead>
           <TableHead>Path</TableHead>
           <TableHead>Note</TableHead>
           <TableHead className="text-right">Size</TableHead>

@@ -3,7 +3,6 @@ import BaseService from "@/services/base-service";
 import appStore from "@/stores/app-store";
 import { nanoid } from "nanoid";
 import { assetSchema, addAssetSchema, type Asset, type AddAsset } from "../../shared/schemas";
-import { AssetTypeEnum } from "../../shared/types";
 
 class AssetService extends BaseService {
   private static schemaVersion: number = 1;
@@ -25,9 +24,6 @@ class AssetService extends BaseService {
   public async addAsset(input: AddAsset): Promise<Asset> {
     const assets = await this.getAllAssets();
     const parsed = addAssetSchema.parse(input);
-    if (parsed.type === AssetTypeEnum.terrainTexture) {
-      throw new Error("Terrain Texture assets must be created by the Terrain Texture packer.");
-    }
     const id = nanoid();
     const asset = assetSchema.parse({ ...parsed, id, relativePath: `.chisel/assets/${id}.${parsed.extension}` });
     await fileService.writeAssetsJson(appStore.getState().computed.project, {

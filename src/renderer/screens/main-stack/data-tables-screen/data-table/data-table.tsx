@@ -106,13 +106,7 @@ function isVectorColumnType(type: ColumnType): boolean {
 }
 
 function isRefColumnType(type: ColumnType): boolean {
-  return (
-    type === ColumnType.ref || type === ColumnType.terrainLayerRef || type === ColumnType.stampMaskRef || type === ColumnType.heightFieldRef
-  );
-}
-
-function isStructuredColumnType(type: ColumnType): boolean {
-  return type === ColumnType.cellMask || type === ColumnType.heightField || type === ColumnType.transform3;
+  return type === ColumnType.ref;
 }
 
 function validateCell(column: DataColumnDefinition, value: unknown, rows: EditorRow[], rowId: string): string[] {
@@ -184,56 +178,6 @@ function validateCell(column: DataColumnDefinition, value: unknown, rows: Editor
     }
   }
 
-  if (column.type === ColumnType.cellMask) {
-    const mask = value as { cellSizeMeters?: unknown; cells?: unknown; height?: unknown; width?: unknown };
-    if (
-      typeof value !== "object" ||
-      value === null ||
-      typeof mask.cellSizeMeters !== "number" ||
-      typeof mask.width !== "number" ||
-      typeof mask.height !== "number" ||
-      !Array.isArray(mask.cells)
-    ) {
-      errors.push(`${column.name} must be a cell mask`);
-    }
-  }
-
-  if (column.type === ColumnType.heightField) {
-    const field = value as {
-      cellSizeMeters?: unknown;
-      cornerHeight?: unknown;
-      cornerWidth?: unknown;
-      height?: unknown;
-      values?: unknown;
-      width?: unknown;
-    };
-    if (
-      typeof value !== "object" ||
-      value === null ||
-      typeof field.cellSizeMeters !== "number" ||
-      typeof field.width !== "number" ||
-      typeof field.height !== "number" ||
-      typeof field.cornerWidth !== "number" ||
-      typeof field.cornerHeight !== "number" ||
-      !Array.isArray(field.values)
-    ) {
-      errors.push(`${column.name} must be a height field`);
-    }
-  }
-
-  if (column.type === ColumnType.transform3) {
-    const transform = value as { position?: unknown; rotationDegrees?: unknown; scale?: unknown };
-    if (
-      typeof value !== "object" ||
-      value === null ||
-      !Array.isArray(transform.position) ||
-      !Array.isArray(transform.rotationDegrees) ||
-      !Array.isArray(transform.scale)
-    ) {
-      errors.push(`${column.name} must be a transform3`);
-    }
-  }
-
   if (column.unique && !isEmptyValue(value)) {
     const duplicate = rows.some((row) => row.id !== rowId && comparableValue(row.values[column.id]) === comparableValue(value));
     if (duplicate) {
@@ -250,18 +194,9 @@ function validateRow(row: EditorRow, columns: DataColumnDefinition[], rows: Edit
 
 function tableStoragePath(table: TableTabEntry): string {
   if (!isSystemTable(table)) {
-    return ".editor/tables.json";
+    return ".chisel/tables/user/<table_id>.json";
   }
-  if ("moduleId" in table && table.moduleId === "graphite.input") {
-    return ".editor/graphite/inputs.json";
-  }
-  if ("moduleId" in table && table.moduleId === "graphite.terrain") {
-    return ".editor/graphite/biomes.json";
-  }
-  if ("moduleId" in table && table.moduleId === "graphite.renderer") {
-    return ".editor/graphite/renderer.json";
-  }
-  return ".editor/graphite.json";
+  return ".chisel/tables/system/<table_id>.json";
 }
 
 function columnValueLabel(value: unknown): string {
@@ -298,8 +233,8 @@ function columnDetailRows(column: DataColumnDefinition): Array<[string, string]>
   if (column.possibleValues?.length) {
     rows.push(["values", column.possibleValues.join(", ")]);
   }
-  if (column.assetType) {
-    rows.push(["asset type", column.assetType]);
+  if (column.assetCategory) {
+    rows.push(["asset category", column.assetCategory]);
   }
 
   return rows;
@@ -362,9 +297,6 @@ function columnWidthClassName(column: DataColumnDefinition): string {
   }
   if (column.type === ColumnType.vector4) {
     return "min-w-80";
-  }
-  if (isStructuredColumnType(column.type)) {
-    return "min-w-72";
   }
   if (column.type === ColumnType.text || column.type === ColumnType.json) {
     return "min-w-64";

@@ -19,7 +19,7 @@ const AssetRefCellValue: FC<AssetRefCellValueProps> = (props) => {
   if (asset) {
     return (
       <span className="flex items-center gap-1.5">
-        <Badge variant="secondary">{asset.type}</Badge>
+        <Badge variant="secondary">{asset.category}</Badge>
         <span className="font-mono text-xs">{asset.name}</span>
       </span>
     );

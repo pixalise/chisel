@@ -1,4 +1,4 @@
-import { Boxes, Database, Image, Images, Leaf, Map as MapIcon, Settings2, Stamp, type LucideIcon } from "lucide-react";
+import { Boxes, Database, Images, Settings2, type LucideIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -19,12 +19,8 @@ import useAppStore from "@/stores/app-store";
 
 const routeIcons: Record<RouteEnum, LucideIcon> = {
   [RouteEnum.assets]: Boxes,
-  [RouteEnum.biomeEditor]: Leaf,
   [RouteEnum.database]: Database,
   [RouteEnum.imageConversion]: Images,
-  [RouteEnum.levelEditor]: MapIcon,
-  [RouteEnum.stampEditor]: Stamp,
-  [RouteEnum.terrainTextures]: Image,
   [RouteEnum.settings]: Settings2
 };
 

@@ -70,7 +70,7 @@ async function importAsset(input) {
         throw new Error("Imported asset source must be a file");
     }
     const projectPath = node_path_1.default.resolve(request.projectPath);
-    const relativePath = node_path_1.default.posix.join(".chisel", "assets", request.type, `${stem}${extension}`);
+    const relativePath = node_path_1.default.posix.join(".chisel", "assets", request.category, `${stem}${extension}`);
     const destinationPath = node_path_1.default.join(projectPath, ...relativePath.split("/"));
     const assetsPath = node_path_1.default.join(projectPath, ".chisel", "assets.json");
     const document = await readAssets(assetsPath);
@@ -79,12 +79,12 @@ async function importAsset(input) {
     const asset = schemas_1.assetSchema.parse({
         id: existing?.id ?? createNanoid(),
         name: stem,
-        type: request.type,
+        category: request.category,
         relativePath,
         sizeBytes: sourceStat.size,
         width: dimensions.width,
         height: dimensions.height,
-        tags: request.tags,
+        note: request.note,
         extension: extension.replace(/^\./, "")
     });
     const assets = [...document.assets.filter((entry) => entry.id !== asset.id && entry.relativePath !== asset.relativePath), asset];

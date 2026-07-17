@@ -1,34 +1,24 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InputKeyEnum = exports.assetTypeOptionValues = exports.assetTypeEnumLabelMap = exports.AssetTypeEnum = void 0;
-var AssetTypeEnum;
-(function (AssetTypeEnum) {
-    AssetTypeEnum["terrain"] = "terrain";
-    AssetTypeEnum["texture"] = "texture";
-    AssetTypeEnum["material"] = "material";
-    AssetTypeEnum["shader"] = "shader";
-    AssetTypeEnum["config"] = "config";
-    AssetTypeEnum["ui"] = "ui";
-    AssetTypeEnum["audio"] = "audio";
-    AssetTypeEnum["font"] = "font";
-    AssetTypeEnum["data"] = "data";
-    AssetTypeEnum["other"] = "other";
-})(AssetTypeEnum || (exports.AssetTypeEnum = AssetTypeEnum = {}));
-exports.assetTypeEnumLabelMap = {
-    [AssetTypeEnum.terrain]: "Terrain",
-    [AssetTypeEnum.texture]: "Texture",
-    [AssetTypeEnum.material]: "Material",
-    [AssetTypeEnum.shader]: "Shader",
-    [AssetTypeEnum.config]: "Config",
-    [AssetTypeEnum.ui]: "UI",
-    [AssetTypeEnum.audio]: "Audio",
-    [AssetTypeEnum.font]: "Font",
-    [AssetTypeEnum.data]: "Data",
-    [AssetTypeEnum.other]: "Other"
+exports.ColumnType = exports.InputKeyEnum = exports.assetCategoryOptionValues = exports.assetCategoryLabelMap = exports.AssetCategoryEnum = void 0;
+var AssetCategoryEnum;
+(function (AssetCategoryEnum) {
+    AssetCategoryEnum["image"] = "image";
+    AssetCategoryEnum["audio"] = "audio";
+    AssetCategoryEnum["font"] = "font";
+    AssetCategoryEnum["data"] = "data";
+    AssetCategoryEnum["other"] = "other";
+})(AssetCategoryEnum || (exports.AssetCategoryEnum = AssetCategoryEnum = {}));
+exports.assetCategoryLabelMap = {
+    [AssetCategoryEnum.image]: "Image",
+    [AssetCategoryEnum.audio]: "Audio",
+    [AssetCategoryEnum.font]: "Font",
+    [AssetCategoryEnum.data]: "Data",
+    [AssetCategoryEnum.other]: "Other"
 };
-exports.assetTypeOptionValues = Object.values(AssetTypeEnum).map((type) => ({
-    label: exports.assetTypeEnumLabelMap[type],
-    value: type
+exports.assetCategoryOptionValues = Object.values(AssetCategoryEnum).map((category) => ({
+    label: exports.assetCategoryLabelMap[category],
+    value: category
 }));
 var InputKeyEnum;
 (function (InputKeyEnum) {
@@ -283,3 +273,22 @@ var InputKeyEnum;
     InputKeyEnum["WheelUp"] = "WheelUp";
     InputKeyEnum["WheelDown"] = "WheelDown";
 })(InputKeyEnum || (exports.InputKeyEnum = InputKeyEnum = {}));
+var ColumnType;
+(function (ColumnType) {
+    ColumnType["id"] = "id";
+    ColumnType["string"] = "string";
+    ColumnType["text"] = "text";
+    ColumnType["integer"] = "integer";
+    ColumnType["decimal"] = "decimal";
+    ColumnType["range"] = "range";
+    ColumnType["boolean"] = "boolean";
+    ColumnType["enum"] = "enum";
+    ColumnType["enumArray"] = "enumArray";
+    ColumnType["assetRef"] = "assetRef";
+    ColumnType["ref"] = "ref";
+    ColumnType["color"] = "color";
+    ColumnType["vector2"] = "vector2";
+    ColumnType["vector3"] = "vector3";
+    ColumnType["vector4"] = "vector4";
+    ColumnType["json"] = "json";
+})(ColumnType || (exports.ColumnType = ColumnType = {}));

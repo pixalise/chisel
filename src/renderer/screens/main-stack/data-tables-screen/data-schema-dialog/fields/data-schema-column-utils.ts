@@ -49,31 +49,6 @@ export function createDefaultValueForColumnType(type: ColumnType, enumValues: st
   if (isVectorColumnType(type)) {
     return Array.from({ length: vectorLengthForColumnType(type) }, () => min);
   }
-  if (type === ColumnType.cellMask) {
-    return {
-      cellSizeMeters: 2,
-      cells: [],
-      height: 1,
-      width: 1
-    };
-  }
-  if (type === ColumnType.heightField) {
-    return {
-      cellSizeMeters: 2,
-      cornerHeight: 2,
-      cornerWidth: 2,
-      height: 1,
-      values: [0, 0, 0, 0],
-      width: 1
-    };
-  }
-  if (type === ColumnType.transform3) {
-    return {
-      position: [0, 0, 0],
-      rotationDegrees: [0, 0, 0],
-      scale: [1, 1, 1]
-    };
-  }
   if (type === ColumnType.enum) {
     return enumValues[0] ?? "";
   }
@@ -115,32 +90,6 @@ export function isDefaultValueValidForColumnType(type: ColumnType, value: unknow
       Array.isArray(value) &&
       value.length === vectorLengthForColumnType(type) &&
       value.every((entry) => typeof entry === "number" && Number.isFinite(entry))
-    );
-  }
-  if (type === ColumnType.cellMask) {
-    return (
-      typeof value === "object" &&
-      value !== null &&
-      Array.isArray((value as { cells?: unknown }).cells) &&
-      typeof (value as { cellSizeMeters?: unknown }).cellSizeMeters === "number"
-    );
-  }
-  if (type === ColumnType.heightField) {
-    return (
-      typeof value === "object" &&
-      value !== null &&
-      Array.isArray((value as { values?: unknown }).values) &&
-      typeof (value as { cellSizeMeters?: unknown }).cellSizeMeters === "number"
-    );
-  }
-  if (type === ColumnType.transform3) {
-    const transform = value as { position?: unknown; rotationDegrees?: unknown; scale?: unknown };
-    return (
-      typeof value === "object" &&
-      value !== null &&
-      Array.isArray(transform.position) &&
-      Array.isArray(transform.rotationDegrees) &&
-      Array.isArray(transform.scale)
     );
   }
   return true;
@@ -192,16 +141,6 @@ export function parseDefaultValue(columnType: ColumnType, enumValues: string[], 
       }
     }
     return createDefaultValueForColumnType(columnType, enumValues, minValue);
-  }
-  if (columnType === ColumnType.cellMask || columnType === ColumnType.heightField || columnType === ColumnType.transform3) {
-    if (!value.trim()) {
-      return createDefaultValueForColumnType(columnType, enumValues, minValue);
-    }
-    try {
-      return JSON.parse(value);
-    } catch {
-      return createDefaultValueForColumnType(columnType, enumValues, minValue);
-    }
   }
   if (columnType === ColumnType.enumArray) {
     if (!value.trim()) {

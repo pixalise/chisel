@@ -23,7 +23,7 @@ export const AssetLibraryScreen: FC = () => {
     }
     return (
       asset.name.toLowerCase().includes(normalizedQuery) ||
-      asset.type.toLowerCase().includes(normalizedQuery) ||
+      asset.category.toLowerCase().includes(normalizedQuery) ||
       asset.relativePath.toLowerCase().includes(normalizedQuery) ||
       (asset.note ?? "").toLowerCase().includes(normalizedQuery)
     );
@@ -43,7 +43,7 @@ export const AssetLibraryScreen: FC = () => {
               <Search className="size-4 text-muted-foreground" />
               <Input
                 className="border-0 px-0 shadow-none focus-visible:ring-0"
-                placeholder="Search by name, type, path, or note"
+                placeholder="Search by name, category, path, or note"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />

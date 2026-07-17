@@ -18,9 +18,9 @@ const EditAssetDialogButton: FC<EditAssetDialogButtonProps> = (props) => {
   const onUpdate = async (input: CreateOrUpdateAsset) => {
     await updateAsset({
       ...asset,
+      category: input.category,
       name: input.name,
-      note: input.note,
-      type: input.type
+      note: input.note
     });
     setIsOpen(false);
   };
@@ -56,7 +56,7 @@ const EditAssetDialogButton: FC<EditAssetDialogButtonProps> = (props) => {
               name: asset.name,
               note: asset.note ?? "",
               sizeBytes: asset.sizeBytes,
-              type: asset.type,
+              category: asset.category,
               width: asset.width
             }}
             disabled={isUpdateAssetLoading}
