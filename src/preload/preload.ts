@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import type { ConvertImages, ConvertedImage, ImportAssetInput } from "../shared/schemas";
+import type {
+  ConvertImages,
+  ConvertedImage,
+  ImportAssetInput,
+  PackAlbedoHeightTexture,
+  PackNormalRoughnessTexture,
+  PackTexturePackage
+} from "../shared/schemas";
 import type { Asset, FileMetadata } from "../shared/types";
 
 contextBridge.exposeInMainWorld("electron", {
@@ -18,6 +25,11 @@ contextBridge.exposeInMainWorld("electron", {
   getFileMetadata: (sourcePath: string): Promise<FileMetadata> =>
     ipcRenderer.invoke("file:get-metadata", sourcePath) as Promise<FileMetadata>,
   importAsset: (input: ImportAssetInput): Promise<Asset> => ipcRenderer.invoke("asset:import", input) as Promise<Asset>,
+  packAlbedoHeightTexture: (input: PackAlbedoHeightTexture): Promise<string> =>
+    ipcRenderer.invoke("texture:pack-albedo-height", input) as Promise<string>,
+  packNormalRoughnessTexture: (input: PackNormalRoughnessTexture): Promise<string> =>
+    ipcRenderer.invoke("texture:pack-normal-roughness", input) as Promise<string>,
+  packTexturePackage: (input: PackTexturePackage): Promise<Asset> => ipcRenderer.invoke("texture:pack-package", input) as Promise<Asset>,
   convertImages: (input: ConvertImages): Promise<ConvertedImage[]> =>
     ipcRenderer.invoke("image:convert-to-png", input) as Promise<ConvertedImage[]>,
   createImageConversionPreview: (inputPath: string): Promise<string> =>

@@ -131,6 +131,34 @@ export const importAssetSchema = z.object({
 });
 export type ImportAssetInput = z.infer<typeof importAssetSchema>;
 
+const pngImagePathSchema = filePathSchema.refine((value) => /\.png$/i.test(value), "Image must be a PNG file");
+
+export const packedTextureNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Packed texture name is required")
+  .max(56, "Packed texture name must be at most 56 characters")
+  .regex(/^[A-Za-z0-9]+(?:[ _-]+[A-Za-z0-9]+)*$/, "Use letters, numbers, spaces, underscores, or hyphens");
+
+export const packAlbedoHeightTextureSchema = z.object({
+  albedo: pngImagePathSchema,
+  height: pngImagePathSchema
+});
+export type PackAlbedoHeightTexture = z.infer<typeof packAlbedoHeightTextureSchema>;
+
+export const packNormalRoughnessTextureSchema = z.object({
+  normal: pngImagePathSchema,
+  roughness: pngImagePathSchema
+});
+export type PackNormalRoughnessTexture = z.infer<typeof packNormalRoughnessTextureSchema>;
+
+export const packTexturePackageSchema = packAlbedoHeightTextureSchema.merge(packNormalRoughnessTextureSchema).extend({
+  name: packedTextureNameSchema,
+  note: z.string().optional(),
+  projectPath: filePathSchema
+});
+export type PackTexturePackage = z.infer<typeof packTexturePackageSchema>;
+
 export const convertImagesSchema = z.object({
   inputPaths: z.array(filePathSchema).min(1, "Choose at least one image"),
   outputFolder: filePathSchema

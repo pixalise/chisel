@@ -9,6 +9,7 @@ const node_path_1 = __importDefault(require("node:path"));
 const asset_store_1 = require("./asset-store");
 const image_conversion_1 = require("./image-conversion");
 const file_metadata_1 = require("./file-metadata");
+const texture_packing_1 = require("./texture-packing");
 const APP_NAME = "Chisel";
 const APP_ICON_FILE = "chisel-apple.png";
 let mainWindow = null;
@@ -153,6 +154,9 @@ function registerIpc() {
         return result.filePaths[0];
     });
     electron_1.ipcMain.handle("asset:import", (_event, input) => (0, asset_store_1.importAsset)(input));
+    electron_1.ipcMain.handle("texture:pack-albedo-height", (_event, input) => (0, texture_packing_1.packAlbedoHeightTextureInMemory)(input));
+    electron_1.ipcMain.handle("texture:pack-normal-roughness", (_event, input) => (0, texture_packing_1.packNormalRoughnessTextureInMemory)(input));
+    electron_1.ipcMain.handle("texture:pack-package", (_event, input) => (0, texture_packing_1.packTexturePackageAsset)(input));
     electron_1.ipcMain.handle("image:convert-to-png", (_event, input) => (0, image_conversion_1.convertImagesToPng)(input));
     electron_1.ipcMain.handle("image:conversion-preview", (_event, inputPath) => createImagePreview(inputPath));
 }

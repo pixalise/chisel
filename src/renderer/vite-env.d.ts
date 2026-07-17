@@ -1,6 +1,13 @@
 /// <reference types="vite/client" />
 
-import type { ConvertImages, ConvertedImage, ImportAssetInput } from "../shared/schemas";
+import type {
+  ConvertImages,
+  ConvertedImage,
+  ImportAssetInput,
+  PackAlbedoHeightTexture,
+  PackNormalRoughnessTexture,
+  PackTexturePackage
+} from "../shared/schemas";
 import type { Asset, FileMetadata } from "../shared/types";
 
 type OpenFileDialogOptions = {
@@ -27,6 +34,9 @@ declare global {
       deleteFile: (path: string) => Promise<void>;
       getFileMetadata: (sourcePath: string) => Promise<FileMetadata>;
       importAsset: (input: ImportAssetInput) => Promise<Asset>;
+      packAlbedoHeightTexture: (input: PackAlbedoHeightTexture) => Promise<string>;
+      packNormalRoughnessTexture: (input: PackNormalRoughnessTexture) => Promise<string>;
+      packTexturePackage: (input: PackTexturePackage) => Promise<Asset>;
       convertImages: (input: ConvertImages) => Promise<ConvertedImage[]>;
       createImageConversionPreview: (inputPath: string) => Promise<string>;
       getPathForFile: (file: File) => string;

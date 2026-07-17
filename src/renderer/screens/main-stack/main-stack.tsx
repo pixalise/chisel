@@ -10,6 +10,7 @@ import { AssetLibraryScreen } from "@/screens/main-stack/asset-library-screen/as
 import { DataTablesScreen } from "@/screens/main-stack/data-tables-screen/data-tables-screen";
 import { ImageConversionScreen } from "@/screens/main-stack/image-conversion-screen/image-conversion-screen";
 import { SettingsScreen } from "@/screens/main-stack/settings-screen";
+import { TexturePackingScreen } from "@/screens/main-stack/texture-packing-screen/texture-packing-screen";
 
 const MainStack: FC = () => {
   const { pathname } = useLocation();
@@ -30,6 +31,7 @@ const MainStack: FC = () => {
               <Route element={<AssetLibraryScreen />} path={RouteEnum.assets} />
               <Route element={<DataTablesScreen />} path={RouteEnum.database} />
               <Route element={<ImageConversionScreen />} path={RouteEnum.imageConversion} />
+              <Route element={<TexturePackingScreen />} path={RouteEnum.texturePacking} />
               <Route element={<SettingsScreen />} path={RouteEnum.settings} />
               <Route element={<Navigate replace to={RouteEnum.assets} />} path="*" />
             </Routes>

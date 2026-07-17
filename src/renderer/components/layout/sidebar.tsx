@@ -1,4 +1,4 @@
-import { Boxes, Database, Images, Settings2, type LucideIcon } from "lucide-react";
+import { Boxes, Database, Images, Package, Settings2, type LucideIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -21,6 +21,7 @@ const routeIcons: Record<RouteEnum, LucideIcon> = {
   [RouteEnum.assets]: Boxes,
   [RouteEnum.database]: Database,
   [RouteEnum.imageConversion]: Images,
+  [RouteEnum.texturePacking]: Package,
   [RouteEnum.settings]: Settings2
 };
 

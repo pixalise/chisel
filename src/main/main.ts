@@ -4,7 +4,14 @@ import path from "node:path";
 import { importAsset } from "./asset-store";
 import { convertImagesToPng, createImageConversionPreview } from "./image-conversion";
 import { getFileMetadata } from "./file-metadata";
-import type { ConvertImages, ImportAssetInput } from "../shared/schemas";
+import { packAlbedoHeightTextureInMemory, packNormalRoughnessTextureInMemory, packTexturePackageAsset } from "./texture-packing";
+import type {
+  ConvertImages,
+  ImportAssetInput,
+  PackAlbedoHeightTexture,
+  PackNormalRoughnessTexture,
+  PackTexturePackage
+} from "../shared/schemas";
 
 const APP_NAME = "Chisel";
 const APP_ICON_FILE = "chisel-apple.png";
@@ -184,6 +191,9 @@ function registerIpc(): void {
   });
 
   ipcMain.handle("asset:import", (_event, input: ImportAssetInput) => importAsset(input));
+  ipcMain.handle("texture:pack-albedo-height", (_event, input: PackAlbedoHeightTexture) => packAlbedoHeightTextureInMemory(input));
+  ipcMain.handle("texture:pack-normal-roughness", (_event, input: PackNormalRoughnessTexture) => packNormalRoughnessTextureInMemory(input));
+  ipcMain.handle("texture:pack-package", (_event, input: PackTexturePackage) => packTexturePackageAsset(input));
   ipcMain.handle("image:convert-to-png", (_event, input: ConvertImages) => convertImagesToPng(input));
   ipcMain.handle("image:conversion-preview", (_event, inputPath: string) => createImagePreview(inputPath));
 }
