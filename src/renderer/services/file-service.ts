@@ -49,6 +49,10 @@ class FileService {
     await this.writeJsonFile(this.fullPath(project.path, FilePathEnum.chiselJson), zodParse(projectFileSchema, project));
   }
 
+  public async writeProjectTextFile(project: Project, relativePath: string, value: string): Promise<void> {
+    await window.electron.writeTextFile(this.projectRelativePath(project.path, relativePath), value);
+  }
+
   public async writeChiselGitignore(project: Project): Promise<void> {
     await window.electron.ensureGitignoreEntry(this.fullPath(project.path, FilePathEnum.gitignore), ".tmp");
   }

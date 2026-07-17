@@ -1,5 +1,6 @@
 export enum HookKeysEnum {
   createOrUpdateProjectMutation = "createOrUpdateProjectMutation",
+  exportProjectMutation = "exportProjectMutation",
   importAssetMutation = "importAssetMutation",
   listAllProjectsQuery = "listAllProjectsQuery",
   removeProjectFromHubMutation = "removeProjectFromHubMutation",

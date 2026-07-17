@@ -151,6 +151,11 @@ function registerIpc(): void {
     await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
   });
 
+  ipcMain.handle("file:write-text", async (_event, filePath: string, value: string) => {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, value, "utf8");
+  });
+
   ipcMain.handle("file:write-png", (_event, filePath: string, dataUrl: string) => writePngFile(filePath, dataUrl));
   ipcMain.handle("file:ensure-gitignore-entry", (_event, filePath: string, entry: string) => ensureGitignoreEntry(filePath, entry));
 

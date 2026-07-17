@@ -2,7 +2,7 @@
 
 **Status:** North Star  
 **Role:** Authoritative game-content, metadata, asset-library, UI, localization, validation, and export workspace  
-**Primary runtime consumer:** Godot project through versioned Chisel exports  
+**Primary runtime consumer:** Godot project through generated Chisel exports  
 **Simulation:** Native C++ GDExtension core  
 **Terrain and presentation:** Godot, Terrain3D, Godot Forward+, native Controls, shaders, audio, animation, and scenes
 
@@ -43,7 +43,7 @@ Chisel is a desktop authoring application responsible for:
 - validation
 - impact analysis
 - Godot-native export
-- export versioning
+- re-export workflow
 
 Chisel should feel like a combination of:
 
@@ -75,11 +75,11 @@ Chisel is not intended to replace:
      | GPPT packing                               |
      | UI components and themes                   |
      | Localization                               |
-     | Validation and export versioning           |
+     | Validation and re-export workflow          |
      +--------------------+-----------------------+
                           |
                           | validation-gated export
-                          | versioned manifest
+                          | generated Godot data
                           v
                   GODOT PROJECT DATABASE
      +--------------------------------------------+
@@ -180,7 +180,7 @@ The content pipeline is:
 
 ```text
 Chisel source project
-    -> validated versioned export
+    -> validated generated export
     -> generated Godot database and assets
     -> compact runtime records and presentation objects
 ```
@@ -325,13 +325,13 @@ Blueprints.Id.FLETCHING_BULLETS
 Biomes.Id.TUNDRA
 ```
 
-These generated enum values may be dense local indexes. They must not be stored directly in long-lived saves or external protocols unless tied to an exact manifest version.
+These generated enum values may be dense local indexes. They must not be stored directly in long-lived saves or external protocols unless tied to the exact generated export they came from.
 
-Persistent references should use slugs, stable hashes, or versioned stable IDs.
+Persistent references should use slugs, stable hashes, or other stable IDs.
 
-## Structure-of-Arrays Export
+## Array-Oriented Export
 
-Collections should export Structure-of-Arrays modules where appropriate.
+Collections should export modules where row slugs become enum keys with integer indexes and table row payloads are stored in arrays.
 
 Example:
 
@@ -340,24 +340,41 @@ class_name Enemies
 extends RefCounted
 
 enum Id {
-    ZOMBIE_BASIC,
-    ZOMBIE_RUNNER,
-    ZOMBIE_TANK,
+    ZOMBIE_BASIC = 0,
+    ZOMBIE_RUNNER = 1,
+    ZOMBIE_TANK = 2,
 }
 
-static var slug: Array[StringName]
-static var max_health: PackedInt32Array
-static var move_speed: PackedFloat32Array
-static var attack_damage: PackedFloat32Array
-static var animation_set: Array[AnimationSets.Id]
-static var presentation_profile: Array[PresentationProfiles.Id]
+const SLUGS := [
+    "ZOMBIE_BASIC",
+    "ZOMBIE_RUNNER",
+    "ZOMBIE_TANK",
+]
+
+const DATA := [
+    {
+        "max_health": 100,
+        "move_speed": 1.6,
+        "animation_set": AnimationSets.Id.ZOMBIE_BASIC,
+    },
+    {
+        "max_health": 80,
+        "move_speed": 2.2,
+        "animation_set": AnimationSets.Id.ZOMBIE_RUNNER,
+    },
+    {
+        "max_health": 300,
+        "move_speed": 0.8,
+        "animation_set": AnimationSets.Id.ZOMBIE_TANK,
+    },
+]
 ```
 
 Usage:
 
 ```gdscript
 var enemy := Enemies.Id.ZOMBIE_BASIC
-var hp := Enemies.max_health[enemy]
+var hp := Enemies.DATA[enemy]["max_health"]
 ```
 
 Chisel may additionally generate typed record views for UI and editor convenience.
@@ -824,54 +841,44 @@ It may declare:
 
 This lets Chisel detect dependencies that exist in handwritten Godot code and would not otherwise appear in Chisel's reference graph.
 
-A versioned export must satisfy both Chisel references and Godot consumer requirements.
+An export must satisfy both Chisel references and Godot consumer requirements.
 
 ## Godot Export
 
-Chisel exports a Godot-shaped database folder.
+Chisel exports a Godot-shaped `game_data` folder beside `.chisel`.
 
 Example:
 
 ```text
-res://database/
-  versions/
-    000001/
-      manifest.gd
-      export_manifest.json
+res://game_data/
+  manifest.gd
 
-      types/
-        EnemyDef.gd
-        BuildingDef.gd
-        BiomeDef.gd
+  tables/
+    enemies.gd
+    buildings.gd
+    blueprints.gd
+    biomes.gd
+    animation_sets.gd
+    translations.gd
 
-      collections/
-        enemies.gd
-        buildings.gd
-        blueprints.gd
-        biomes.gd
-        animation_sets.gd
-        translations.gd
+  ui/
+    components/
+    themes/
+    preview_data/
+    generated/
 
-      ui/
-        components/
-        themes/
-        preview_data/
-        generated/
+  localization/
+    ui.csv
+    units.csv
+    buildings.csv
 
-      localization/
-        ui.csv
-        units.csv
-        buildings.csv
-
-      assets/
-        images/
-        gppt/
-        models/
-        audio/
-        videos/
-        fonts/
-
-  current_export.json
+  assets/
+    images/
+    gppt/
+    models/
+    audio/
+    videos/
+    fonts/
 ```
 
 Each collection is exported as one generated table module.
@@ -882,14 +889,14 @@ Generated files should contain:
 - source project ID
 - schema version
 - content version
-- export version
-- manifest hash
+- generated timestamp
+- generated file list
 
 They are read-only projections.
 
-## Export Versioning and Re-Export
+## Re-Export Workflow
 
-Godot consumes only versioned exports.
+Godot consumes generated exports, not live Chisel source files.
 
 Chisel source content can be edited and saved freely, but it does not affect Godot until export runs.
 
@@ -898,25 +905,19 @@ The export workflow is:
 ```text
 1. Edit Chisel source content.
 2. Run validation.
-3. If validation passes, create export version N.
-4. Write generated Godot files and manifest.
-5. Update current_export.json to point to version N.
-6. Godot reloads the selected export version.
+3. If validation passes, write generated Godot files and manifest into `game_data`.
+4. Godot reloads the generated data.
 ```
 
-Each export version should include:
+Each export should include:
 
-- export version number
-- manifest hash
 - source project ID
 - content version
 - generated file list
 - content hashes
 - timestamp
 
-Re-export creates a new version or replaces the latest version according to the selected export policy.
-
-Rollback can be implemented by pointing `current_export.json` at an earlier valid export version.
+Re-export replaces generated files from the current Chisel source state.
 
 ## Terrain and Terrain3D
 
@@ -1042,7 +1043,7 @@ The intended workflow is:
 8. Pack or inspect GPPT assets.
 9. Review reference impact and validation problems.
 10. Export or re-export.
-11. Godot reloads the selected export version.
+11. Godot reloads generated data.
 12. Inspect exact native previews or run the game.
 ```
 
@@ -1073,7 +1074,7 @@ The shipped game must never require Chisel to be running.
 
 ## Delivery Milestones
 
-### M0 - Collections and Versioned Godot Export
+### M0 - Collections and Godot Export
 
 - typed schemas
 - required `UPPER_SNAKE_CASE` row slugs
@@ -1082,7 +1083,7 @@ The shipped game must never require Chisel to be running.
 - basic validation
 - Godot export skeleton
 - export manifest
-- export version folder
+- `game_data` output folder
 
 ### M1 - Asset Library
 
@@ -1100,7 +1101,7 @@ The shipped game must never require Chisel to be running.
 
 - one file per table
 - typed enums
-- SoA arrays
+- enum-indexed row arrays
 - generated loader helpers
 - manifest
 
@@ -1132,16 +1133,13 @@ The shipped game must never require Chisel to be running.
 - locale preview
 - Godot localization export
 
-### M6 - Export Versioning and Re-Export Workflow
+### M6 - Re-Export Workflow
 
-- export manifest versions
 - content hash
 - schema version
-- export history
-- latest valid export pointer
 - re-export button
 - Godot reload support
-- rollback to previous export
+- generated output replacement
 
 ### M7 - Advanced Assets
 
@@ -1165,7 +1163,7 @@ Chisel fulfills its north star when:
 - Translations with typed placeholders are validated before reaching Godot.
 - GPPT, images, models, video, and audio are managed through one asset library.
 - 3D assets are referenced and validated in Chisel while final spatial composition remains in Godot.
-- Godot consumes versioned exports, not Chisel source files.
+- Godot consumes generated exports, not Chisel source files.
 - The C++ simulation receives compact resolved data rather than editor objects.
 - The shipped game runs without Chisel.
 

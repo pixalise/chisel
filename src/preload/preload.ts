@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld("electron", {
   readFile: <TData>(path: string): Promise<TData> => ipcRenderer.invoke("file:read", path) as Promise<TData>,
   tryReadFile: <TData>(path: string): Promise<TData | null> => ipcRenderer.invoke("file:try-read", path) as Promise<TData | null>,
   writeFile: (path: string, value: unknown): Promise<void> => ipcRenderer.invoke("file:write", path, value) as Promise<void>,
+  writeTextFile: (path: string, value: string): Promise<void> => ipcRenderer.invoke("file:write-text", path, value) as Promise<void>,
   writePngFile: (path: string, dataUrl: string): Promise<void> => ipcRenderer.invoke("file:write-png", path, dataUrl) as Promise<void>,
   ensureGitignoreEntry: (path: string, entry: string): Promise<void> =>
     ipcRenderer.invoke("file:ensure-gitignore-entry", path, entry) as Promise<void>,

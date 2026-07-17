@@ -1,12 +1,20 @@
-import type { FC, ReactNode } from "react";
+import { type FC, type ReactNode, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Section } from "@/components/layout/section";
 import PageHeader from "@/components/page-header";
+import useExportProjectMutation from "@/hooks/use-export-project-mutation";
 import useAppStore from "@/stores/app-store";
 
 export const SettingsScreen: FC = () => {
+  const [lastExport, setLastExport] = useState<{ exportedAt: string; fileCount: number; manifestPath: string } | null>(null);
   const {
     computed: { project }
   } = useAppStore();
+  const { exportProject, isExportProjectLoading } = useExportProjectMutation();
+
+  async function onExportProject(): Promise<void> {
+    setLastExport(await exportProject());
+  }
 
   return (
     <section className="flex min-h-full w-full min-w-0 flex-col gap-4">
@@ -22,6 +30,17 @@ export const SettingsScreen: FC = () => {
           <SettingsRow label="Name" value={project.name} />
           <SettingsRow label="Project path" value={project.path} />
           <SettingsRow label="Project id" value={project.id} />
+        </Section>
+        <Section title="Game Data Export" copy="Generated Godot scripts are written beside .chisel.">
+          <SettingsRow label="Export root" value="game_data" />
+          <SettingsRow label="Manifest" value="game_data/manifest.gd" />
+          {lastExport && <SettingsRow label="Last export" value={lastExport.exportedAt} />}
+          {lastExport && <SettingsRow label="Files" value={String(lastExport.fileCount)} />}
+          <div className="pt-3">
+            <Button disabled={isExportProjectLoading} onClick={onExportProject} type="button">
+              {isExportProjectLoading ? "Exporting..." : "Export Game Data"}
+            </Button>
+          </div>
         </Section>
       </div>
     </section>

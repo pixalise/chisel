@@ -28,6 +28,7 @@ declare global {
       readFile: <TData>(path: string) => Promise<TData>;
       tryReadFile: <TData>(path: string) => Promise<TData | null>;
       writeFile: (path: string, value: unknown) => Promise<void>;
+      writeTextFile: (path: string, value: string) => Promise<void>;
       writePngFile: (path: string, dataUrl: string) => Promise<void>;
       ensureGitignoreEntry: (path: string, entry: string) => Promise<void>;
       copyFile: (sourcePath: string, destinationPath: string) => Promise<void>;
