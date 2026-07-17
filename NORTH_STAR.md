@@ -89,7 +89,7 @@ Chisel is not intended to replace:
      | themes/*.theme.json                        |
      | localization/*.csv or *.po                 |
      | images, GPPT, GLB, audio and video         |
-     | manifests and validation reports           |
+     | manifests                                  |
      +--------------+-----------------------------+
                     |
           +---------+------------------+
@@ -213,7 +213,6 @@ A Chisel project should conceptually contain:
   themes/
   localization/
   exports/
-  reports/
   cache/
 ```
 
@@ -839,7 +838,6 @@ res://database/
     000001/
       manifest.gd
       export_manifest.json
-      validation_report.json
 
       types/
         EnemyDef.gd
@@ -901,7 +899,7 @@ The export workflow is:
 1. Edit Chisel source content.
 2. Run validation.
 3. If validation passes, create export version N.
-4. Write generated Godot files, manifest, and validation report.
+4. Write generated Godot files and manifest.
 5. Update current_export.json to point to version N.
 6. Godot reloads the selected export version.
 ```
@@ -912,7 +910,6 @@ Each export version should include:
 - manifest hash
 - source project ID
 - content version
-- validation report
 - generated file list
 - content hashes
 - timestamp
@@ -1106,14 +1103,12 @@ The shipped game must never require Chisel to be running.
 - SoA arrays
 - generated loader helpers
 - manifest
-- validation report
 
-### M3 - Validation and Export Reports
+### M3 - Validation
 
 - impact analysis
 - reference validation
 - Godot requirements
-- export reports
 - blocking export errors
 
 ### M4 - UI Workbench
@@ -1147,7 +1142,6 @@ The shipped game must never require Chisel to be running.
 - re-export button
 - Godot reload support
 - rollback to previous export
-- validation report per export
 
 ### M7 - Advanced Assets
 
