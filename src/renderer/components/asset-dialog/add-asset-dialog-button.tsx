@@ -7,16 +7,20 @@ import useCopyAssetFile from "@/hooks/use-copy-asset-file";
 import { Nullish } from "../../../shared/nullish";
 import { isNil } from "lodash";
 import useAddAssetMutation from "@/hooks/use-add-asset-mutation";
-import { AssetCategoryEnum, FileMetadata } from "../../../shared/types";
+import { AssetCategoryEnum, FileMetadata, isTerrainTextureExtension } from "../../../shared/types";
 import fileService from "@/services/file-service";
 import { CreateOrUpdateAsset } from "../../../shared/schemas";
 
 function categoryForFile(metadata: FileMetadata): AssetCategoryEnum {
+  const extension = metadata.extension.toLowerCase();
+  if (isTerrainTextureExtension(extension)) {
+    return AssetCategoryEnum.terrainTexture;
+  }
+
   if (metadata.isImage) {
     return AssetCategoryEnum.image;
   }
 
-  const extension = metadata.extension.toLowerCase();
   if (["mp3", "ogg", "wav", "flac", "m4a"].includes(extension)) {
     return AssetCategoryEnum.audio;
   }

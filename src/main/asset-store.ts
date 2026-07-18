@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import sharp from "sharp";
 import { assetSchema, assetsJsonSchema, importAssetSchema, type Asset, type AssetsJson, type ImportAssetInput } from "../shared/schemas";
+import { readImageDimensions } from "./sharp-worker-client";
 
 function createNanoid(): string {
   return randomBytes(16).toString("base64url").slice(0, 21);
@@ -41,11 +41,7 @@ async function writeFileAtomic(filePath: string, content: string | Buffer): Prom
 
 async function imageDimensions(filePath: string): Promise<{ width: number; height: number }> {
   try {
-    const metadata = await sharp(filePath).metadata();
-    return {
-      width: metadata.width ?? 0,
-      height: metadata.height ?? 0
-    };
+    return await readImageDimensions(filePath);
   } catch {
     return { width: 0, height: 0 };
   }

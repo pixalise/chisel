@@ -3,18 +3,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.packedTexturePackagePreviewDataUrl = packedTexturePackagePreviewDataUrl;
 exports.packAlbedoHeightTextureInMemory = packAlbedoHeightTextureInMemory;
 exports.packNormalRoughnessTextureInMemory = packNormalRoughnessTextureInMemory;
 exports.packTexturePackageAsset = packTexturePackageAsset;
 const node_crypto_1 = require("node:crypto");
 const promises_1 = __importDefault(require("node:fs/promises"));
 const node_path_1 = __importDefault(require("node:path"));
-const sharp_1 = __importDefault(require("sharp"));
 const schemas_1 = require("../shared/schemas");
 const types_1 = require("../shared/types");
+const sharp_worker_client_1 = require("./sharp-worker-client");
 const packedTexturePackageMagic = "GPPT";
 const packedTexturePackageVersion = 1;
 const packedTexturePackageExtension = "gppt";
+const packedTexturePackageHeaderSize = 24;
 function createNanoid() {
     return (0, node_crypto_1.randomBytes)(16).toString("base64url").slice(0, 21);
 }
@@ -49,11 +51,7 @@ async function writeFileAtomic(filePath, content) {
     }
 }
 async function loadRgba(filePath) {
-    const { data, info } = await (0, sharp_1.default)(filePath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    if (!info.width || !info.height) {
-        throw new Error(`Could not read image dimensions for ${filePath}`);
-    }
-    return { data, width: info.width, height: info.height };
+    return (0, sharp_worker_client_1.loadSharpRgba)(filePath);
 }
 function requireSameSize(a, aLabel, b, bLabel) {
     if (a.width !== b.width || a.height !== b.height) {
@@ -83,26 +81,46 @@ function packNormalRoughnessPixels(normal, roughness) {
     return { data: output, width: normal.width, height: normal.height };
 }
 async function rgbaPngBuffer(image) {
-    return (0, sharp_1.default)(image.data, { raw: { width: image.width, height: image.height, channels: 4 } })
-        .png()
-        .toBuffer();
+    return (0, sharp_worker_client_1.encodeSharpRgbaPng)(image.data, image.width, image.height);
 }
 async function rgbaPngDataUrl(image) {
     const buffer = await rgbaPngBuffer(image);
     return `data:image/png;base64,${buffer.toString("base64")}`;
 }
 function packedTexturePackageBuffer(width, height, albedoHeightPng, normalRoughnessPng) {
-    const headerSize = 24;
-    const buffer = Buffer.alloc(headerSize + albedoHeightPng.length + normalRoughnessPng.length);
+    const buffer = Buffer.alloc(packedTexturePackageHeaderSize + albedoHeightPng.length + normalRoughnessPng.length);
     buffer.write(packedTexturePackageMagic, 0, "ascii");
     buffer.writeUInt32LE(packedTexturePackageVersion, 4);
     buffer.writeUInt32LE(width, 8);
     buffer.writeUInt32LE(height, 12);
     buffer.writeUInt32LE(albedoHeightPng.length, 16);
     buffer.writeUInt32LE(normalRoughnessPng.length, 20);
-    albedoHeightPng.copy(buffer, headerSize);
-    normalRoughnessPng.copy(buffer, headerSize + albedoHeightPng.length);
+    albedoHeightPng.copy(buffer, packedTexturePackageHeaderSize);
+    normalRoughnessPng.copy(buffer, packedTexturePackageHeaderSize + albedoHeightPng.length);
     return buffer;
+}
+function packedTexturePackagePreviewDataUrl(buffer, preview = "albedoHeight") {
+    if (buffer.length < packedTexturePackageHeaderSize || buffer.subarray(0, 4).toString("ascii") !== packedTexturePackageMagic) {
+        throw new Error("File is not a GPPT texture package.");
+    }
+    const version = buffer.readUInt32LE(4);
+    if (version !== packedTexturePackageVersion) {
+        throw new Error(`Unsupported GPPT version: ${version}`);
+    }
+    const albedoHeightPngLength = buffer.readUInt32LE(16);
+    const normalRoughnessPngLength = buffer.readUInt32LE(20);
+    const albedoHeightPngEnd = packedTexturePackageHeaderSize + albedoHeightPngLength;
+    if (albedoHeightPngLength <= 0 || albedoHeightPngEnd > buffer.length) {
+        throw new Error("GPPT package has an invalid albedo-height payload.");
+    }
+    if (preview === "albedoHeight") {
+        return `data:image/png;base64,${buffer.subarray(packedTexturePackageHeaderSize, albedoHeightPngEnd).toString("base64")}`;
+    }
+    const normalRoughnessPngEnd = albedoHeightPngEnd + normalRoughnessPngLength;
+    if (normalRoughnessPngLength <= 0 || normalRoughnessPngEnd > buffer.length) {
+        throw new Error("GPPT package has an invalid normal-roughness payload.");
+    }
+    return `data:image/png;base64,${buffer.subarray(albedoHeightPngEnd, normalRoughnessPngEnd).toString("base64")}`;
 }
 async function packAlbedoHeightTextureInMemory(input) {
     const request = schemas_1.packAlbedoHeightTextureSchema.parse(input);
@@ -139,7 +157,7 @@ async function packTexturePackageAsset(input) {
     const existing = document.assets.find((asset) => asset.relativePath === relativePath);
     const asset = schemas_1.assetSchema.parse({
         id: existing?.id ?? createNanoid(),
-        category: types_1.AssetCategoryEnum.image,
+        category: types_1.AssetCategoryEnum.terrainTexture,
         extension: packedTexturePackageExtension,
         height: albedoHeight.height,
         name: stem,

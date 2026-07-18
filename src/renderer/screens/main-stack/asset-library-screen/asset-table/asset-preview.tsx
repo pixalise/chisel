@@ -1,12 +1,15 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import ImagePreview from "@/components/image-preview";
 import useAppStore from "@/stores/app-store";
-import { type FC } from "react";
+import { type FC, useState } from "react";
 import { type Asset } from "../../../../../shared/types";
+import { cn } from "@/lib/utils";
 
 export interface AssetPreviewProps {
   asset: Asset;
+  className?: string;
 }
 
 interface PreviewFactProps {
@@ -14,18 +17,41 @@ interface PreviewFactProps {
   value: string;
 }
 
-const imagePathPattern = /\.(?:avif|bmp|gif|jpe?g|png|tiff?|webp)$/i;
+const previewablePathPattern = /\.(?:avif|bmp|gif|gppt|jpe?g|png|tiff?|webp)$/i;
+type GpptPreview = "albedoHeight" | "normalRoughness";
+
+const gpptPreviewLabels: Record<GpptPreview, string> = {
+  albedoHeight: "Albedo + Height",
+  normalRoughness: "Normal + Roughness"
+};
 
 export const AssetPreview: FC<AssetPreviewProps> = (props) => {
-  const { asset } = props;
+  const { asset, className } = props;
+  const [gpptPreview, setGpptPreview] = useState<GpptPreview>("albedoHeight");
   const project = useAppStore((state) => state._project);
-  const canPreview = imagePathPattern.test(asset.relativePath);
+  const canPreview = previewablePathPattern.test(asset.relativePath);
+  const isGppt = /\.gppt$/i.test(asset.relativePath);
   const previewPath = asset.relativePath.startsWith("/") || !project ? asset.relativePath : `${project.path}/${asset.relativePath}`;
 
   return (
-    <div className="space-y-4">
+    <div className={cn("min-w-0 space-y-4", className)}>
+      {isGppt && (
+        <div className="flex min-w-0 flex-wrap gap-2">
+          {(Object.keys(gpptPreviewLabels) as GpptPreview[]).map((preview) => (
+            <Button
+              key={preview}
+              onClick={() => setGpptPreview(preview)}
+              size="sm"
+              type="button"
+              variant={gpptPreview === preview ? "secondary" : "outline"}
+            >
+              {gpptPreviewLabels[preview]}
+            </Button>
+          ))}
+        </div>
+      )}
       {canPreview ? (
-        <ImagePreview path={previewPath} />
+        <ImagePreview path={previewPath} preview={isGppt ? gpptPreview : undefined} />
       ) : (
         <div className="grid min-h-60 place-items-center overflow-hidden bg-muted text-sm text-muted-foreground">No preview</div>
       )}

@@ -52,11 +52,11 @@ export const AssetLibraryScreen: FC = () => {
           </Section>
         </div>
         {!isNil(selectedAsset) && (
-          <div className="min-h-0 w-96 max-[1120px]:w-full">
+          <div className="min-h-0 min-w-0 w-96">
             <Section title="Selected Asset" copy={selectedAsset.name}>
               <ScrollArea className="h-[calc(100vh-13rem)] min-h-80 border border-border">
-                <div className="p-3">
-                  <AssetPreview asset={selectedAsset} />
+                <div className="min-w-0 p-3">
+                  <AssetPreview asset={selectedAsset} className="w-60" />
                 </div>
               </ScrollArea>
             </Section>

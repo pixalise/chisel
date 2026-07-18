@@ -18,6 +18,6 @@ electron_1.contextBridge.exposeInMainWorld("electron", {
     packNormalRoughnessTexture: (input) => electron_1.ipcRenderer.invoke("texture:pack-normal-roughness", input),
     packTexturePackage: (input) => electron_1.ipcRenderer.invoke("texture:pack-package", input),
     convertImages: (input) => electron_1.ipcRenderer.invoke("image:convert-to-png", input),
-    createImageConversionPreview: (inputPath) => electron_1.ipcRenderer.invoke("image:conversion-preview", inputPath),
+    createImageConversionPreview: (inputPath, preview) => electron_1.ipcRenderer.invoke("image:conversion-preview", inputPath, preview),
     getPathForFile: (file) => electron_1.webUtils.getPathForFile(file)
 });

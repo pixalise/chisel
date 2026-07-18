@@ -3,7 +3,12 @@ import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
 import { describe, expect, test } from "vitest";
-import { packAlbedoHeightTextureInMemory, packNormalRoughnessTextureInMemory, packTexturePackageAsset } from "./texture-packing";
+import {
+  packedTexturePackagePreviewDataUrl,
+  packAlbedoHeightTextureInMemory,
+  packNormalRoughnessTextureInMemory,
+  packTexturePackageAsset
+} from "./texture-packing";
 import { AssetCategoryEnum } from "../shared/types";
 
 async function writeRgbaPng(filePath: string, data: number[], width = 2, height = 1): Promise<void> {
@@ -66,12 +71,14 @@ describe("texture packing", () => {
     const packageBuffer = await fs.readFile(path.join(projectPath, ...asset.relativePath.split("/")));
     const assetsJson = JSON.parse(await fs.readFile(path.join(projectPath, ".chisel", "assets.json"), "utf8")) as unknown;
 
-    expect(asset.category).toBe(AssetCategoryEnum.image);
+    expect(asset.category).toBe(AssetCategoryEnum.terrainTexture);
     expect(asset.extension).toBe("gppt");
     expect(packageBuffer.subarray(0, 4).toString("ascii")).toBe("GPPT");
     expect(packageBuffer.readUInt32LE(4)).toBe(1);
     expect(packageBuffer.readUInt32LE(8)).toBe(2);
     expect(packageBuffer.readUInt32LE(12)).toBe(1);
+    expect(await dataUrlPixels(packedTexturePackagePreviewDataUrl(packageBuffer))).toEqual([10, 20, 30, 70, 40, 50, 60, 80]);
+    expect(await dataUrlPixels(packedTexturePackagePreviewDataUrl(packageBuffer, "normalRoughness"))).toEqual([1, 2, 3, 9, 4, 5, 6, 10]);
     expect(assetsJson).toMatchObject({ schemaVersion: 1, assets: [{ id: asset.id, relativePath: asset.relativePath }] });
   });
 });

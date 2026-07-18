@@ -7,8 +7,8 @@ exports.importAsset = importAsset;
 const node_crypto_1 = require("node:crypto");
 const promises_1 = __importDefault(require("node:fs/promises"));
 const node_path_1 = __importDefault(require("node:path"));
-const sharp_1 = __importDefault(require("sharp"));
 const schemas_1 = require("../shared/schemas");
+const sharp_worker_client_1 = require("./sharp-worker-client");
 function createNanoid() {
     return (0, node_crypto_1.randomBytes)(16).toString("base64url").slice(0, 21);
 }
@@ -44,11 +44,7 @@ async function writeFileAtomic(filePath, content) {
 }
 async function imageDimensions(filePath) {
     try {
-        const metadata = await (0, sharp_1.default)(filePath).metadata();
-        return {
-            width: metadata.width ?? 0,
-            height: metadata.height ?? 0
-        };
+        return await (0, sharp_worker_client_1.readImageDimensions)(filePath);
     }
     catch {
         return { width: 0, height: 0 };

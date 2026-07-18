@@ -33,7 +33,7 @@ contextBridge.exposeInMainWorld("electron", {
   packTexturePackage: (input: PackTexturePackage): Promise<Asset> => ipcRenderer.invoke("texture:pack-package", input) as Promise<Asset>,
   convertImages: (input: ConvertImages): Promise<ConvertedImage[]> =>
     ipcRenderer.invoke("image:convert-to-png", input) as Promise<ConvertedImage[]>,
-  createImageConversionPreview: (inputPath: string): Promise<string> =>
-    ipcRenderer.invoke("image:conversion-preview", inputPath) as Promise<string>,
+  createImageConversionPreview: (inputPath: string, preview?: "albedoHeight" | "normalRoughness"): Promise<string> =>
+    ipcRenderer.invoke("image:conversion-preview", inputPath, preview) as Promise<string>,
   getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 });

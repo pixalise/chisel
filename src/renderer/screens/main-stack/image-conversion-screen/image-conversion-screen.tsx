@@ -51,14 +51,19 @@ export function ImageConversionScreen() {
     onChange(paths);
     const request = ++previewRequest.current;
     setSourcePreviews(paths.map((path) => ({ path })));
-    const previews = await Promise.all(
-      paths.map(async (path) => ({
-        path,
-        source: await imageConversionService.createPreview(path).catch(() => null)
-      }))
-    );
-    if (request === previewRequest.current) {
-      setSourcePreviews(previews);
+
+    for (const path of paths) {
+      void imageConversionService
+        .createPreview(path)
+        .then((source) => ({ path, source }))
+        .catch(() => ({ path, source: null }))
+        .then((preview) => {
+          if (request !== previewRequest.current) {
+            return;
+          }
+
+          setSourcePreviews((current) => current.map((entry) => (entry.path === preview.path ? preview : entry)));
+        });
     }
   }
 

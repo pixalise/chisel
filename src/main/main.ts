@@ -4,7 +4,13 @@ import path from "node:path";
 import { importAsset } from "./asset-store";
 import { convertImagesToPng, createImageConversionPreview } from "./image-conversion";
 import { getFileMetadata } from "./file-metadata";
-import { packAlbedoHeightTextureInMemory, packNormalRoughnessTextureInMemory, packTexturePackageAsset } from "./texture-packing";
+import {
+  packedTexturePackagePreviewDataUrl,
+  type PackedTexturePackagePreviewKind,
+  packAlbedoHeightTextureInMemory,
+  packNormalRoughnessTextureInMemory,
+  packTexturePackageAsset
+} from "./texture-packing";
 import type {
   ConvertImages,
   ImportAssetInput,
@@ -108,7 +114,11 @@ async function ensureGitignoreEntry(filePath: string, entry: string): Promise<vo
   await fs.writeFile(filePath, `${prefix}${entry}\n`, "utf8");
 }
 
-async function createImagePreview(inputPath: string): Promise<string> {
+async function createImagePreview(inputPath: string, gpptPreview?: PackedTexturePackagePreviewKind): Promise<string> {
+  if (/\.gppt$/i.test(inputPath)) {
+    return packedTexturePackagePreviewDataUrl(await fs.readFile(inputPath), gpptPreview);
+  }
+
   const image = nativeImage.createFromPath(inputPath);
   if (image.isEmpty()) {
     return createImageConversionPreview(inputPath);
@@ -200,7 +210,9 @@ function registerIpc(): void {
   ipcMain.handle("texture:pack-normal-roughness", (_event, input: PackNormalRoughnessTexture) => packNormalRoughnessTextureInMemory(input));
   ipcMain.handle("texture:pack-package", (_event, input: PackTexturePackage) => packTexturePackageAsset(input));
   ipcMain.handle("image:convert-to-png", (_event, input: ConvertImages) => convertImagesToPng(input));
-  ipcMain.handle("image:conversion-preview", (_event, inputPath: string) => createImagePreview(inputPath));
+  ipcMain.handle("image:conversion-preview", (_event, inputPath: string, preview?: PackedTexturePackagePreviewKind) =>
+    createImagePreview(inputPath, preview)
+  );
 }
 
 app.whenReady().then(() => {

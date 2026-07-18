@@ -1,5 +1,5 @@
 import z from "zod";
-import { AssetCategoryEnum, ColumnType } from "./types";
+import { AssetCategoryEnum, ColumnType, isTerrainTextureExtension } from "./types";
 
 export const projectSchema = z.object({
   id: z.nanoid(),
@@ -20,7 +20,10 @@ export const createOrUpdateProjectSchema = z.object({
 export type CreateOrUpdateProject = z.infer<typeof createOrUpdateProjectSchema>;
 
 function legacyAssetCategory(value: string): AssetCategoryEnum {
-  if (value === "texture" || value === "material" || value === "shader" || value === "ui") {
+  if (value === "texture") {
+    return AssetCategoryEnum.terrainTexture;
+  }
+  if (value === "material" || value === "shader" || value === "ui") {
     return AssetCategoryEnum.image;
   }
   if (value === "config") {
@@ -48,6 +51,14 @@ function normalizeAssetCategoryObject(value: unknown): unknown {
     record.category = legacyAssetCategory(record.type);
   }
   return record;
+}
+
+function assetCategoryForExtension(extension: string, category: AssetCategoryEnum): AssetCategoryEnum {
+  if (isTerrainTextureExtension(extension)) {
+    return AssetCategoryEnum.terrainTexture;
+  }
+
+  return category;
 }
 
 const assetInputFields = {
@@ -78,7 +89,10 @@ const assetDocumentSchema = z
     const { tag, tags, ...rest } = asset;
     void tag;
     void tags;
-    return rest;
+    return {
+      ...rest,
+      category: assetCategoryForExtension(rest.extension, rest.category)
+    };
   });
 
 const kib = 1024;

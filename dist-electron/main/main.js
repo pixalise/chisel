@@ -88,7 +88,10 @@ async function ensureGitignoreEntry(filePath, entry) {
     const prefix = content.length === 0 || content.endsWith("\n") ? content : `${content}\n`;
     await promises_1.default.writeFile(filePath, `${prefix}${entry}\n`, "utf8");
 }
-async function createImagePreview(inputPath) {
+async function createImagePreview(inputPath, gpptPreview) {
+    if (/\.gppt$/i.test(inputPath)) {
+        return (0, texture_packing_1.packedTexturePackagePreviewDataUrl)(await promises_1.default.readFile(inputPath), gpptPreview);
+    }
     const image = electron_1.nativeImage.createFromPath(inputPath);
     if (image.isEmpty()) {
         return (0, image_conversion_1.createImageConversionPreview)(inputPath);
@@ -162,7 +165,7 @@ function registerIpc() {
     electron_1.ipcMain.handle("texture:pack-normal-roughness", (_event, input) => (0, texture_packing_1.packNormalRoughnessTextureInMemory)(input));
     electron_1.ipcMain.handle("texture:pack-package", (_event, input) => (0, texture_packing_1.packTexturePackageAsset)(input));
     electron_1.ipcMain.handle("image:convert-to-png", (_event, input) => (0, image_conversion_1.convertImagesToPng)(input));
-    electron_1.ipcMain.handle("image:conversion-preview", (_event, inputPath) => createImagePreview(inputPath));
+    electron_1.ipcMain.handle("image:conversion-preview", (_event, inputPath, preview) => createImagePreview(inputPath, preview));
 }
 electron_1.app.whenReady().then(() => {
     const icon = electron_1.nativeImage.createFromPath(appIconPath());

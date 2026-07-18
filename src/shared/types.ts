@@ -15,6 +15,7 @@ export interface FileMetadata {
 }
 
 export enum AssetCategoryEnum {
+  terrainTexture = "TERRAIN_TEXTURE",
   image = "image",
   audio = "audio",
   font = "font",
@@ -22,12 +23,19 @@ export enum AssetCategoryEnum {
   other = "other"
 }
 export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
+  [AssetCategoryEnum.terrainTexture]: "Terrain Texture",
   [AssetCategoryEnum.image]: "Image",
   [AssetCategoryEnum.audio]: "Audio",
   [AssetCategoryEnum.font]: "Font",
   [AssetCategoryEnum.data]: "Data",
   [AssetCategoryEnum.other]: "Other"
 };
+
+const terrainTextureExtensions = new Set(["exr", "gppt", "tga", "tif", "tiff"]);
+
+export function isTerrainTextureExtension(extension: string): boolean {
+  return terrainTextureExtensions.has(extension.toLowerCase());
+}
 
 export const assetCategoryOptionValues = Object.values(AssetCategoryEnum).map((category) => ({
   label: assetCategoryLabelMap[category],

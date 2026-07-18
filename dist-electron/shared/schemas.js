@@ -19,7 +19,10 @@ exports.createOrUpdateProjectSchema = zod_1.default.object({
     path: zod_1.default.string()
 });
 function legacyAssetCategory(value) {
-    if (value === "texture" || value === "material" || value === "shader" || value === "ui") {
+    if (value === "texture") {
+        return types_1.AssetCategoryEnum.terrainTexture;
+    }
+    if (value === "material" || value === "shader" || value === "ui") {
         return types_1.AssetCategoryEnum.image;
     }
     if (value === "config") {
@@ -41,6 +44,12 @@ function normalizeAssetCategoryObject(value) {
         record.category = legacyAssetCategory(record.type);
     }
     return record;
+}
+function assetCategoryForExtension(extension, category) {
+    if ((0, types_1.isTerrainTextureExtension)(extension)) {
+        return types_1.AssetCategoryEnum.terrainTexture;
+    }
+    return category;
 }
 const assetInputFields = {
     category: assetCategorySchema,
@@ -65,7 +74,10 @@ const assetDocumentSchema = zod_1.default
     const { tag, tags, ...rest } = asset;
     void tag;
     void tags;
-    return rest;
+    return {
+        ...rest,
+        category: assetCategoryForExtension(rest.extension, rest.category)
+    };
 });
 const kib = 1024;
 const mib = kib * 1024;

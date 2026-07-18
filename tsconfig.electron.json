@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/main/main.ts", "src/preload/preload.ts", "src/shared"]
+  "include": ["src/main", "src/preload/preload.ts", "src/shared"]
 }

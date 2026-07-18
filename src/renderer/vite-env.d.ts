@@ -39,7 +39,7 @@ declare global {
       packNormalRoughnessTexture: (input: PackNormalRoughnessTexture) => Promise<string>;
       packTexturePackage: (input: PackTexturePackage) => Promise<Asset>;
       convertImages: (input: ConvertImages) => Promise<ConvertedImage[]>;
-      createImageConversionPreview: (inputPath: string) => Promise<string>;
+      createImageConversionPreview: (inputPath: string, preview?: "albedoHeight" | "normalRoughness") => Promise<string>;
       getPathForFile: (file: File) => string;
     };
   }

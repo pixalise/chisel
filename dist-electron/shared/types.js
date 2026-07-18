@@ -1,8 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ColumnType = exports.InputKeyEnum = exports.assetCategoryOptionValues = exports.assetCategoryLabelMap = exports.AssetCategoryEnum = void 0;
+exports.isTerrainTextureExtension = isTerrainTextureExtension;
 var AssetCategoryEnum;
 (function (AssetCategoryEnum) {
+    AssetCategoryEnum["terrainTexture"] = "TERRAIN_TEXTURE";
     AssetCategoryEnum["image"] = "image";
     AssetCategoryEnum["audio"] = "audio";
     AssetCategoryEnum["font"] = "font";
@@ -10,12 +12,17 @@ var AssetCategoryEnum;
     AssetCategoryEnum["other"] = "other";
 })(AssetCategoryEnum || (exports.AssetCategoryEnum = AssetCategoryEnum = {}));
 exports.assetCategoryLabelMap = {
+    [AssetCategoryEnum.terrainTexture]: "Terrain Texture",
     [AssetCategoryEnum.image]: "Image",
     [AssetCategoryEnum.audio]: "Audio",
     [AssetCategoryEnum.font]: "Font",
     [AssetCategoryEnum.data]: "Data",
     [AssetCategoryEnum.other]: "Other"
 };
+const terrainTextureExtensions = new Set(["exr", "gppt", "tga", "tif", "tiff"]);
+function isTerrainTextureExtension(extension) {
+    return terrainTextureExtensions.has(extension.toLowerCase());
+}
 exports.assetCategoryOptionValues = Object.values(AssetCategoryEnum).map((category) => ({
     label: exports.assetCategoryLabelMap[category],
     value: category

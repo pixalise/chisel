@@ -1,7 +1,6 @@
 import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import sharp from "sharp";
 import {
   assetSchema,
   assetsJsonSchema,
@@ -15,6 +14,7 @@ import {
   type PackTexturePackage
 } from "../shared/schemas";
 import { AssetCategoryEnum } from "../shared/types";
+import { encodeSharpRgbaPng, loadSharpRgba } from "./sharp-worker-client";
 
 interface RgbaImage {
   data: Buffer;
@@ -25,6 +25,9 @@ interface RgbaImage {
 const packedTexturePackageMagic = "GPPT";
 const packedTexturePackageVersion = 1;
 const packedTexturePackageExtension = "gppt";
+const packedTexturePackageHeaderSize = 24;
+
+export type PackedTexturePackagePreviewKind = "albedoHeight" | "normalRoughness";
 
 function createNanoid(): string {
   return randomBytes(16).toString("base64url").slice(0, 21);
@@ -62,11 +65,7 @@ async function writeFileAtomic(filePath: string, content: string | Buffer): Prom
 }
 
 async function loadRgba(filePath: string): Promise<RgbaImage> {
-  const { data, info } = await sharp(filePath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  if (!info.width || !info.height) {
-    throw new Error(`Could not read image dimensions for ${filePath}`);
-  }
-  return { data, width: info.width, height: info.height };
+  return loadSharpRgba(filePath);
 }
 
 function requireSameSize(a: RgbaImage, aLabel: string, b: RgbaImage, bLabel: string): void {
@@ -102,9 +101,7 @@ function packNormalRoughnessPixels(normal: RgbaImage, roughness: RgbaImage): Rgb
 }
 
 async function rgbaPngBuffer(image: RgbaImage): Promise<Buffer> {
-  return sharp(image.data, { raw: { width: image.width, height: image.height, channels: 4 } })
-    .png()
-    .toBuffer();
+  return encodeSharpRgbaPng(image.data, image.width, image.height);
 }
 
 async function rgbaPngDataUrl(image: RgbaImage): Promise<string> {
@@ -113,17 +110,45 @@ async function rgbaPngDataUrl(image: RgbaImage): Promise<string> {
 }
 
 function packedTexturePackageBuffer(width: number, height: number, albedoHeightPng: Buffer, normalRoughnessPng: Buffer): Buffer {
-  const headerSize = 24;
-  const buffer = Buffer.alloc(headerSize + albedoHeightPng.length + normalRoughnessPng.length);
+  const buffer = Buffer.alloc(packedTexturePackageHeaderSize + albedoHeightPng.length + normalRoughnessPng.length);
   buffer.write(packedTexturePackageMagic, 0, "ascii");
   buffer.writeUInt32LE(packedTexturePackageVersion, 4);
   buffer.writeUInt32LE(width, 8);
   buffer.writeUInt32LE(height, 12);
   buffer.writeUInt32LE(albedoHeightPng.length, 16);
   buffer.writeUInt32LE(normalRoughnessPng.length, 20);
-  albedoHeightPng.copy(buffer, headerSize);
-  normalRoughnessPng.copy(buffer, headerSize + albedoHeightPng.length);
+  albedoHeightPng.copy(buffer, packedTexturePackageHeaderSize);
+  normalRoughnessPng.copy(buffer, packedTexturePackageHeaderSize + albedoHeightPng.length);
   return buffer;
+}
+
+export function packedTexturePackagePreviewDataUrl(buffer: Buffer, preview: PackedTexturePackagePreviewKind = "albedoHeight"): string {
+  if (buffer.length < packedTexturePackageHeaderSize || buffer.subarray(0, 4).toString("ascii") !== packedTexturePackageMagic) {
+    throw new Error("File is not a GPPT texture package.");
+  }
+
+  const version = buffer.readUInt32LE(4);
+  if (version !== packedTexturePackageVersion) {
+    throw new Error(`Unsupported GPPT version: ${version}`);
+  }
+
+  const albedoHeightPngLength = buffer.readUInt32LE(16);
+  const normalRoughnessPngLength = buffer.readUInt32LE(20);
+  const albedoHeightPngEnd = packedTexturePackageHeaderSize + albedoHeightPngLength;
+  if (albedoHeightPngLength <= 0 || albedoHeightPngEnd > buffer.length) {
+    throw new Error("GPPT package has an invalid albedo-height payload.");
+  }
+
+  if (preview === "albedoHeight") {
+    return `data:image/png;base64,${buffer.subarray(packedTexturePackageHeaderSize, albedoHeightPngEnd).toString("base64")}`;
+  }
+
+  const normalRoughnessPngEnd = albedoHeightPngEnd + normalRoughnessPngLength;
+  if (normalRoughnessPngLength <= 0 || normalRoughnessPngEnd > buffer.length) {
+    throw new Error("GPPT package has an invalid normal-roughness payload.");
+  }
+
+  return `data:image/png;base64,${buffer.subarray(albedoHeightPngEnd, normalRoughnessPngEnd).toString("base64")}`;
 }
 
 export async function packAlbedoHeightTextureInMemory(input: PackAlbedoHeightTexture): Promise<string> {
@@ -166,7 +191,7 @@ export async function packTexturePackageAsset(input: PackTexturePackage): Promis
   const existing = document.assets.find((asset) => asset.relativePath === relativePath);
   const asset = assetSchema.parse({
     id: existing?.id ?? createNanoid(),
-    category: AssetCategoryEnum.image,
+    category: AssetCategoryEnum.terrainTexture,
     extension: packedTexturePackageExtension,
     height: albedoHeight.height,
     name: stem,
