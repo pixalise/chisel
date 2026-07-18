@@ -136,7 +136,6 @@ describe("Godot export", () => {
 
   it("exports input bindings as a Godot InputMap setup script", () => {
     const sortOrderColumnId = nanoid();
-    const actionColumnId = nanoid();
     const bindingsColumnId = nanoid();
     const table = systemDataTableSchema.parse({
       columns: [
@@ -147,14 +146,6 @@ describe("Godot export", () => {
           required: true,
           type: ColumnType.integer,
           unique: false
-        },
-        {
-          defaultValue: "",
-          id: actionColumnId,
-          name: "action",
-          required: true,
-          type: ColumnType.string,
-          unique: true
         },
         {
           defaultValue: [],
@@ -179,7 +170,6 @@ describe("Godot export", () => {
           slug: "MOVE_FORWARD",
           values: [
             { columnId: sortOrderColumnId, type: ColumnType.integer, value: 10 },
-            { columnId: actionColumnId, type: ColumnType.string, value: "move_forward" },
             { columnId: bindingsColumnId, type: ColumnType.enumArray, value: [InputKeyEnum.KeyW, InputKeyEnum.KeyUp] }
           ]
         },
@@ -188,7 +178,6 @@ describe("Godot export", () => {
           slug: "INCREASE_MOVE_SPEED",
           values: [
             { columnId: sortOrderColumnId, type: ColumnType.integer, value: 20 },
-            { columnId: actionColumnId, type: ColumnType.string, value: "increase_move_speed" },
             { columnId: bindingsColumnId, type: ColumnType.enumArray, value: [InputKeyEnum.MouseButtonWheelUp] }
           ]
         }
@@ -205,11 +194,15 @@ describe("Godot export", () => {
     const inputFile = bundle.files.find((file) => file.path === "game_data/input.gd");
     const tableFile = bundle.files.find((file) => file.path === "game_data/tables/input_bindings.gd");
 
-    expect(tableFile?.content).toContain('const ACTION := [\n\t"move_forward",\n\t"increase_move_speed"\n]');
+    expect(tableFile?.content).not.toContain("const ACTION");
     expect(tableFile?.content).toContain('const BINDINGS := [\n\t["KEY_W", "KEY_UP"],\n\t["MOUSE_BUTTON_WHEEL_UP"]\n]');
     expect(inputFile?.content).toContain("class_name ChiselInput");
+    expect(inputFile?.content).toContain("String(ChiselInputBindings.SLUGS[index]).to_lower()");
+    expect(inputFile?.content).not.toContain("ChiselInputBindings.ACTION");
     expect(inputFile?.content).toContain("InputMap.action_add_event(action_name, event)");
-    expect(inputFile?.content).toContain('"KEY_W":\n\t\t\treturn _key(KEY_W)');
-    expect(inputFile?.content).toContain('"MOUSE_BUTTON_WHEEL_UP":\n\t\t\treturn _mouse_button(MOUSE_BUTTON_WHEEL_UP)');
+    expect(inputFile?.content).toContain('"KEY_W": KEY_W');
+    expect(inputFile?.content).toContain('"MOUSE_BUTTON_WHEEL_UP": MOUSE_BUTTON_WHEEL_UP');
+    expect(inputFile?.content).toContain("return _key(int(KEY_BINDINGS[binding]))");
+    expect(inputFile?.content).toContain("return _mouse_button(int(MOUSE_BINDINGS[binding]))");
   });
 });

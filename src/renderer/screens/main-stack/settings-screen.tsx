@@ -2,17 +2,38 @@ import { type FC, type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Section } from "@/components/layout/section";
 import useExportProjectMutation from "@/hooks/use-export-project-mutation";
+import { useToast } from "@/hooks/use-toast";
+import { type ExportProjectResult } from "@/services/export-service";
 import useAppStore from "@/stores/app-store";
 
 export const SettingsScreen: FC = () => {
-  const [lastExport, setLastExport] = useState<{ exportedAt: string; fileCount: number; manifestPath: string } | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [lastExport, setLastExport] = useState<ExportProjectResult | null>(null);
   const {
     computed: { project }
   } = useAppStore();
   const { exportProject, isExportProjectLoading } = useExportProjectMutation();
+  const { toast } = useToast();
 
   async function onExportProject(): Promise<void> {
-    setLastExport(await exportProject());
+    setExportError(null);
+
+    try {
+      const result = await exportProject();
+      setLastExport(result);
+      toast({
+        title: "Game data exported",
+        description: `${result.fileCount} files written to ${result.outputPath}.`
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setExportError(message);
+      toast({
+        variant: "destructive",
+        title: "Export failed",
+        description: message
+      });
+    }
   }
 
   return (
@@ -35,6 +56,8 @@ export const SettingsScreen: FC = () => {
             <SettingsRow label="Manifest" value="game_data/manifest.gd" />
             {lastExport && <SettingsRow label="Last export" value={lastExport.exportedAt} />}
             {lastExport && <SettingsRow label="Files" value={String(lastExport.fileCount)} />}
+            {lastExport && <SettingsRow label="Output folder" value={lastExport.outputPath} />}
+            {exportError && <SettingsRow label="Export error" value={exportError} />}
             <div className="pt-3">
               <Button disabled={isExportProjectLoading} onClick={onExportProject} type="button">
                 {isExportProjectLoading ? "Exporting..." : "Export Game Data"}

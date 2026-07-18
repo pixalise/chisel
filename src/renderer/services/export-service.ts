@@ -8,6 +8,7 @@ export interface ExportProjectResult {
   exportedAt: string;
   fileCount: number;
   manifestPath: string;
+  outputPath: string;
 }
 
 class ExportService {
@@ -22,7 +23,8 @@ class ExportService {
     return {
       exportedAt,
       fileCount: bundle.files.length,
-      manifestPath: "game_data/manifest.gd"
+      manifestPath: "game_data/manifest.gd",
+      outputPath: `${project.path}/game_data`
     };
   }
 }

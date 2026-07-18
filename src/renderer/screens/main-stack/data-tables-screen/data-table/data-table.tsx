@@ -73,11 +73,10 @@ function nextDefaultSlug(rows: EditorRow[]): string {
 
 function normalizeSlugInput(value: string): string {
   return value
-    .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "");
+    .replace(/\s/g, "_")
+    .trim();
 }
 
 function createEditorRow(columns: DataColumnDefinition[], rows: EditorRow[]): EditorRow {

@@ -84,7 +84,6 @@ function column(seed: string, name: string, type: ColumnType, options: SystemCol
 export const INPUT_BINDINGS_TABLE = {
   columns: [
     column("input_sort_order", "sort_order", ColumnType.integer, { defaultValue: 0, min: 0 }),
-    column("input_action", "action", ColumnType.string, { maxChars: 96, unique: true }),
     column("input_bindings", "bindings", ColumnType.enumArray, {
       defaultValue: [],
       max: 8,

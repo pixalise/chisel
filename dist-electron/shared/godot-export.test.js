@@ -129,4 +129,71 @@ const godot_export_1 = require("./godot-export");
         (0, vitest_1.expect)(tableFile?.content).toContain("const MAX_HEALTH_2 := [\n\t200\n]");
         (0, vitest_1.expect)(tableFile?.content).toContain("const MAX_HEALTH_2_2 := [\n\t300\n]");
     });
+    (0, vitest_1.it)("exports input bindings as a Godot InputMap setup script", () => {
+        const sortOrderColumnId = (0, nanoid_1.nanoid)();
+        const bindingsColumnId = (0, nanoid_1.nanoid)();
+        const table = schemas_1.systemDataTableSchema.parse({
+            columns: [
+                {
+                    defaultValue: 0,
+                    id: sortOrderColumnId,
+                    name: "sort_order",
+                    required: true,
+                    type: types_1.ColumnType.integer,
+                    unique: false
+                },
+                {
+                    defaultValue: [],
+                    id: bindingsColumnId,
+                    name: "bindings",
+                    possibleValues: Object.values(types_1.InputKeyEnum),
+                    required: true,
+                    type: types_1.ColumnType.enumArray,
+                    unique: false
+                }
+            ],
+            description: "Input bindings",
+            id: "input_bindings",
+            isSystemTable: true,
+            kind: "system",
+            lastChangeAt: "2026-01-01T00:00:00.000Z",
+            moduleId: "input",
+            name: "Input Bindings",
+            rows: [
+                {
+                    id: (0, nanoid_1.nanoid)(),
+                    slug: "MOVE_FORWARD",
+                    values: [
+                        { columnId: sortOrderColumnId, type: types_1.ColumnType.integer, value: 10 },
+                        { columnId: bindingsColumnId, type: types_1.ColumnType.enumArray, value: [types_1.InputKeyEnum.KeyW, types_1.InputKeyEnum.KeyUp] }
+                    ]
+                },
+                {
+                    id: (0, nanoid_1.nanoid)(),
+                    slug: "INCREASE_MOVE_SPEED",
+                    values: [
+                        { columnId: sortOrderColumnId, type: types_1.ColumnType.integer, value: 20 },
+                        { columnId: bindingsColumnId, type: types_1.ColumnType.enumArray, value: [types_1.InputKeyEnum.MouseButtonWheelUp] }
+                    ]
+                }
+            ],
+            version: 1
+        });
+        const project = {
+            id: (0, nanoid_1.nanoid)(),
+            name: "Iron Bastion",
+            path: "/tmp/iron-bastion"
+        };
+        const bundle = (0, godot_export_1.createGodotExportBundle)(project, [table], "2026-01-01T00:00:00.000Z");
+        const inputFile = bundle.files.find((file) => file.path === "game_data/input.gd");
+        const tableFile = bundle.files.find((file) => file.path === "game_data/tables/input_bindings.gd");
+        (0, vitest_1.expect)(tableFile?.content).not.toContain("const ACTION");
+        (0, vitest_1.expect)(tableFile?.content).toContain('const BINDINGS := [\n\t["KEY_W", "KEY_UP"],\n\t["MOUSE_BUTTON_WHEEL_UP"]\n]');
+        (0, vitest_1.expect)(inputFile?.content).toContain("class_name ChiselInput");
+        (0, vitest_1.expect)(inputFile?.content).toContain("String(ChiselInputBindings.SLUGS[index]).to_lower()");
+        (0, vitest_1.expect)(inputFile?.content).not.toContain("ChiselInputBindings.ACTION");
+        (0, vitest_1.expect)(inputFile?.content).toContain("InputMap.action_add_event(action_name, event)");
+        (0, vitest_1.expect)(inputFile?.content).toContain('"KEY_W":\n\t\t\treturn _key(KEY_W)');
+        (0, vitest_1.expect)(inputFile?.content).toContain('"MOUSE_BUTTON_WHEEL_UP":\n\t\t\treturn _mouse_button(MOUSE_BUTTON_WHEEL_UP)');
+    });
 });
