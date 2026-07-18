@@ -50,11 +50,9 @@ export const AssetPreview: FC<AssetPreviewProps> = (props) => {
           ))}
         </div>
       )}
-      {canPreview ? (
-        <ImagePreview path={previewPath} preview={isGppt ? gpptPreview : undefined} />
-      ) : (
-        <div className="grid min-h-60 place-items-center overflow-hidden bg-muted text-sm text-muted-foreground">No preview</div>
-      )}
+      <div className="grid min-h-60 ">
+        {canPreview ? <ImagePreview path={previewPath} preview={isGppt ? gpptPreview : undefined} /> : <p>No preview</p>}
+      </div>
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <PreviewFact label="id" value={asset.id} />
         <div className="min-w-0 space-y-1">

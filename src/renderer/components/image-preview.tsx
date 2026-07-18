@@ -1,6 +1,8 @@
 import { type FC, useEffect, useState } from "react";
-import { isNil } from "lodash";
+import { isEmpty, isNil } from "lodash";
 import Loader from "@/components/loader";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { File } from "lucide-react";
 
 export interface ImagePreviewProps {
   path?: string;
@@ -54,9 +56,24 @@ const ImagePreview: FC<ImagePreviewProps> = (props) => {
   const source = isDataUrl ? path : convertedSource;
 
   return (
-    <div className="min-w-0 space-y-2">
-      <code className="block truncate text-xs">{path}</code>
-      <div className="grid min-h-28 place-items-center overflow-hidden bg-muted text-xs text-muted-foreground">
+    <div className="min-w-0 h-full relative">
+      {!isEmpty(path) && (
+        <div className="absolute right-2 top-2">
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="bg-muted text-muted-foreground p-2 overflow-hidden hover:bg-primary hover:text-primary-foreground cursor-wait">
+                  <File className="w-4 h-4" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <code>{path}</code>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      )}
+      <div className="grid place-items-center bg-muted text-xs text-muted-foreground">
         {source && <img onLoad={() => setIsLoading(false)} alt={path} className="object-contain" src={source} />}
         {!isNil(convertedSource) && isLoading && <Loader />}
         {isNil(convertedSource) && <span>No source.</span>}
