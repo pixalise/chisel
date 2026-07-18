@@ -197,9 +197,15 @@ describe("Godot export", () => {
     expect(tableFile?.content).not.toContain("const ACTION");
     expect(tableFile?.content).toContain('const BINDINGS := [\n\t["KEY_W", "KEY_UP"],\n\t["MOUSE_BUTTON_WHEEL_UP"]\n]');
     expect(inputFile?.content).toContain("class_name ChiselInput");
-    expect(inputFile?.content).toContain("String(ChiselInputBindings.SLUGS[index]).to_lower()");
+    expect(inputFile?.content).toContain('const ACTION_NAMES := [\n\t&"move_forward",\n\t&"increase_move_speed"\n]');
+    expect(inputFile?.content).toContain("static func action_name(action_id: int) -> StringName:");
+    expect(inputFile?.content).toContain("return ACTION_NAMES[action_id]");
+    expect(inputFile?.content).toContain("static func get_action_strength(action_id: int) -> float:");
+    expect(inputFile?.content).toContain("static func is_action_just_pressed(action_id: int) -> bool:");
+    expect(inputFile?.content).toContain("var input_action_name := action_name(index)");
+    expect(inputFile?.content).not.toContain("String(ChiselInputBindings.SLUGS[index]).to_lower()");
     expect(inputFile?.content).not.toContain("ChiselInputBindings.ACTION");
-    expect(inputFile?.content).toContain("InputMap.action_add_event(action_name, event)");
+    expect(inputFile?.content).toContain("InputMap.action_add_event(input_action_name, event)");
     expect(inputFile?.content).toContain('"KEY_W": KEY_W');
     expect(inputFile?.content).toContain('"MOUSE_BUTTON_WHEEL_UP": MOUSE_BUTTON_WHEEL_UP');
     expect(inputFile?.content).toContain("return _key(int(KEY_BINDINGS[binding]))");
