@@ -10,7 +10,7 @@ import useAddAssetMutation from "@/hooks/use-add-asset-mutation";
 import { AssetCategoryEnum, FileMetadata, isTerrainTextureExtension } from "../../../shared/types";
 import fileService from "@/services/file-service";
 import { CreateOrUpdateAsset } from "../../../shared/schemas";
-import { normalizeSnakeCaseInput } from "../../../shared/asset-paths";
+import { normalizeConstantCaseInput } from "../../../shared/asset-paths";
 
 function categoryForFile(metadata: FileMetadata): AssetCategoryEnum {
   const extension = metadata.extension.toLowerCase();
@@ -79,7 +79,7 @@ const AddAssetDialogButton: FC = () => {
               category: categoryForFile(fileMetadata),
               extension: fileMetadata.extension,
               height: fileMetadata.height ?? 0,
-              name: normalizeSnakeCaseInput(fileMetadata.stem),
+              name: normalizeConstantCaseInput(fileMetadata.stem),
               note: "",
               sizeBytes: fileMetadata.sizeBytes,
               width: fileMetadata.width ?? 0

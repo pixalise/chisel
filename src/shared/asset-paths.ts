@@ -15,8 +15,12 @@ export function snakeCase(value: string): string {
     .toLowerCase();
 }
 
-export function normalizeSnakeCaseInput(value: string): string {
-  return snakeCase(value);
+export function constantCase(value: string): string {
+  return snakeCase(value).toUpperCase();
+}
+
+export function normalizeConstantCaseInput(value: string): string {
+  return constantCase(value);
 }
 
 export function assetStem(name: string): string {
@@ -24,7 +28,7 @@ export function assetStem(name: string): string {
 }
 
 export function assetSlug(name: string): string {
-  return snakeCase(name);
+  return constantCase(name);
 }
 
 function snakePathSegment(value: string, label: string): string {
@@ -36,7 +40,11 @@ function snakePathSegment(value: string, label: string): string {
 }
 
 function chiselPathSegment(value: string, label: string): string {
-  return snakePathSegment(value, label);
+  const segment = constantCase(value);
+  if (!/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/.test(segment)) {
+    throw new Error(`Invalid ${label} Chisel path segment: ${value}`);
+  }
+  return segment;
 }
 
 export function legacyAssetStem(name: string): string {

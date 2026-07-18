@@ -39,19 +39,18 @@ export const rowSlugSchema = z
   .trim()
   .min(1, "Slug is required")
   .max(96, "Slug must be at most 96 characters")
-  .regex(/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/, "Slug must be snake_case");
+  .regex(/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/, "Slug must be CONSTANT_CASE");
 export type RowSlug = z.infer<typeof rowSlugSchema>;
 
 export const assetSlugSchema = rowSlugSchema;
 export type AssetSlug = z.infer<typeof assetSlugSchema>;
 
 function legacyAssetCategory(value: string): AssetCategoryEnum {
-  const normalized = value.trim();
-  const normalizedSlug = assetSlug(normalized);
-  if (normalizedSlug === "texture" || normalizedSlug === AssetCategoryEnum.terrainTexture) {
+  const normalizedSlug = assetSlug(value);
+  if (normalizedSlug === "TEXTURE" || normalizedSlug === AssetCategoryEnum.terrainTexture) {
     return AssetCategoryEnum.terrainTexture;
   }
-  if (["image", "material", "shader", "ui"].includes(normalizedSlug)) {
+  if (["IMAGE", "MATERIAL", "SHADER", "UI"].includes(normalizedSlug)) {
     return AssetCategoryEnum.image;
   }
   if (normalizedSlug === AssetCategoryEnum.audio) {
@@ -60,7 +59,7 @@ function legacyAssetCategory(value: string): AssetCategoryEnum {
   if (normalizedSlug === AssetCategoryEnum.font) {
     return AssetCategoryEnum.font;
   }
-  if (["data", "config"].includes(normalizedSlug)) {
+  if (["DATA", "CONFIG"].includes(normalizedSlug)) {
     return AssetCategoryEnum.data;
   }
   if (normalizedSlug === AssetCategoryEnum.other) {

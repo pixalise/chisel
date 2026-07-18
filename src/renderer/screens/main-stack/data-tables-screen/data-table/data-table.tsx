@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { INPUT_BINDINGS_TABLE_ID } from "@/constants/system-tables";
 import useSaveTableRowsMutation from "@/hooks/use-save-table-rows-mutation";
 import { cn } from "@/lib/utils";
-import { normalizeSnakeCaseInput } from "../../../../../shared/asset-paths";
+import { normalizeConstantCaseInput } from "../../../../../shared/asset-paths";
 import { dataTableRowSchema, rowSlugSchema, type DataColumnDefinition, type DataTableRow } from "../../../../../shared/schemas";
 import { ColumnType } from "../../../../../shared/types";
 import { CellEditor, CellValue } from "./data-table-cells";
@@ -58,22 +58,22 @@ function canMutateRows(table: TableTabEntry): boolean {
 
 function nextDefaultSlug(rows: EditorRow[]): string {
   const existingSlugs = new Set(rows.map((row) => row.slug));
-  if (!existingSlugs.has("new_row")) {
-    return "new_row";
+  if (!existingSlugs.has("NEW_ROW")) {
+    return "NEW_ROW";
   }
   for (let index = 2; index < Number.MAX_SAFE_INTEGER; index += 1) {
-    const slug = `new_row_${index}`;
+    const slug = `NEW_ROW_${index}`;
     if (!existingSlugs.has(slug)) {
       return slug;
     }
   }
-  return `new_row_${nanoid()
+  return `NEW_ROW_${nanoid()
     .replace(/[^A-Za-z0-9]/g, "")
-    .toLowerCase()}`;
+    .toUpperCase()}`;
 }
 
 function normalizeSlugInput(value: string): string {
-  return normalizeSnakeCaseInput(value);
+  return normalizeConstantCaseInput(value);
 }
 
 function createEditorRow(columns: DataColumnDefinition[], rows: EditorRow[]): EditorRow {
@@ -232,7 +232,7 @@ function validateRow(row: EditorRow, columns: DataColumnDefinition[], rows: Edit
   const errors: string[] = [];
   const slugParse = rowSlugSchema.safeParse(row.slug);
   if (!slugParse.success) {
-    errors.push(slugParse.error.issues[0]?.message ?? "Slug must be snake_case");
+    errors.push(slugParse.error.issues[0]?.message ?? "Slug must be CONSTANT_CASE");
   }
   const duplicateSlug = rows.some((entry) => entry.id !== row.id && entry.slug === row.slug);
   if (duplicateSlug) {

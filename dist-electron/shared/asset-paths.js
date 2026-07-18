@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.snakeCase = snakeCase;
-exports.normalizeSnakeCaseInput = normalizeSnakeCaseInput;
+exports.constantCase = constantCase;
+exports.normalizeConstantCaseInput = normalizeConstantCaseInput;
 exports.assetStem = assetStem;
 exports.assetSlug = assetSlug;
 exports.legacyAssetStem = legacyAssetStem;
@@ -24,14 +25,17 @@ function snakeCase(value) {
         .replace(/^_+|_+$/g, "")
         .toLowerCase();
 }
-function normalizeSnakeCaseInput(value) {
-    return snakeCase(value);
+function constantCase(value) {
+    return snakeCase(value).toUpperCase();
+}
+function normalizeConstantCaseInput(value) {
+    return constantCase(value);
 }
 function assetStem(name) {
     return snakeCase(name);
 }
 function assetSlug(name) {
-    return snakeCase(name);
+    return constantCase(name);
 }
 function snakePathSegment(value, label) {
     const segment = snakeCase(value);
@@ -41,7 +45,11 @@ function snakePathSegment(value, label) {
     return segment;
 }
 function chiselPathSegment(value, label) {
-    return snakePathSegment(value, label);
+    const segment = constantCase(value);
+    if (!/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/.test(segment)) {
+        throw new Error(`Invalid ${label} Chisel path segment: ${value}`);
+    }
+    return segment;
 }
 function legacyAssetStem(name) {
     return name

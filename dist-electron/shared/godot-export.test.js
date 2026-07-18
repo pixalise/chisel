@@ -36,7 +36,7 @@ const godot_export_1 = require("./godot-export");
             rows: [
                 {
                     id: (0, nanoid_1.nanoid)(),
-                    slug: "zombie_basic",
+                    slug: "ZOMBIE_BASIC",
                     values: [
                         { columnId: displayNameColumnId, type: types_1.ColumnType.string, value: "Zombie" },
                         { columnId: maxHealthColumnId, type: types_1.ColumnType.integer, value: 100 }
@@ -44,7 +44,7 @@ const godot_export_1 = require("./godot-export");
                 },
                 {
                     id: (0, nanoid_1.nanoid)(),
-                    slug: "zombie_runner",
+                    slug: "ZOMBIE_RUNNER",
                     values: [
                         { columnId: displayNameColumnId, type: types_1.ColumnType.string, value: "Runner" },
                         { columnId: maxHealthColumnId, type: types_1.ColumnType.integer, value: 80 }
@@ -61,9 +61,9 @@ const godot_export_1 = require("./godot-export");
         const bundle = (0, godot_export_1.createGodotExportBundle)(project, [table], "2026-01-01T00:00:00.000Z");
         const tableFile = bundle.files.find((file) => file.path === "game_data/tables/enemies.gd");
         (0, vitest_1.expect)(tableFile?.content).toContain("enum Id {");
-        (0, vitest_1.expect)(tableFile?.content).toContain("zombie_basic = 0");
-        (0, vitest_1.expect)(tableFile?.content).toContain("zombie_runner = 1");
-        (0, vitest_1.expect)(tableFile?.content).toContain('const SLUGS := [\n\t"zombie_basic",\n\t"zombie_runner"\n]');
+        (0, vitest_1.expect)(tableFile?.content).toContain("ZOMBIE_BASIC = 0");
+        (0, vitest_1.expect)(tableFile?.content).toContain("ZOMBIE_RUNNER = 1");
+        (0, vitest_1.expect)(tableFile?.content).toContain('const SLUGS := [\n\t"ZOMBIE_BASIC",\n\t"ZOMBIE_RUNNER"\n]');
         (0, vitest_1.expect)(tableFile?.content).toContain('const DISPLAY_NAME := [\n\t"Zombie",\n\t"Runner"\n]');
         (0, vitest_1.expect)(tableFile?.content).toContain("const MAX_HEALTH := [\n\t100,\n\t80\n]");
         (0, vitest_1.expect)(tableFile?.content).not.toContain("const COLUMNS");
@@ -108,7 +108,7 @@ const godot_export_1 = require("./godot-export");
             rows: [
                 {
                     id: (0, nanoid_1.nanoid)(),
-                    slug: "zombie_basic",
+                    slug: "ZOMBIE_BASIC",
                     values: [
                         { columnId: firstColumnId, type: types_1.ColumnType.integer, value: 100 },
                         { columnId: secondColumnId, type: types_1.ColumnType.integer, value: 200 },
@@ -162,7 +162,7 @@ const godot_export_1 = require("./godot-export");
             rows: [
                 {
                     id: (0, nanoid_1.nanoid)(),
-                    slug: "move_forward",
+                    slug: "MOVE_FORWARD",
                     values: [
                         { columnId: sortOrderColumnId, type: types_1.ColumnType.integer, value: 10 },
                         { columnId: bindingsColumnId, type: types_1.ColumnType.enumArray, value: [types_1.InputKeyEnum.KeyW, types_1.InputKeyEnum.KeyUp] }
@@ -170,7 +170,7 @@ const godot_export_1 = require("./godot-export");
                 },
                 {
                     id: (0, nanoid_1.nanoid)(),
-                    slug: "increase_move_speed",
+                    slug: "INCREASE_MOVE_SPEED",
                     values: [
                         { columnId: sortOrderColumnId, type: types_1.ColumnType.integer, value: 20 },
                         { columnId: bindingsColumnId, type: types_1.ColumnType.enumArray, value: [types_1.InputKeyEnum.MouseButtonWheelUp] }
@@ -203,9 +203,9 @@ const godot_export_1 = require("./godot-export");
             category: types_1.AssetCategoryEnum.terrainTexture,
             extension: "gppt",
             height: 1024,
-            id: "forest_soil_1",
-            name: "forest_soil_1",
-            relativePath: ".chisel/assets/terrain_texture/forest_soil_1.gppt",
+            id: "FOREST_SOIL_1",
+            name: "FOREST_SOIL_1",
+            relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL_1.gppt",
             sizeBytes: 1024,
             width: 1024
         });
@@ -221,7 +221,7 @@ const godot_export_1 = require("./godot-export");
         (0, vitest_1.expect)(manifestFile?.content).toContain('"count": 1');
         (0, vitest_1.expect)(assetsFile?.content).toContain("class_name ChiselAssets");
         (0, vitest_1.expect)(assetsFile?.content).toContain(`"${asset.id}": {`);
-        (0, vitest_1.expect)(assetsFile?.content).toContain("forest_soil_1 = 0");
+        (0, vitest_1.expect)(assetsFile?.content).toContain("FOREST_SOIL_1 = 0");
         (0, vitest_1.expect)(assetsFile?.content).toContain('"category": "terrain_texture"');
         (0, vitest_1.expect)(assetsFile?.content).toContain('"name": "forest_soil_1"');
         (0, vitest_1.expect)(assetsFile?.content).toContain('"path": "res://game_data/assets/terrain_texture/forest_soil_1"');

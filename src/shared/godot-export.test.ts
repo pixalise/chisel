@@ -35,7 +35,7 @@ describe("Godot export", () => {
       rows: [
         {
           id: nanoid(),
-          slug: "zombie_basic",
+          slug: "ZOMBIE_BASIC",
           values: [
             { columnId: displayNameColumnId, type: ColumnType.string, value: "Zombie" },
             { columnId: maxHealthColumnId, type: ColumnType.integer, value: 100 }
@@ -43,7 +43,7 @@ describe("Godot export", () => {
         },
         {
           id: nanoid(),
-          slug: "zombie_runner",
+          slug: "ZOMBIE_RUNNER",
           values: [
             { columnId: displayNameColumnId, type: ColumnType.string, value: "Runner" },
             { columnId: maxHealthColumnId, type: ColumnType.integer, value: 80 }
@@ -62,9 +62,9 @@ describe("Godot export", () => {
     const tableFile = bundle.files.find((file) => file.path === "game_data/tables/enemies.gd");
 
     expect(tableFile?.content).toContain("enum Id {");
-    expect(tableFile?.content).toContain("zombie_basic = 0");
-    expect(tableFile?.content).toContain("zombie_runner = 1");
-    expect(tableFile?.content).toContain('const SLUGS := [\n\t"zombie_basic",\n\t"zombie_runner"\n]');
+    expect(tableFile?.content).toContain("ZOMBIE_BASIC = 0");
+    expect(tableFile?.content).toContain("ZOMBIE_RUNNER = 1");
+    expect(tableFile?.content).toContain('const SLUGS := [\n\t"ZOMBIE_BASIC",\n\t"ZOMBIE_RUNNER"\n]');
     expect(tableFile?.content).toContain('const DISPLAY_NAME := [\n\t"Zombie",\n\t"Runner"\n]');
     expect(tableFile?.content).toContain("const MAX_HEALTH := [\n\t100,\n\t80\n]");
     expect(tableFile?.content).not.toContain("const COLUMNS");
@@ -110,7 +110,7 @@ describe("Godot export", () => {
       rows: [
         {
           id: nanoid(),
-          slug: "zombie_basic",
+          slug: "ZOMBIE_BASIC",
           values: [
             { columnId: firstColumnId, type: ColumnType.integer, value: 100 },
             { columnId: secondColumnId, type: ColumnType.integer, value: 200 },
@@ -167,7 +167,7 @@ describe("Godot export", () => {
       rows: [
         {
           id: nanoid(),
-          slug: "move_forward",
+          slug: "MOVE_FORWARD",
           values: [
             { columnId: sortOrderColumnId, type: ColumnType.integer, value: 10 },
             { columnId: bindingsColumnId, type: ColumnType.enumArray, value: [InputKeyEnum.KeyW, InputKeyEnum.KeyUp] }
@@ -175,7 +175,7 @@ describe("Godot export", () => {
         },
         {
           id: nanoid(),
-          slug: "increase_move_speed",
+          slug: "INCREASE_MOVE_SPEED",
           values: [
             { columnId: sortOrderColumnId, type: ColumnType.integer, value: 20 },
             { columnId: bindingsColumnId, type: ColumnType.enumArray, value: [InputKeyEnum.MouseButtonWheelUp] }
@@ -211,9 +211,9 @@ describe("Godot export", () => {
       category: AssetCategoryEnum.terrainTexture,
       extension: "gppt",
       height: 1024,
-      id: "forest_soil_1",
-      name: "forest_soil_1",
-      relativePath: ".chisel/assets/terrain_texture/forest_soil_1.gppt",
+      id: "FOREST_SOIL_1",
+      name: "FOREST_SOIL_1",
+      relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL_1.gppt",
       sizeBytes: 1024,
       width: 1024
     });
@@ -231,7 +231,7 @@ describe("Godot export", () => {
     expect(manifestFile?.content).toContain('"count": 1');
     expect(assetsFile?.content).toContain("class_name ChiselAssets");
     expect(assetsFile?.content).toContain(`"${asset.id}": {`);
-    expect(assetsFile?.content).toContain("forest_soil_1 = 0");
+    expect(assetsFile?.content).toContain("FOREST_SOIL_1 = 0");
     expect(assetsFile?.content).toContain('"category": "terrain_texture"');
     expect(assetsFile?.content).toContain('"name": "forest_soil_1"');
     expect(assetsFile?.content).toContain('"path": "res://game_data/assets/terrain_texture/forest_soil_1"');

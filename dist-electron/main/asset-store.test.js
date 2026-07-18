@@ -19,7 +19,7 @@ function createNanoid() {
         const assetId = createNanoid();
         const oldRelativePath = ".chisel/assets/packed_texture/forest_soil_1.gppt";
         const oldPath = node_path_1.default.join(projectPath, ...oldRelativePath.split("/"));
-        const newRelativePath = ".chisel/assets/terrain_texture/forest_soil_1.gppt";
+        const newRelativePath = ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL_1.gppt";
         const newPath = node_path_1.default.join(projectPath, ...newRelativePath.split("/"));
         const tablePath = node_path_1.default.join(projectPath, ".chisel", "tables", "system", "asset_refs.json");
         await promises_1.default.mkdir(node_path_1.default.dirname(oldPath), { recursive: true });
@@ -43,13 +43,13 @@ function createNanoid() {
         }, null, 2)}\n`, "utf8");
         const document = await (0, asset_store_1.upgradeAssetLibraryPaths)(projectPath);
         (0, vitest_1.expect)(document.assetsJson.assets[0]).toMatchObject({
-            id: "forest_soil_1",
-            name: "forest_soil_1",
+            id: "FOREST_SOIL_1",
+            name: "FOREST_SOIL_1",
             relativePath: newRelativePath
         });
-        (0, vitest_1.expect)(document.assetIdChanges).toEqual({ [assetId]: "forest_soil_1" });
+        (0, vitest_1.expect)(document.assetIdChanges).toEqual({ [assetId]: "FOREST_SOIL_1" });
         await (0, vitest_1.expect)(promises_1.default.readFile(newPath, "utf8")).resolves.toBe("GPPT");
         await (0, vitest_1.expect)(promises_1.default.access(oldPath)).rejects.toMatchObject({ code: "ENOENT" });
-        await (0, vitest_1.expect)(promises_1.default.readFile(tablePath, "utf8")).resolves.toContain('"value": "forest_soil_1"');
+        await (0, vitest_1.expect)(promises_1.default.readFile(tablePath, "utf8")).resolves.toContain('"value": "FOREST_SOIL_1"');
     });
 });

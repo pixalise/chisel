@@ -16,7 +16,7 @@ describe("asset store", () => {
     const assetId = createNanoid();
     const oldRelativePath = ".chisel/assets/packed_texture/forest_soil_1.gppt";
     const oldPath = path.join(projectPath, ...oldRelativePath.split("/"));
-    const newRelativePath = ".chisel/assets/terrain_texture/forest_soil_1.gppt";
+    const newRelativePath = ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL_1.gppt";
     const newPath = path.join(projectPath, ...newRelativePath.split("/"));
     const tablePath = path.join(projectPath, ".chisel", "tables", "system", "asset_refs.json");
     await fs.mkdir(path.dirname(oldPath), { recursive: true });
@@ -54,13 +54,13 @@ describe("asset store", () => {
     const document = await upgradeAssetLibraryPaths(projectPath);
 
     expect(document.assetsJson.assets[0]).toMatchObject({
-      id: "forest_soil_1",
-      name: "forest_soil_1",
+      id: "FOREST_SOIL_1",
+      name: "FOREST_SOIL_1",
       relativePath: newRelativePath
     });
-    expect(document.assetIdChanges).toEqual({ [assetId]: "forest_soil_1" });
+    expect(document.assetIdChanges).toEqual({ [assetId]: "FOREST_SOIL_1" });
     await expect(fs.readFile(newPath, "utf8")).resolves.toBe("GPPT");
     await expect(fs.access(oldPath)).rejects.toMatchObject({ code: "ENOENT" });
-    await expect(fs.readFile(tablePath, "utf8")).resolves.toContain('"value": "forest_soil_1"');
+    await expect(fs.readFile(tablePath, "utf8")).resolves.toContain('"value": "FOREST_SOIL_1"');
   });
 });
