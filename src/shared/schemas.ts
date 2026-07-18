@@ -1,4 +1,5 @@
 import z from "zod";
+import { assetSlug } from "./asset-paths";
 import { AssetCategoryEnum, ColumnType, isTerrainTextureExtension } from "./types";
 
 export const projectSchema = z.object({
@@ -19,18 +20,51 @@ export const createOrUpdateProjectSchema = z.object({
 });
 export type CreateOrUpdateProject = z.infer<typeof createOrUpdateProjectSchema>;
 
+function duplicateValues(values: string[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+
+  for (const value of values) {
+    if (seen.has(value)) {
+      duplicates.add(value);
+    }
+    seen.add(value);
+  }
+
+  return [...duplicates];
+}
+
+export const rowSlugSchema = z
+  .string()
+  .trim()
+  .min(1, "Slug is required")
+  .max(96, "Slug must be at most 96 characters")
+  .regex(/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/, "Slug must be UPPER_SNAKE_CASE");
+export type RowSlug = z.infer<typeof rowSlugSchema>;
+
+export const assetSlugSchema = rowSlugSchema;
+export type AssetSlug = z.infer<typeof assetSlugSchema>;
+
 function legacyAssetCategory(value: string): AssetCategoryEnum {
-  if (value === "texture") {
+  const normalized = value.trim();
+  const normalizedUpper = assetSlug(normalized);
+  if (normalized === "texture" || normalized === "terrain_texture" || normalizedUpper === AssetCategoryEnum.terrainTexture) {
     return AssetCategoryEnum.terrainTexture;
   }
-  if (value === "material" || value === "shader" || value === "ui") {
+  if (["image", "material", "shader", "ui"].includes(normalized) || normalizedUpper === AssetCategoryEnum.image) {
     return AssetCategoryEnum.image;
   }
-  if (value === "config") {
+  if (normalized === "audio" || normalizedUpper === AssetCategoryEnum.audio) {
+    return AssetCategoryEnum.audio;
+  }
+  if (normalized === "font" || normalizedUpper === AssetCategoryEnum.font) {
+    return AssetCategoryEnum.font;
+  }
+  if (["data", "config"].includes(normalized) || normalizedUpper === AssetCategoryEnum.data) {
     return AssetCategoryEnum.data;
   }
-  if (Object.values(AssetCategoryEnum).includes(value as AssetCategoryEnum)) {
-    return value as AssetCategoryEnum;
+  if (normalized === "other" || normalizedUpper === AssetCategoryEnum.other) {
+    return AssetCategoryEnum.other;
   }
   return AssetCategoryEnum.other;
 }
@@ -63,7 +97,7 @@ function assetCategoryForExtension(extension: string, category: AssetCategoryEnu
 
 const assetInputFields = {
   category: assetCategorySchema,
-  name: z.string(),
+  name: assetSlugSchema,
   note: z.string().optional(),
   sizeBytes: z.number(),
   width: z.number(),
@@ -79,7 +113,8 @@ const assetDocumentSchema = z
     z.object({
       ...assetInputFields,
       category: legacyAssetCategorySchema,
-      id: z.nanoid(),
+      id: z.string(),
+      name: z.string().trim().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
       relativePath: z.string(),
       tag: z.string().optional(),
       tags: z.array(z.string()).optional()
@@ -89,8 +124,11 @@ const assetDocumentSchema = z
     const { tag, tags, ...rest } = asset;
     void tag;
     void tags;
+    const slug = assetSlugSchema.parse(assetSlug(rest.name));
     return {
       ...rest,
+      id: slug,
+      name: slug,
       category: assetCategoryForExtension(rest.extension, rest.category)
     };
   });
@@ -122,10 +160,20 @@ const _internalSchema = assetDocumentSchema.transform((a) => ({
 
 export const assetSchema = _internalSchema;
 
-export const assetsJsonSchema = z.object({
-  schemaVersion: z.number(),
-  assets: z.array(assetSchema)
-});
+export const assetsJsonSchema = z
+  .object({
+    schemaVersion: z.number(),
+    assets: z.array(assetSchema)
+  })
+  .superRefine((document, context) => {
+    for (const duplicateAssetSlug of duplicateValues(document.assets.map((asset) => asset.id))) {
+      context.addIssue({
+        code: "custom",
+        message: `Duplicate asset slug "${duplicateAssetSlug}"`,
+        path: ["assets"]
+      });
+    }
+  });
 
 export type Asset = z.infer<typeof assetSchema>;
 export type AssetsJson = z.infer<typeof assetsJsonSchema>;
@@ -139,7 +187,7 @@ const filePathSchema = z.string().trim().min(1);
 export const importAssetSchema = z.object({
   projectPath: filePathSchema,
   sourcePath: filePathSchema,
-  name: z.string().trim().min(1, "Asset name is required").max(96, "Asset name must be at most 96 characters"),
+  name: assetSlugSchema,
   category: assetCategorySchema,
   note: z.string().optional()
 });
@@ -147,12 +195,7 @@ export type ImportAssetInput = z.infer<typeof importAssetSchema>;
 
 const pngImagePathSchema = filePathSchema.refine((value) => /\.png$/i.test(value), "Image must be a PNG file");
 
-export const packedTextureNameSchema = z
-  .string()
-  .trim()
-  .min(1, "Packed texture name is required")
-  .max(56, "Packed texture name must be at most 56 characters")
-  .regex(/^[A-Za-z0-9]+(?:[ _-]+[A-Za-z0-9]+)*$/, "Use letters, numbers, spaces, underscores, or hyphens");
+export const packedTextureNameSchema = assetSlugSchema;
 
 export const packAlbedoHeightTextureSchema = z.object({
   albedo: pngImagePathSchema,
@@ -218,14 +261,6 @@ export const dataColumnValueSchema = z.object({
   value: z.json().nullish()
 });
 export type DataColumnValue = z.infer<typeof dataColumnValueSchema>;
-
-export const rowSlugSchema = z
-  .string()
-  .trim()
-  .min(1, "Slug is required")
-  .max(96, "Slug must be at most 96 characters")
-  .regex(/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/, "Slug must be UPPER_SNAKE_CASE");
-export type RowSlug = z.infer<typeof rowSlugSchema>;
 
 const dataColumnValueBaseSchema = z.object({
   columnId: z.nanoid()
@@ -399,20 +434,6 @@ export const tableRowsJsonSchema = z.object({
   rows: z.array(dataTableRowSchema)
 });
 export type TableRowsJson = z.infer<typeof tableRowsJsonSchema>;
-
-function duplicateValues(values: string[]): string[] {
-  const seen = new Set<string>();
-  const duplicates = new Set<string>();
-
-  for (const value of values) {
-    if (seen.has(value)) {
-      duplicates.add(value);
-    }
-    seen.add(value);
-  }
-
-  return [...duplicates];
-}
 
 export const validatedDataTableSchema = anyDataTableSchema.superRefine((table, context) => {
   for (const duplicateColumnId of duplicateValues(table.columns.map((column) => column.id))) {

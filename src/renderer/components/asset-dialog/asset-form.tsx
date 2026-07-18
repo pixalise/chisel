@@ -3,8 +3,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { assetCategoryOptionValues } from "../../../shared/types";
-import ControlledInput from "@/components/controls/controlled-input";
 import ControlledSelectInput from "@/components/controls/controlled-select-input";
+import ControlledSlugInput from "@/components/controls/controlled-slug-input";
 import ControlledTextarea from "@/components/controls/controlled-textarea";
 import { CreateOrUpdateAsset, createOrUpdateAssetSchema } from "../../../shared/schemas";
 
@@ -26,7 +26,7 @@ const AssetForm: FC<AssetFormProps> = (props) => {
   return (
     <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
-        <ControlledInput control={form.control} disabled={disabled} label="Name" name="name" />
+        <ControlledSlugInput control={form.control} disabled={disabled} label="Slug" name="name" />
         <ControlledSelectInput
           control={form.control}
           disabled={disabled}

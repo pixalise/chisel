@@ -161,9 +161,12 @@ function registerIpc() {
         return result.filePaths[0];
     });
     electron_1.ipcMain.handle("asset:import", (_event, input) => (0, asset_store_1.importAsset)(input));
+    electron_1.ipcMain.handle("asset:upgrade-library-paths", (_event, projectPath) => (0, asset_store_1.upgradeAssetLibraryPaths)(projectPath));
+    electron_1.ipcMain.handle("asset:replace-references", (_event, projectPath, assetIdChanges) => (0, asset_store_1.replaceAssetReferences)(projectPath, assetIdChanges));
     electron_1.ipcMain.handle("texture:pack-albedo-height", (_event, input) => (0, texture_packing_1.packAlbedoHeightTextureInMemory)(input));
     electron_1.ipcMain.handle("texture:pack-normal-roughness", (_event, input) => (0, texture_packing_1.packNormalRoughnessTextureInMemory)(input));
     electron_1.ipcMain.handle("texture:pack-package", (_event, input) => (0, texture_packing_1.packTexturePackageAsset)(input));
+    electron_1.ipcMain.handle("texture:unpack-package", async (_event, inputPath) => (0, texture_packing_1.unpackPackedTexturePackageDataUrls)(await promises_1.default.readFile(inputPath)));
     electron_1.ipcMain.handle("image:convert-to-png", (_event, input) => (0, image_conversion_1.convertImagesToPng)(input));
     electron_1.ipcMain.handle("image:conversion-preview", (_event, inputPath, preview) => createImagePreview(inputPath, preview));
 }

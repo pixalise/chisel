@@ -6,7 +6,8 @@ import type {
   ImportAssetInput,
   PackAlbedoHeightTexture,
   PackNormalRoughnessTexture,
-  PackTexturePackage
+  PackTexturePackage,
+  AssetsJson
 } from "../shared/schemas";
 import type { Asset, FileMetadata } from "../shared/types";
 
@@ -21,6 +22,16 @@ type OpenFileDialogOptions = {
 };
 
 declare global {
+  interface PackedTexturePackageDataUrls {
+    albedoHeight: string;
+    normalRoughness: string;
+  }
+
+  interface UpgradeAssetLibraryPathsResult {
+    assetIdChanges: Record<string, string>;
+    assetsJson: AssetsJson;
+  }
+
   interface Window {
     electron: {
       openFolderDialog: () => Promise<string | null>;
@@ -35,9 +46,12 @@ declare global {
       deleteFile: (path: string) => Promise<void>;
       getFileMetadata: (sourcePath: string) => Promise<FileMetadata>;
       importAsset: (input: ImportAssetInput) => Promise<Asset>;
+      upgradeAssetLibraryPaths: (projectPath: string) => Promise<UpgradeAssetLibraryPathsResult>;
+      replaceAssetReferences: (projectPath: string, assetIdChanges: Record<string, string>) => Promise<boolean>;
       packAlbedoHeightTexture: (input: PackAlbedoHeightTexture) => Promise<string>;
       packNormalRoughnessTexture: (input: PackNormalRoughnessTexture) => Promise<string>;
       packTexturePackage: (input: PackTexturePackage) => Promise<Asset>;
+      unpackTexturePackage: (inputPath: string) => Promise<PackedTexturePackageDataUrls>;
       convertImages: (input: ConvertImages) => Promise<ConvertedImage[]>;
       createImageConversionPreview: (inputPath: string, preview?: "albedoHeight" | "normalRoughness") => Promise<string>;
       getPathForFile: (file: File) => string;

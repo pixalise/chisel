@@ -46,7 +46,7 @@ const EditAssetDialogButton: FC<EditAssetDialogButtonProps> = (props) => {
             <Pencil className="h-5 w-5" />
             Edit {asset.name}
           </DialogTitle>
-          <DialogDescription>Update asset metadata. The managed file path stays unchanged.</DialogDescription>
+          <DialogDescription>Update asset metadata. Slug changes move the managed file and update asset references.</DialogDescription>
         </DialogHeader>
         {isOpen && (
           <AssetForm

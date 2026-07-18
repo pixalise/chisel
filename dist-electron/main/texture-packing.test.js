@@ -52,7 +52,7 @@ async function dataUrlPixels(dataUrl) {
         const asset = await (0, texture_packing_1.packTexturePackageAsset)({
             albedo,
             height,
-            name: "Stone Wall",
+            name: "STONE_WALL",
             normal,
             note: "packed",
             projectPath,
@@ -62,6 +62,8 @@ async function dataUrlPixels(dataUrl) {
         const assetsJson = JSON.parse(await promises_1.default.readFile(node_path_1.default.join(projectPath, ".chisel", "assets.json"), "utf8"));
         (0, vitest_1.expect)(asset.category).toBe(types_1.AssetCategoryEnum.terrainTexture);
         (0, vitest_1.expect)(asset.extension).toBe("gppt");
+        (0, vitest_1.expect)(asset.id).toBe("STONE_WALL");
+        (0, vitest_1.expect)(asset.relativePath).toBe(".chisel/assets/TERRAIN_TEXTURE/STONE_WALL.gppt");
         (0, vitest_1.expect)(packageBuffer.subarray(0, 4).toString("ascii")).toBe("GPPT");
         (0, vitest_1.expect)(packageBuffer.readUInt32LE(4)).toBe(1);
         (0, vitest_1.expect)(packageBuffer.readUInt32LE(8)).toBe(2);

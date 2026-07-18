@@ -16,11 +16,11 @@ export interface FileMetadata {
 
 export enum AssetCategoryEnum {
   terrainTexture = "TERRAIN_TEXTURE",
-  image = "image",
-  audio = "audio",
-  font = "font",
-  data = "data",
-  other = "other"
+  image = "IMAGE",
+  audio = "AUDIO",
+  font = "FONT",
+  data = "DATA",
+  other = "OTHER"
 }
 export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
   [AssetCategoryEnum.terrainTexture]: "Terrain Texture",

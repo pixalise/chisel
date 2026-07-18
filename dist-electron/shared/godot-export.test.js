@@ -198,4 +198,34 @@ const godot_export_1 = require("./godot-export");
         (0, vitest_1.expect)(inputFile?.content).toContain("return _key(int(KEY_BINDINGS[binding]))");
         (0, vitest_1.expect)(inputFile?.content).toContain("return _mouse_button(int(MOUSE_BINDINGS[binding]))");
     });
+    (0, vitest_1.it)("exports assets by id with Godot asset paths", () => {
+        const asset = schemas_1.assetSchema.parse({
+            category: types_1.AssetCategoryEnum.terrainTexture,
+            extension: "gppt",
+            height: 1024,
+            id: "FOREST_SOIL_1",
+            name: "FOREST_SOIL_1",
+            relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL_1.gppt",
+            sizeBytes: 1024,
+            width: 1024
+        });
+        const project = {
+            id: (0, nanoid_1.nanoid)(),
+            name: "Iron Bastion",
+            path: "/tmp/iron-bastion"
+        };
+        const bundle = (0, godot_export_1.createGodotExportBundle)(project, [], "2026-01-01T00:00:00.000Z", [asset]);
+        const manifestFile = bundle.files.find((file) => file.path === "game_data/manifest.gd");
+        const assetsFile = bundle.files.find((file) => file.path === "game_data/assets.gd");
+        (0, vitest_1.expect)(manifestFile?.content).toContain('"path": "res://game_data/assets.gd"');
+        (0, vitest_1.expect)(manifestFile?.content).toContain('"count": 1');
+        (0, vitest_1.expect)(assetsFile?.content).toContain("class_name ChiselAssets");
+        (0, vitest_1.expect)(assetsFile?.content).toContain(`"${asset.id}": {`);
+        (0, vitest_1.expect)(assetsFile?.content).toContain("FOREST_SOIL_1 = 0");
+        (0, vitest_1.expect)(assetsFile?.content).toContain('"category": "terrain_texture"');
+        (0, vitest_1.expect)(assetsFile?.content).toContain('"name": "forest_soil_1"');
+        (0, vitest_1.expect)(assetsFile?.content).toContain('"path": "res://game_data/assets/terrain_texture/forest_soil_1"');
+        (0, vitest_1.expect)(assetsFile?.content).toContain('"albedo_height": "res://game_data/assets/terrain_texture/forest_soil_1/albedo_height.png"');
+        (0, vitest_1.expect)(assetsFile?.content).toContain('"normal_roughness": "res://game_data/assets/terrain_texture/forest_soil_1/normal_roughness.png"');
+    });
 });

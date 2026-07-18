@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.packedTexturePackagePreviewDataUrl = packedTexturePackagePreviewDataUrl;
+exports.unpackPackedTexturePackageDataUrls = unpackPackedTexturePackageDataUrls;
 exports.packAlbedoHeightTextureInMemory = packAlbedoHeightTextureInMemory;
 exports.packNormalRoughnessTextureInMemory = packNormalRoughnessTextureInMemory;
 exports.packTexturePackageAsset = packTexturePackageAsset;
@@ -11,33 +12,14 @@ const node_crypto_1 = require("node:crypto");
 const promises_1 = __importDefault(require("node:fs/promises"));
 const node_path_1 = __importDefault(require("node:path"));
 const schemas_1 = require("../shared/schemas");
+const asset_paths_1 = require("../shared/asset-paths");
 const types_1 = require("../shared/types");
+const asset_store_1 = require("./asset-store");
 const sharp_worker_client_1 = require("./sharp-worker-client");
 const packedTexturePackageMagic = "GPPT";
 const packedTexturePackageVersion = 1;
 const packedTexturePackageExtension = "gppt";
 const packedTexturePackageHeaderSize = 24;
-function createNanoid() {
-    return (0, node_crypto_1.randomBytes)(16).toString("base64url").slice(0, 21);
-}
-function assetStem(name) {
-    return name
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "");
-}
-async function readAssets(filePath) {
-    try {
-        return schemas_1.assetsJsonSchema.parse(JSON.parse(await promises_1.default.readFile(filePath, "utf8")));
-    }
-    catch (error) {
-        if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-            return { schemaVersion: 1, assets: [] };
-        }
-        throw error;
-    }
-}
 async function writeFileAtomic(filePath, content) {
     await promises_1.default.mkdir(node_path_1.default.dirname(filePath), { recursive: true });
     const temporaryPath = node_path_1.default.join(node_path_1.default.dirname(filePath), `.${node_path_1.default.basename(filePath)}.${(0, node_crypto_1.randomBytes)(8).toString("hex")}.tmp`);
@@ -122,6 +104,12 @@ function packedTexturePackagePreviewDataUrl(buffer, preview = "albedoHeight") {
     }
     return `data:image/png;base64,${buffer.subarray(albedoHeightPngEnd, normalRoughnessPngEnd).toString("base64")}`;
 }
+function unpackPackedTexturePackageDataUrls(buffer) {
+    return {
+        albedoHeight: packedTexturePackagePreviewDataUrl(buffer, "albedoHeight"),
+        normalRoughness: packedTexturePackagePreviewDataUrl(buffer, "normalRoughness")
+    };
+}
 async function packAlbedoHeightTextureInMemory(input) {
     const request = schemas_1.packAlbedoHeightTextureSchema.parse(input);
     const [albedo, height] = await Promise.all([loadRgba(request.albedo), loadRgba(request.height)]);
@@ -146,27 +134,30 @@ async function packTexturePackageAsset(input) {
     const [albedoHeightPng, normalRoughnessPng] = await Promise.all([rgbaPngBuffer(albedoHeight), rgbaPngBuffer(normalRoughness)]);
     const packageBuffer = packedTexturePackageBuffer(albedoHeight.width, albedoHeight.height, albedoHeightPng, normalRoughnessPng);
     const projectPath = node_path_1.default.resolve(request.projectPath);
-    const stem = assetStem(request.name);
-    if (!stem) {
+    const slug = (0, asset_paths_1.assetSlug)(request.name);
+    if (!slug) {
         throw new Error("Packed texture name must contain at least one letter or number");
     }
-    const relativePath = node_path_1.default.posix.join(".chisel", "assets", "packed_texture", `${stem}.${packedTexturePackageExtension}`);
+    const relativePath = (0, asset_paths_1.chiselAssetRelativePath)(types_1.AssetCategoryEnum.terrainTexture, slug, packedTexturePackageExtension);
     const destinationPath = node_path_1.default.join(projectPath, ...relativePath.split("/"));
     const assetsPath = node_path_1.default.join(projectPath, ".chisel", "assets.json");
-    const document = await readAssets(assetsPath);
-    const existing = document.assets.find((asset) => asset.relativePath === relativePath);
+    const document = (await (0, asset_store_1.upgradeAssetLibraryPaths)(projectPath)).assetsJson;
+    const existing = document.assets.find((asset) => asset.id === slug || asset.relativePath === relativePath);
+    if (existing) {
+        throw new Error(`Asset slug ${slug} already exists`);
+    }
     const asset = schemas_1.assetSchema.parse({
-        id: existing?.id ?? createNanoid(),
+        id: slug,
         category: types_1.AssetCategoryEnum.terrainTexture,
         extension: packedTexturePackageExtension,
         height: albedoHeight.height,
-        name: stem,
+        name: slug,
         note: request.note,
         relativePath,
         sizeBytes: packageBuffer.length,
         width: albedoHeight.width
     });
-    const assets = [...document.assets.filter((entry) => entry.id !== asset.id && entry.relativePath !== asset.relativePath), asset];
+    const assets = [...document.assets, asset];
     await writeFileAtomic(destinationPath, packageBuffer);
     await writeFileAtomic(assetsPath, `${JSON.stringify(schemas_1.assetsJsonSchema.parse({ schemaVersion: 1, assets }), null, 2)}\n`);
     return asset;

@@ -14,9 +14,12 @@ electron_1.contextBridge.exposeInMainWorld("electron", {
     deleteFile: (path) => electron_1.ipcRenderer.invoke("file:delete", path),
     getFileMetadata: (sourcePath) => electron_1.ipcRenderer.invoke("file:get-metadata", sourcePath),
     importAsset: (input) => electron_1.ipcRenderer.invoke("asset:import", input),
+    upgradeAssetLibraryPaths: (projectPath) => electron_1.ipcRenderer.invoke("asset:upgrade-library-paths", projectPath),
+    replaceAssetReferences: (projectPath, assetIdChanges) => electron_1.ipcRenderer.invoke("asset:replace-references", projectPath, assetIdChanges),
     packAlbedoHeightTexture: (input) => electron_1.ipcRenderer.invoke("texture:pack-albedo-height", input),
     packNormalRoughnessTexture: (input) => electron_1.ipcRenderer.invoke("texture:pack-normal-roughness", input),
     packTexturePackage: (input) => electron_1.ipcRenderer.invoke("texture:pack-package", input),
+    unpackTexturePackage: (inputPath) => electron_1.ipcRenderer.invoke("texture:unpack-package", inputPath),
     convertImages: (input) => electron_1.ipcRenderer.invoke("image:convert-to-png", input),
     createImageConversionPreview: (inputPath, preview) => electron_1.ipcRenderer.invoke("image:conversion-preview", inputPath, preview),
     getPathForFile: (file) => electron_1.webUtils.getPathForFile(file)

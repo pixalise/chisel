@@ -22,6 +22,10 @@ class TexturePackingService {
     const projectPath = appStore.getState().computed.project.path;
     return window.electron.packTexturePackage(packTexturePackageSchema.parse({ ...input, projectPath }));
   }
+
+  public async unpackPackage(inputPath: string): Promise<PackedTexturePackageDataUrls> {
+    return window.electron.unpackTexturePackage(inputPath);
+  }
 }
 
 const texturePackingService = new TexturePackingService();

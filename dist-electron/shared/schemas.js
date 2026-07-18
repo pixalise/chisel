@@ -3,8 +3,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validatedDataTableSchema = exports.tableRowsJsonSchema = exports.tablesJsonSchema = exports.dataTableJsonSchema = exports.anyDataTableSchema = exports.systemDataTableSchema = exports.dataTableSchema = exports.createOrUpdateUserTableSchema = exports.dataTableIdSchema = exports.dataTableRowSchema = exports.typedDataColumnValueSchema = exports.jsonColumnValueSchema = exports.vector4ColumnValueSchema = exports.vector3ColumnValueSchema = exports.vector2ColumnValueSchema = exports.colorColumnValueSchema = exports.refColumnValueSchema = exports.assetRefColumnValueSchema = exports.enumArrayColumnValueSchema = exports.enumColumnValueSchema = exports.booleanColumnValueSchema = exports.rangeColumnValueSchema = exports.decimalColumnValueSchema = exports.integerColumnValueSchema = exports.textColumnValueSchema = exports.stringColumnValueSchema = exports.rowSlugSchema = exports.dataColumnValueSchema = exports.dataColumnDefinitionSchema = exports.convertImagesSchema = exports.packTexturePackageSchema = exports.packNormalRoughnessTextureSchema = exports.packAlbedoHeightTextureSchema = exports.packedTextureNameSchema = exports.importAssetSchema = exports.addAssetSchema = exports.createOrUpdateAssetSchema = exports.assetsJsonSchema = exports.assetSchema = exports.createOrUpdateProjectSchema = exports.projectFileSchema = exports.projectSchema = void 0;
+exports.validatedDataTableSchema = exports.tableRowsJsonSchema = exports.tablesJsonSchema = exports.dataTableJsonSchema = exports.anyDataTableSchema = exports.systemDataTableSchema = exports.dataTableSchema = exports.createOrUpdateUserTableSchema = exports.dataTableIdSchema = exports.dataTableRowSchema = exports.typedDataColumnValueSchema = exports.jsonColumnValueSchema = exports.vector4ColumnValueSchema = exports.vector3ColumnValueSchema = exports.vector2ColumnValueSchema = exports.colorColumnValueSchema = exports.refColumnValueSchema = exports.assetRefColumnValueSchema = exports.enumArrayColumnValueSchema = exports.enumColumnValueSchema = exports.booleanColumnValueSchema = exports.rangeColumnValueSchema = exports.decimalColumnValueSchema = exports.integerColumnValueSchema = exports.textColumnValueSchema = exports.stringColumnValueSchema = exports.dataColumnValueSchema = exports.dataColumnDefinitionSchema = exports.convertImagesSchema = exports.packTexturePackageSchema = exports.packNormalRoughnessTextureSchema = exports.packAlbedoHeightTextureSchema = exports.packedTextureNameSchema = exports.importAssetSchema = exports.addAssetSchema = exports.createOrUpdateAssetSchema = exports.assetsJsonSchema = exports.assetSchema = exports.assetSlugSchema = exports.rowSlugSchema = exports.createOrUpdateProjectSchema = exports.projectFileSchema = exports.projectSchema = void 0;
 const zod_1 = __importDefault(require("zod"));
+const asset_paths_1 = require("./asset-paths");
 const types_1 = require("./types");
 exports.projectSchema = zod_1.default.object({
     id: zod_1.default.nanoid(),
@@ -18,18 +19,44 @@ exports.createOrUpdateProjectSchema = zod_1.default.object({
     description: zod_1.default.string().nullish(),
     path: zod_1.default.string()
 });
+function duplicateValues(values) {
+    const seen = new Set();
+    const duplicates = new Set();
+    for (const value of values) {
+        if (seen.has(value)) {
+            duplicates.add(value);
+        }
+        seen.add(value);
+    }
+    return [...duplicates];
+}
+exports.rowSlugSchema = zod_1.default
+    .string()
+    .trim()
+    .min(1, "Slug is required")
+    .max(96, "Slug must be at most 96 characters")
+    .regex(/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/, "Slug must be UPPER_SNAKE_CASE");
+exports.assetSlugSchema = exports.rowSlugSchema;
 function legacyAssetCategory(value) {
-    if (value === "texture") {
+    const normalized = value.trim();
+    const normalizedUpper = (0, asset_paths_1.assetSlug)(normalized);
+    if (normalized === "texture" || normalized === "terrain_texture" || normalizedUpper === types_1.AssetCategoryEnum.terrainTexture) {
         return types_1.AssetCategoryEnum.terrainTexture;
     }
-    if (value === "material" || value === "shader" || value === "ui") {
+    if (["image", "material", "shader", "ui"].includes(normalized) || normalizedUpper === types_1.AssetCategoryEnum.image) {
         return types_1.AssetCategoryEnum.image;
     }
-    if (value === "config") {
+    if (normalized === "audio" || normalizedUpper === types_1.AssetCategoryEnum.audio) {
+        return types_1.AssetCategoryEnum.audio;
+    }
+    if (normalized === "font" || normalizedUpper === types_1.AssetCategoryEnum.font) {
+        return types_1.AssetCategoryEnum.font;
+    }
+    if (["data", "config"].includes(normalized) || normalizedUpper === types_1.AssetCategoryEnum.data) {
         return types_1.AssetCategoryEnum.data;
     }
-    if (Object.values(types_1.AssetCategoryEnum).includes(value)) {
-        return value;
+    if (normalized === "other" || normalizedUpper === types_1.AssetCategoryEnum.other) {
+        return types_1.AssetCategoryEnum.other;
     }
     return types_1.AssetCategoryEnum.other;
 }
@@ -53,7 +80,7 @@ function assetCategoryForExtension(extension, category) {
 }
 const assetInputFields = {
     category: assetCategorySchema,
-    name: zod_1.default.string(),
+    name: exports.assetSlugSchema,
     note: zod_1.default.string().optional(),
     sizeBytes: zod_1.default.number(),
     width: zod_1.default.number(),
@@ -65,7 +92,8 @@ const assetDocumentSchema = zod_1.default
     .preprocess(normalizeAssetCategoryObject, zod_1.default.object({
     ...assetInputFields,
     category: legacyAssetCategorySchema,
-    id: zod_1.default.nanoid(),
+    id: zod_1.default.string(),
+    name: zod_1.default.string().trim().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
     relativePath: zod_1.default.string(),
     tag: zod_1.default.string().optional(),
     tags: zod_1.default.array(zod_1.default.string()).optional()
@@ -74,8 +102,11 @@ const assetDocumentSchema = zod_1.default
     const { tag, tags, ...rest } = asset;
     void tag;
     void tags;
+    const slug = exports.assetSlugSchema.parse((0, asset_paths_1.assetSlug)(rest.name));
     return {
         ...rest,
+        id: slug,
+        name: slug,
         category: assetCategoryForExtension(rest.extension, rest.category)
     };
 });
@@ -102,9 +133,19 @@ const _internalSchema = assetDocumentSchema.transform((a) => ({
     formattedBytes: calculateByteString(a.sizeBytes)
 }));
 exports.assetSchema = _internalSchema;
-exports.assetsJsonSchema = zod_1.default.object({
+exports.assetsJsonSchema = zod_1.default
+    .object({
     schemaVersion: zod_1.default.number(),
     assets: zod_1.default.array(exports.assetSchema)
+})
+    .superRefine((document, context) => {
+    for (const duplicateAssetSlug of duplicateValues(document.assets.map((asset) => asset.id))) {
+        context.addIssue({
+            code: "custom",
+            message: `Duplicate asset slug "${duplicateAssetSlug}"`,
+            path: ["assets"]
+        });
+    }
 });
 exports.createOrUpdateAssetSchema = assetInputSchema;
 exports.addAssetSchema = exports.createOrUpdateAssetSchema;
@@ -112,17 +153,12 @@ const filePathSchema = zod_1.default.string().trim().min(1);
 exports.importAssetSchema = zod_1.default.object({
     projectPath: filePathSchema,
     sourcePath: filePathSchema,
-    name: zod_1.default.string().trim().min(1, "Asset name is required").max(96, "Asset name must be at most 96 characters"),
+    name: exports.assetSlugSchema,
     category: assetCategorySchema,
     note: zod_1.default.string().optional()
 });
 const pngImagePathSchema = filePathSchema.refine((value) => /\.png$/i.test(value), "Image must be a PNG file");
-exports.packedTextureNameSchema = zod_1.default
-    .string()
-    .trim()
-    .min(1, "Packed texture name is required")
-    .max(56, "Packed texture name must be at most 56 characters")
-    .regex(/^[A-Za-z0-9]+(?:[ _-]+[A-Za-z0-9]+)*$/, "Use letters, numbers, spaces, underscores, or hyphens");
+exports.packedTextureNameSchema = exports.assetSlugSchema;
 exports.packAlbedoHeightTextureSchema = zod_1.default.object({
     albedo: pngImagePathSchema,
     height: pngImagePathSchema
@@ -168,12 +204,6 @@ exports.dataColumnValueSchema = zod_1.default.object({
     type: zod_1.default.enum(types_1.ColumnType),
     value: zod_1.default.json().nullish()
 });
-exports.rowSlugSchema = zod_1.default
-    .string()
-    .trim()
-    .min(1, "Slug is required")
-    .max(96, "Slug must be at most 96 characters")
-    .regex(/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/, "Slug must be UPPER_SNAKE_CASE");
 const dataColumnValueBaseSchema = zod_1.default.object({
     columnId: zod_1.default.nanoid()
 });
@@ -311,17 +341,6 @@ exports.tableRowsJsonSchema = zod_1.default.object({
     tableId: exports.dataTableIdSchema,
     rows: zod_1.default.array(exports.dataTableRowSchema)
 });
-function duplicateValues(values) {
-    const seen = new Set();
-    const duplicates = new Set();
-    for (const value of values) {
-        if (seen.has(value)) {
-            duplicates.add(value);
-        }
-        seen.add(value);
-    }
-    return [...duplicates];
-}
 exports.validatedDataTableSchema = exports.anyDataTableSchema.superRefine((table, context) => {
     for (const duplicateColumnId of duplicateValues(table.columns.map((column) => column.id))) {
         context.addIssue({

@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { describe, expect, it } from "vitest";
-import { dataTableSchema, systemDataTableSchema, type Project } from "./schemas";
-import { ColumnType, InputKeyEnum } from "./types";
+import { assetSchema, dataTableSchema, systemDataTableSchema, type Project } from "./schemas";
+import { AssetCategoryEnum, ColumnType, InputKeyEnum } from "./types";
 import { createGodotExportBundle } from "./godot-export";
 
 describe("Godot export", () => {
@@ -204,5 +204,40 @@ describe("Godot export", () => {
     expect(inputFile?.content).toContain('"MOUSE_BUTTON_WHEEL_UP": MOUSE_BUTTON_WHEEL_UP');
     expect(inputFile?.content).toContain("return _key(int(KEY_BINDINGS[binding]))");
     expect(inputFile?.content).toContain("return _mouse_button(int(MOUSE_BINDINGS[binding]))");
+  });
+
+  it("exports assets by id with Godot asset paths", () => {
+    const asset = assetSchema.parse({
+      category: AssetCategoryEnum.terrainTexture,
+      extension: "gppt",
+      height: 1024,
+      id: "FOREST_SOIL_1",
+      name: "FOREST_SOIL_1",
+      relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL_1.gppt",
+      sizeBytes: 1024,
+      width: 1024
+    });
+    const project: Project = {
+      id: nanoid(),
+      name: "Iron Bastion",
+      path: "/tmp/iron-bastion"
+    };
+
+    const bundle = createGodotExportBundle(project, [], "2026-01-01T00:00:00.000Z", [asset]);
+    const manifestFile = bundle.files.find((file) => file.path === "game_data/manifest.gd");
+    const assetsFile = bundle.files.find((file) => file.path === "game_data/assets.gd");
+
+    expect(manifestFile?.content).toContain('"path": "res://game_data/assets.gd"');
+    expect(manifestFile?.content).toContain('"count": 1');
+    expect(assetsFile?.content).toContain("class_name ChiselAssets");
+    expect(assetsFile?.content).toContain(`"${asset.id}": {`);
+    expect(assetsFile?.content).toContain("FOREST_SOIL_1 = 0");
+    expect(assetsFile?.content).toContain('"category": "terrain_texture"');
+    expect(assetsFile?.content).toContain('"name": "forest_soil_1"');
+    expect(assetsFile?.content).toContain('"path": "res://game_data/assets/terrain_texture/forest_soil_1"');
+    expect(assetsFile?.content).toContain('"albedo_height": "res://game_data/assets/terrain_texture/forest_soil_1/albedo_height.png"');
+    expect(assetsFile?.content).toContain(
+      '"normal_roughness": "res://game_data/assets/terrain_texture/forest_soil_1/normal_roughness.png"'
+    );
   });
 });

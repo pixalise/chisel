@@ -1,7 +1,7 @@
 import { BrowserWindow, app, dialog, ipcMain, nativeImage } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { importAsset } from "./asset-store";
+import { importAsset, replaceAssetReferences, upgradeAssetLibraryPaths } from "./asset-store";
 import { convertImagesToPng, createImageConversionPreview } from "./image-conversion";
 import { getFileMetadata } from "./file-metadata";
 import {
@@ -9,7 +9,8 @@ import {
   type PackedTexturePackagePreviewKind,
   packAlbedoHeightTextureInMemory,
   packNormalRoughnessTextureInMemory,
-  packTexturePackageAsset
+  packTexturePackageAsset,
+  unpackPackedTexturePackageDataUrls
 } from "./texture-packing";
 import type {
   ConvertImages,
@@ -206,9 +207,16 @@ function registerIpc(): void {
   });
 
   ipcMain.handle("asset:import", (_event, input: ImportAssetInput) => importAsset(input));
+  ipcMain.handle("asset:upgrade-library-paths", (_event, projectPath: string) => upgradeAssetLibraryPaths(projectPath));
+  ipcMain.handle("asset:replace-references", (_event, projectPath: string, assetIdChanges: Record<string, string>) =>
+    replaceAssetReferences(projectPath, assetIdChanges)
+  );
   ipcMain.handle("texture:pack-albedo-height", (_event, input: PackAlbedoHeightTexture) => packAlbedoHeightTextureInMemory(input));
   ipcMain.handle("texture:pack-normal-roughness", (_event, input: PackNormalRoughnessTexture) => packNormalRoughnessTextureInMemory(input));
   ipcMain.handle("texture:pack-package", (_event, input: PackTexturePackage) => packTexturePackageAsset(input));
+  ipcMain.handle("texture:unpack-package", async (_event, inputPath: string) =>
+    unpackPackedTexturePackageDataUrls(await fs.readFile(inputPath))
+  );
   ipcMain.handle("image:convert-to-png", (_event, input: ConvertImages) => convertImagesToPng(input));
   ipcMain.handle("image:conversion-preview", (_event, inputPath: string, preview?: PackedTexturePackagePreviewKind) =>
     createImagePreview(inputPath, preview)

@@ -8,12 +8,13 @@ import {
   packNormalRoughnessTextureSchema,
   packTexturePackageSchema,
   type Asset,
-  type AssetsJson,
   type PackAlbedoHeightTexture,
   type PackNormalRoughnessTexture,
   type PackTexturePackage
 } from "../shared/schemas";
+import { assetSlug, chiselAssetRelativePath } from "../shared/asset-paths";
 import { AssetCategoryEnum } from "../shared/types";
+import { upgradeAssetLibraryPaths } from "./asset-store";
 import { encodeSharpRgbaPng, loadSharpRgba } from "./sharp-worker-client";
 
 interface RgbaImage {
@@ -29,27 +30,9 @@ const packedTexturePackageHeaderSize = 24;
 
 export type PackedTexturePackagePreviewKind = "albedoHeight" | "normalRoughness";
 
-function createNanoid(): string {
-  return randomBytes(16).toString("base64url").slice(0, 21);
-}
-
-function assetStem(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
-
-async function readAssets(filePath: string): Promise<AssetsJson> {
-  try {
-    return assetsJsonSchema.parse(JSON.parse(await fs.readFile(filePath, "utf8")));
-  } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-      return { schemaVersion: 1, assets: [] };
-    }
-    throw error;
-  }
+export interface PackedTexturePackageDataUrls {
+  albedoHeight: string;
+  normalRoughness: string;
 }
 
 async function writeFileAtomic(filePath: string, content: string | Buffer): Promise<void> {
@@ -151,6 +134,13 @@ export function packedTexturePackagePreviewDataUrl(buffer: Buffer, preview: Pack
   return `data:image/png;base64,${buffer.subarray(albedoHeightPngEnd, normalRoughnessPngEnd).toString("base64")}`;
 }
 
+export function unpackPackedTexturePackageDataUrls(buffer: Buffer): PackedTexturePackageDataUrls {
+  return {
+    albedoHeight: packedTexturePackagePreviewDataUrl(buffer, "albedoHeight"),
+    normalRoughness: packedTexturePackagePreviewDataUrl(buffer, "normalRoughness")
+  };
+}
+
 export async function packAlbedoHeightTextureInMemory(input: PackAlbedoHeightTexture): Promise<string> {
   const request = packAlbedoHeightTextureSchema.parse(input);
   const [albedo, height] = await Promise.all([loadRgba(request.albedo), loadRgba(request.height)]);
@@ -179,28 +169,31 @@ export async function packTexturePackageAsset(input: PackTexturePackage): Promis
   const packageBuffer = packedTexturePackageBuffer(albedoHeight.width, albedoHeight.height, albedoHeightPng, normalRoughnessPng);
 
   const projectPath = path.resolve(request.projectPath);
-  const stem = assetStem(request.name);
-  if (!stem) {
+  const slug = assetSlug(request.name);
+  if (!slug) {
     throw new Error("Packed texture name must contain at least one letter or number");
   }
 
-  const relativePath = path.posix.join(".chisel", "assets", "packed_texture", `${stem}.${packedTexturePackageExtension}`);
+  const relativePath = chiselAssetRelativePath(AssetCategoryEnum.terrainTexture, slug, packedTexturePackageExtension);
   const destinationPath = path.join(projectPath, ...relativePath.split("/"));
   const assetsPath = path.join(projectPath, ".chisel", "assets.json");
-  const document = await readAssets(assetsPath);
-  const existing = document.assets.find((asset) => asset.relativePath === relativePath);
+  const document = (await upgradeAssetLibraryPaths(projectPath)).assetsJson;
+  const existing = document.assets.find((asset) => asset.id === slug || asset.relativePath === relativePath);
+  if (existing) {
+    throw new Error(`Asset slug ${slug} already exists`);
+  }
   const asset = assetSchema.parse({
-    id: existing?.id ?? createNanoid(),
+    id: slug,
     category: AssetCategoryEnum.terrainTexture,
     extension: packedTexturePackageExtension,
     height: albedoHeight.height,
-    name: stem,
+    name: slug,
     note: request.note,
     relativePath,
     sizeBytes: packageBuffer.length,
     width: albedoHeight.width
   });
-  const assets = [...document.assets.filter((entry) => entry.id !== asset.id && entry.relativePath !== asset.relativePath), asset];
+  const assets = [...document.assets, asset];
 
   await writeFileAtomic(destinationPath, packageBuffer);
   await writeFileAtomic(assetsPath, `${JSON.stringify(assetsJsonSchema.parse({ schemaVersion: 1, assets }), null, 2)}\n`);

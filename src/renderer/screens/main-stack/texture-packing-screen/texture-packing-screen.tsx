@@ -5,7 +5,7 @@ import { Eye, PackagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
 import ControlledImageInput from "@/components/controls/controlled-image-input";
-import ControlledInput from "@/components/controls/controlled-input";
+import ControlledSlugInput from "@/components/controls/controlled-slug-input";
 import ControlledTextarea from "@/components/controls/controlled-textarea";
 import ImagePreview from "@/components/image-preview";
 import { Section } from "@/components/layout/section";
@@ -75,7 +75,7 @@ export const TexturePackingScreen: FC = () => {
     <Section title="Texture Packing" copy="Creates asset in form of GPPT and packs them ready for Terrain3D.">
       <form className="grid gap-5" onSubmit={form.handleSubmit(createPackage)}>
         <div className="grid gap-3 grid-cols-1">
-          <ControlledInput control={form.control} disabled={isBusy} label="Name" name="name" />
+          <ControlledSlugInput control={form.control} disabled={isBusy} label="Slug" name="name" />
           <ControlledTextarea control={form.control} disabled={isBusy} label="Note" name="note" rows={1} />
         </div>
 
