@@ -5,8 +5,9 @@ import { ColumnType } from "./types";
 import { createGodotExportBundle } from "./godot-export";
 
 describe("Godot export", () => {
-  it("exports rows as enum-indexed arrays", () => {
+  it("exports rows as enum-indexed structure-of-arrays", () => {
     const displayNameColumnId = nanoid();
+    const maxHealthColumnId = nanoid();
     const table = dataTableSchema.parse({
       columns: [
         {
@@ -15,6 +16,14 @@ describe("Godot export", () => {
           name: "display_name",
           required: true,
           type: ColumnType.string,
+          unique: false
+        },
+        {
+          defaultValue: 1,
+          id: maxHealthColumnId,
+          name: "max_health",
+          required: true,
+          type: ColumnType.integer,
           unique: false
         }
       ],
@@ -27,12 +36,18 @@ describe("Godot export", () => {
         {
           id: nanoid(),
           slug: "ZOMBIE_BASIC",
-          values: [{ columnId: displayNameColumnId, type: ColumnType.string, value: "Zombie" }]
+          values: [
+            { columnId: displayNameColumnId, type: ColumnType.string, value: "Zombie" },
+            { columnId: maxHealthColumnId, type: ColumnType.integer, value: 100 }
+          ]
         },
         {
           id: nanoid(),
           slug: "ZOMBIE_RUNNER",
-          values: [{ columnId: displayNameColumnId, type: ColumnType.string, value: "Runner" }]
+          values: [
+            { columnId: displayNameColumnId, type: ColumnType.string, value: "Runner" },
+            { columnId: maxHealthColumnId, type: ColumnType.integer, value: 80 }
+          ]
         }
       ],
       version: 1
@@ -50,8 +65,72 @@ describe("Godot export", () => {
     expect(tableFile?.content).toContain("ZOMBIE_BASIC = 0");
     expect(tableFile?.content).toContain("ZOMBIE_RUNNER = 1");
     expect(tableFile?.content).toContain('const SLUGS := [\n\t"ZOMBIE_BASIC",\n\t"ZOMBIE_RUNNER"\n]');
-    expect(tableFile?.content).toContain(
-      'const DATA := [\n\t{\n\t\t"display_name": "Zombie"\n\t},\n\t{\n\t\t"display_name": "Runner"\n\t}\n]'
-    );
+    expect(tableFile?.content).toContain('const DISPLAY_NAME := [\n\t"Zombie",\n\t"Runner"\n]');
+    expect(tableFile?.content).toContain("const MAX_HEALTH := [\n\t100,\n\t80\n]");
+    expect(tableFile?.content).not.toContain("const COLUMNS");
+    expect(tableFile?.content).not.toContain("const DATA");
+  });
+
+  it("keeps generated column constants unique after normalization", () => {
+    const firstColumnId = nanoid();
+    const secondColumnId = nanoid();
+    const thirdColumnId = nanoid();
+    const table = dataTableSchema.parse({
+      columns: [
+        {
+          defaultValue: 0,
+          id: firstColumnId,
+          name: "max-health",
+          required: true,
+          type: ColumnType.integer,
+          unique: false
+        },
+        {
+          defaultValue: 0,
+          id: secondColumnId,
+          name: "max health",
+          required: true,
+          type: ColumnType.integer,
+          unique: false
+        },
+        {
+          defaultValue: 0,
+          id: thirdColumnId,
+          name: "max_health_2",
+          required: true,
+          type: ColumnType.integer,
+          unique: false
+        }
+      ],
+      description: "Enemy definitions",
+      id: "enemies",
+      kind: "user",
+      lastChangeAt: "2026-01-01T00:00:00.000Z",
+      name: "Enemies",
+      rows: [
+        {
+          id: nanoid(),
+          slug: "ZOMBIE_BASIC",
+          values: [
+            { columnId: firstColumnId, type: ColumnType.integer, value: 100 },
+            { columnId: secondColumnId, type: ColumnType.integer, value: 200 },
+            { columnId: thirdColumnId, type: ColumnType.integer, value: 300 }
+          ]
+        }
+      ],
+      version: 1
+    });
+    const project: Project = {
+      id: nanoid(),
+      name: "Iron Bastion",
+      path: "/tmp/iron-bastion"
+    };
+
+    const bundle = createGodotExportBundle(project, [table], "2026-01-01T00:00:00.000Z");
+    const tableFile = bundle.files.find((file) => file.path === "game_data/tables/enemies.gd");
+
+    expect(tableFile?.content).toContain("const MAX_HEALTH := [\n\t100\n]");
+    expect(tableFile?.content).toContain("const MAX_HEALTH_2 := [\n\t200\n]");
+    expect(tableFile?.content).toContain("const MAX_HEALTH_2_2 := [\n\t300\n]");
   });
 });

@@ -329,9 +329,9 @@ These generated enum values may be dense local indexes. They must not be stored 
 
 Persistent references should use slugs, stable hashes, or other stable IDs.
 
-## Array-Oriented Export
+## Structure-of-Arrays Export
 
-Collections should export modules where row slugs become enum keys with integer indexes and table row payloads are stored in arrays.
+Collections should export modules where row slugs become enum keys with integer indexes and field payloads are stored in per-column arrays.
 
 Example:
 
@@ -351,22 +351,12 @@ const SLUGS := [
     "ZOMBIE_TANK",
 ]
 
-const DATA := [
-    {
-        "max_health": 100,
-        "move_speed": 1.6,
-        "animation_set": AnimationSets.Id.ZOMBIE_BASIC,
-    },
-    {
-        "max_health": 80,
-        "move_speed": 2.2,
-        "animation_set": AnimationSets.Id.ZOMBIE_RUNNER,
-    },
-    {
-        "max_health": 300,
-        "move_speed": 0.8,
-        "animation_set": AnimationSets.Id.ZOMBIE_TANK,
-    },
+const MAX_HEALTH := [100, 80, 300]
+const MOVE_SPEED := [1.6, 2.2, 0.8]
+const ANIMATION_SET := [
+    AnimationSets.Id.ZOMBIE_BASIC,
+    AnimationSets.Id.ZOMBIE_RUNNER,
+    AnimationSets.Id.ZOMBIE_TANK,
 ]
 ```
 
@@ -374,7 +364,7 @@ Usage:
 
 ```gdscript
 var enemy := Enemies.Id.ZOMBIE_BASIC
-var hp := Enemies.DATA[enemy]["max_health"]
+var hp := Enemies.MAX_HEALTH[enemy]
 ```
 
 Chisel may additionally generate typed record views for UI and editor convenience.
@@ -1101,7 +1091,7 @@ The shipped game must never require Chisel to be running.
 
 - one file per table
 - typed enums
-- enum-indexed row arrays
+- enum-indexed Structure-of-Arrays exports
 - generated loader helpers
 - manifest
 
