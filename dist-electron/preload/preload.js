@@ -7,6 +7,7 @@ electron_1.contextBridge.exposeInMainWorld("electron", {
     readFile: (path) => electron_1.ipcRenderer.invoke("file:read", path),
     tryReadFile: (path) => electron_1.ipcRenderer.invoke("file:try-read", path),
     writeFile: (path, value) => electron_1.ipcRenderer.invoke("file:write", path, value),
+    writeTextFile: (path, value) => electron_1.ipcRenderer.invoke("file:write-text", path, value),
     writePngFile: (path, dataUrl) => electron_1.ipcRenderer.invoke("file:write-png", path, dataUrl),
     ensureGitignoreEntry: (path, entry) => electron_1.ipcRenderer.invoke("file:ensure-gitignore-entry", path, entry),
     copyFile: (sourcePath, destinationPath) => electron_1.ipcRenderer.invoke("file:copy", sourcePath, destinationPath),

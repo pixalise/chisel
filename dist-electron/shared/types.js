@@ -275,7 +275,6 @@ var InputKeyEnum;
 })(InputKeyEnum || (exports.InputKeyEnum = InputKeyEnum = {}));
 var ColumnType;
 (function (ColumnType) {
-    ColumnType["id"] = "id";
     ColumnType["string"] = "string";
     ColumnType["text"] = "text";
     ColumnType["integer"] = "integer";

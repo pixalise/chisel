@@ -1,5 +1,5 @@
 import { type FC, useEffect, useState } from "react";
-import PageHeader from "@/components/page-header";
+import { Section } from "@/components/layout/section";
 import { SYSTEM_TABLES } from "@/constants/system-tables";
 import useDeleteTableMutation from "@/hooks/use-delete-table-mutation";
 import useListTablesQuery from "@/hooks/use-list-tables-query";
@@ -36,18 +36,18 @@ export const DataTablesScreen: FC = () => {
 
   return (
     <section className="flex min-h-full w-full min-w-0 flex-col gap-4">
-      <PageHeader title="Data Tables" description="Create and edit user-authored table schemas for Chisel project data." />
-
-      <div className="flex min-h-64 flex-col border border-border bg-card">
-        <TableTabs
-          activeTableKey={activeTableKey}
-          systemTables={systemTables}
-          userTables={userTables}
-          onRequestDeleteTable={onRequestDeleteTable}
-          onSelectTable={(table: TableTabEntry) => setActiveTableKey(tableTabKey(table))}
-        />
-        <DataTable table={activeTable} />
-      </div>
+      <Section title="Data Tables" copy="Create and edit user-authored table schemas for Chisel project data.">
+        <div className="flex min-h-64 flex-col border border-border bg-card">
+          <TableTabs
+            activeTableKey={activeTableKey}
+            systemTables={systemTables}
+            userTables={userTables}
+            onRequestDeleteTable={onRequestDeleteTable}
+            onSelectTable={(table: TableTabEntry) => setActiveTableKey(tableTabKey(table))}
+          />
+          <DataTable table={activeTable} />
+        </div>
+      </Section>
     </section>
   );
 };

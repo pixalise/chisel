@@ -1,7 +1,6 @@
 import { type FC, type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Section } from "@/components/layout/section";
-import PageHeader from "@/components/page-header";
 import useExportProjectMutation from "@/hooks/use-export-project-mutation";
 import useAppStore from "@/stores/app-store";
 
@@ -18,31 +17,32 @@ export const SettingsScreen: FC = () => {
 
   return (
     <section className="flex min-h-full w-full min-w-0 flex-col gap-4">
-      <PageHeader title="Settings" description="Inspect the active Chisel project and its authoritative Chisel files." />
-      <div className="grid grid-cols-2 gap-4 max-[1120px]:grid-cols-1">
-        <Section title="Authoring Data" copy="Each Chisel domain is stored independently inside .chisel.">
-          <SettingsRow label="Project" value=".chisel/chisel.json" />
-          <SettingsRow label="Assets" value=".chisel/assets.json" />
-          <SettingsRow label="Table definitions" value=".chisel/tables.json" />
-          <SettingsRow label="Table rows" value=".chisel/tables/<table_id>_rows.json" />
-        </Section>
-        <Section title="Current Project" copy="Runtime export will be added as a separate workflow.">
-          <SettingsRow label="Name" value={project.name} />
-          <SettingsRow label="Project path" value={project.path} />
-          <SettingsRow label="Project id" value={project.id} />
-        </Section>
-        <Section title="Game Data Export" copy="Generated Godot scripts are written beside .chisel.">
-          <SettingsRow label="Export root" value="game_data" />
-          <SettingsRow label="Manifest" value="game_data/manifest.gd" />
-          {lastExport && <SettingsRow label="Last export" value={lastExport.exportedAt} />}
-          {lastExport && <SettingsRow label="Files" value={String(lastExport.fileCount)} />}
-          <div className="pt-3">
-            <Button disabled={isExportProjectLoading} onClick={onExportProject} type="button">
-              {isExportProjectLoading ? "Exporting..." : "Export Game Data"}
-            </Button>
-          </div>
-        </Section>
-      </div>
+      <Section title="Settings" copy="Inspect the active Chisel project and its authoritative Chisel files.">
+        <div className="grid grid-cols-2 gap-4 max-[1120px]:grid-cols-1">
+          <Section title="Authoring Data" copy="Each Chisel domain is stored independently inside .chisel.">
+            <SettingsRow label="Project" value=".chisel/chisel.json" />
+            <SettingsRow label="Assets" value=".chisel/assets.json" />
+            <SettingsRow label="Table definitions" value=".chisel/tables.json" />
+            <SettingsRow label="Table rows" value=".chisel/tables/<table_id>_rows.json" />
+          </Section>
+          <Section title="Current Project" copy="Runtime export will be added as a separate workflow.">
+            <SettingsRow label="Name" value={project.name} />
+            <SettingsRow label="Project path" value={project.path} />
+            <SettingsRow label="Project id" value={project.id} />
+          </Section>
+          <Section title="Game Data Export" copy="Generated Godot scripts are written beside .chisel.">
+            <SettingsRow label="Export root" value="game_data" />
+            <SettingsRow label="Manifest" value="game_data/manifest.gd" />
+            {lastExport && <SettingsRow label="Last export" value={lastExport.exportedAt} />}
+            {lastExport && <SettingsRow label="Files" value={String(lastExport.fileCount)} />}
+            <div className="pt-3">
+              <Button disabled={isExportProjectLoading} onClick={onExportProject} type="button">
+                {isExportProjectLoading ? "Exporting..." : "Export Game Data"}
+              </Button>
+            </div>
+          </Section>
+        </div>
+      </Section>
     </section>
   );
 };

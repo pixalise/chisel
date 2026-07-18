@@ -124,6 +124,10 @@ function registerIpc() {
         await promises_1.default.mkdir(node_path_1.default.dirname(filePath), { recursive: true });
         await promises_1.default.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
     });
+    electron_1.ipcMain.handle("file:write-text", async (_event, filePath, value) => {
+        await promises_1.default.mkdir(node_path_1.default.dirname(filePath), { recursive: true });
+        await promises_1.default.writeFile(filePath, value, "utf8");
+    });
     electron_1.ipcMain.handle("file:write-png", (_event, filePath, dataUrl) => writePngFile(filePath, dataUrl));
     electron_1.ipcMain.handle("file:ensure-gitignore-entry", (_event, filePath, entry) => ensureGitignoreEntry(filePath, entry));
     electron_1.ipcMain.handle("file:copy", async (_event, sourcePath, destinationPath) => {

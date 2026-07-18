@@ -5,7 +5,6 @@ import { FolderOpen, Images } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import PageHeader from "@/components/page-header";
 import { Section } from "@/components/layout/section";
 import imageConversionService from "@/services/image-conversion-service";
 import { convertImagesSchema, type ConvertImages, type ConvertedImage } from "../../../../shared/schemas";
@@ -65,8 +64,10 @@ export function ImageConversionScreen() {
 
   return (
     <section className="grid min-h-max w-full min-w-0 content-start gap-4 pb-8">
-      <PageHeader title="Image Conversion" description="Batch image conversion to PNG." />
-      <Section title="Conversion Queue" copy={`${inputPaths.length} source image${inputPaths.length === 1 ? "" : "s"}`}>
+      <Section
+        title="Image Conversion"
+        copy={`${inputPaths.length} source image${inputPaths.length === 1 ? "" : "s"} queued for PNG conversion`}
+      >
         <form className="grid gap-5" onSubmit={form.handleSubmit(convert)}>
           <FieldGroup>
             <Controller
