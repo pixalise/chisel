@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { describe, expect, it } from "vitest";
-import { dataTableSchema, type Project } from "./schemas";
-import { ColumnType } from "./types";
+import { dataTableSchema, systemDataTableSchema, type Project } from "./schemas";
+import { ColumnType, InputKeyEnum } from "./types";
 import { createGodotExportBundle } from "./godot-export";
 
 describe("Godot export", () => {
@@ -132,5 +132,84 @@ describe("Godot export", () => {
     expect(tableFile?.content).toContain("const MAX_HEALTH := [\n\t100\n]");
     expect(tableFile?.content).toContain("const MAX_HEALTH_2 := [\n\t200\n]");
     expect(tableFile?.content).toContain("const MAX_HEALTH_2_2 := [\n\t300\n]");
+  });
+
+  it("exports input bindings as a Godot InputMap setup script", () => {
+    const sortOrderColumnId = nanoid();
+    const actionColumnId = nanoid();
+    const bindingsColumnId = nanoid();
+    const table = systemDataTableSchema.parse({
+      columns: [
+        {
+          defaultValue: 0,
+          id: sortOrderColumnId,
+          name: "sort_order",
+          required: true,
+          type: ColumnType.integer,
+          unique: false
+        },
+        {
+          defaultValue: "",
+          id: actionColumnId,
+          name: "action",
+          required: true,
+          type: ColumnType.string,
+          unique: true
+        },
+        {
+          defaultValue: [],
+          id: bindingsColumnId,
+          name: "bindings",
+          possibleValues: Object.values(InputKeyEnum),
+          required: true,
+          type: ColumnType.enumArray,
+          unique: false
+        }
+      ],
+      description: "Input bindings",
+      id: "input_bindings",
+      isSystemTable: true,
+      kind: "system",
+      lastChangeAt: "2026-01-01T00:00:00.000Z",
+      moduleId: "input",
+      name: "Input Bindings",
+      rows: [
+        {
+          id: nanoid(),
+          slug: "MOVE_FORWARD",
+          values: [
+            { columnId: sortOrderColumnId, type: ColumnType.integer, value: 10 },
+            { columnId: actionColumnId, type: ColumnType.string, value: "move_forward" },
+            { columnId: bindingsColumnId, type: ColumnType.enumArray, value: [InputKeyEnum.KeyW, InputKeyEnum.KeyUp] }
+          ]
+        },
+        {
+          id: nanoid(),
+          slug: "INCREASE_MOVE_SPEED",
+          values: [
+            { columnId: sortOrderColumnId, type: ColumnType.integer, value: 20 },
+            { columnId: actionColumnId, type: ColumnType.string, value: "increase_move_speed" },
+            { columnId: bindingsColumnId, type: ColumnType.enumArray, value: [InputKeyEnum.MouseButtonWheelUp] }
+          ]
+        }
+      ],
+      version: 1
+    });
+    const project: Project = {
+      id: nanoid(),
+      name: "Iron Bastion",
+      path: "/tmp/iron-bastion"
+    };
+
+    const bundle = createGodotExportBundle(project, [table], "2026-01-01T00:00:00.000Z");
+    const inputFile = bundle.files.find((file) => file.path === "game_data/input.gd");
+    const tableFile = bundle.files.find((file) => file.path === "game_data/tables/input_bindings.gd");
+
+    expect(tableFile?.content).toContain('const ACTION := [\n\t"move_forward",\n\t"increase_move_speed"\n]');
+    expect(tableFile?.content).toContain('const BINDINGS := [\n\t["KEY_W", "KEY_UP"],\n\t["MOUSE_BUTTON_WHEEL_UP"]\n]');
+    expect(inputFile?.content).toContain("class_name ChiselInput");
+    expect(inputFile?.content).toContain("InputMap.action_add_event(action_name, event)");
+    expect(inputFile?.content).toContain('"KEY_W":\n\t\t\treturn _key(KEY_W)');
+    expect(inputFile?.content).toContain('"MOUSE_BUTTON_WHEEL_UP":\n\t\t\treturn _mouse_button(MOUSE_BUTTON_WHEEL_UP)');
   });
 });

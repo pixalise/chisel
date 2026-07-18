@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { anyDataTableSchema } from "../../shared/schemas";
-import { ColumnType } from "../../shared/types";
+import { ColumnType, InputKeyEnum } from "../../shared/types";
 import { INPUT_BINDINGS_TABLE, SYSTEM_INPUT_TABLES, SYSTEM_TABLES } from "./system-tables";
 
 describe("system tables", () => {
@@ -19,6 +19,10 @@ describe("system tables", () => {
 
   it("defines the input bindings schema without seed rows", () => {
     expect(INPUT_BINDINGS_TABLE.rows).toEqual([]);
-    expect(INPUT_BINDINGS_TABLE.columns.find((column) => column.name === "bindings")?.type).toBe(ColumnType.enumArray);
+    const bindingsColumn = INPUT_BINDINGS_TABLE.columns.find((column) => column.name === "bindings");
+
+    expect(bindingsColumn?.type).toBe(ColumnType.enumArray);
+    expect(bindingsColumn?.possibleValues).toContain(InputKeyEnum.KeyW);
+    expect(bindingsColumn?.possibleValues).toContain(InputKeyEnum.MouseButtonWheelUp);
   });
 });

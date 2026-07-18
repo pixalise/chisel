@@ -91,7 +91,7 @@ export const INPUT_BINDINGS_TABLE = {
       possibleValues: Object.values(InputKeyEnum)
     })
   ],
-  description: "Input bindings exported to assets/config/input.json.",
+  description: "Input bindings exported to Godot InputMap setup.",
   id: INPUT_BINDINGS_TABLE_ID,
   isSystemTable: true,
   kind: "system",
