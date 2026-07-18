@@ -1,8 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.snakeCase = snakeCase;
-exports.upperSnakeCase = upperSnakeCase;
-exports.normalizeUpperSnakeCaseInput = normalizeUpperSnakeCaseInput;
+exports.normalizeSnakeCaseInput = normalizeSnakeCaseInput;
 exports.assetStem = assetStem;
 exports.assetSlug = assetSlug;
 exports.legacyAssetStem = legacyAssetStem;
@@ -25,34 +24,24 @@ function snakeCase(value) {
         .replace(/^_+|_+$/g, "")
         .toLowerCase();
 }
-function upperSnakeCase(value) {
-    return snakeCase(value).toUpperCase();
-}
-function normalizeUpperSnakeCaseInput(value) {
-    return value
-        .toUpperCase()
-        .replace(/[^A-Z0-9]+/g, "_")
-        .trim();
+function normalizeSnakeCaseInput(value) {
+    return snakeCase(value);
 }
 function assetStem(name) {
     return snakeCase(name);
 }
 function assetSlug(name) {
-    return upperSnakeCase(name);
+    return snakeCase(name);
 }
-function exportPathSegment(value, label) {
+function snakePathSegment(value, label) {
     const segment = snakeCase(value);
-    if (!/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(segment)) {
-        throw new Error(`Invalid ${label} export path segment: ${value}`);
+    if (!/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/.test(segment)) {
+        throw new Error(`Invalid ${label} path segment: ${value}`);
     }
     return segment;
 }
 function chiselPathSegment(value, label) {
-    const segment = upperSnakeCase(value);
-    if (!/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/.test(segment)) {
-        throw new Error(`Invalid ${label} Chisel path segment: ${value}`);
-    }
-    return segment;
+    return snakePathSegment(value, label);
 }
 function legacyAssetStem(name) {
     return name
@@ -71,8 +60,8 @@ function chiselAssetRelativePath(category, name, extension) {
     return `.chisel/assets/${categorySegment}/${stem}.${extensionSegment}`;
 }
 function godotAssetExportFolderPath(exportRoot, category, name) {
-    const categorySegment = exportPathSegment(category, "asset category");
-    const stem = exportPathSegment(name, "asset name");
+    const categorySegment = snakePathSegment(category, "asset category");
+    const stem = snakePathSegment(name, "asset name");
     return `${exportRoot}/assets/${categorySegment}/${stem}`;
 }
 function godotAssetExportFilePath(exportRoot, category, name, extension) {

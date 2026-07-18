@@ -15,15 +15,8 @@ export function snakeCase(value: string): string {
     .toLowerCase();
 }
 
-export function upperSnakeCase(value: string): string {
-  return snakeCase(value).toUpperCase();
-}
-
-export function normalizeUpperSnakeCaseInput(value: string): string {
-  return value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
-    .trim();
+export function normalizeSnakeCaseInput(value: string): string {
+  return snakeCase(value);
 }
 
 export function assetStem(name: string): string {
@@ -31,23 +24,19 @@ export function assetStem(name: string): string {
 }
 
 export function assetSlug(name: string): string {
-  return upperSnakeCase(name);
+  return snakeCase(name);
 }
 
-function exportPathSegment(value: string, label: string): string {
+function snakePathSegment(value: string, label: string): string {
   const segment = snakeCase(value);
-  if (!/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(segment)) {
-    throw new Error(`Invalid ${label} export path segment: ${value}`);
+  if (!/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/.test(segment)) {
+    throw new Error(`Invalid ${label} path segment: ${value}`);
   }
   return segment;
 }
 
 function chiselPathSegment(value: string, label: string): string {
-  const segment = upperSnakeCase(value);
-  if (!/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/.test(segment)) {
-    throw new Error(`Invalid ${label} Chisel path segment: ${value}`);
-  }
-  return segment;
+  return snakePathSegment(value, label);
 }
 
 export function legacyAssetStem(name: string): string {
@@ -70,8 +59,8 @@ export function chiselAssetRelativePath(category: string, name: string, extensio
 }
 
 export function godotAssetExportFolderPath(exportRoot: string, category: string, name: string): string {
-  const categorySegment = exportPathSegment(category, "asset category");
-  const stem = exportPathSegment(name, "asset name");
+  const categorySegment = snakePathSegment(category, "asset category");
+  const stem = snakePathSegment(name, "asset name");
   return `${exportRoot}/assets/${categorySegment}/${stem}`;
 }
 

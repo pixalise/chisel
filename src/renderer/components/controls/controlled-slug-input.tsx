@@ -3,7 +3,7 @@ import { Controller, type Control, type FieldPath, type FieldValues } from "reac
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { isNil } from "lodash";
-import { normalizeUpperSnakeCaseInput } from "../../../shared/asset-paths";
+import { normalizeSnakeCaseInput } from "../../../shared/asset-paths";
 
 export interface ControlledSlugInputProps<TFieldValues extends FieldValues> extends Omit<
   ComponentProps<typeof Input>,
@@ -40,7 +40,7 @@ function ControlledSlugInput<TFieldValues extends FieldValues>(props: Controlled
               name={field.name}
               value={value}
               onBlur={field.onBlur}
-              onChange={(event) => field.onChange(normalizeUpperSnakeCaseInput(event.target.value))}
+              onChange={(event) => field.onChange(normalizeSnakeCaseInput(event.target.value))}
             />
             {hasError && <FieldError errors={[fieldError]} />}
           </Field>

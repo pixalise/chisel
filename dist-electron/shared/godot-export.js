@@ -38,12 +38,19 @@ function columnConstantNames(columns) {
     }
     return namesByColumnId;
 }
-function assetConstantNames(assets) {
+function enumIdentifier(value, fallbackPrefix) {
+    const name = (0, asset_paths_1.snakeCase)(value);
+    if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/.test(name)) {
+        return name;
+    }
+    return `${fallbackPrefix}_${name || "value"}`;
+}
+function assetEnumNames(assets) {
     const nextSuffixByBase = new Map();
     const usedNames = new Set();
     const namesByAssetId = new Map();
     for (const asset of assets) {
-        const baseName = constantCase(asset.name);
+        const baseName = enumIdentifier(asset.name, "asset");
         let suffix = nextSuffixByBase.get(baseName) ?? 1;
         let name = suffix === 1 ? baseName : `${baseName}_${suffix}`;
         while (usedNames.has(name)) {
@@ -164,8 +171,8 @@ function assetEnumBody(assets) {
     if (assets.length === 0) {
         return "{}";
     }
-    const namesByAssetId = assetConstantNames(assets);
-    const lines = assets.map((asset, index) => `\t${namesByAssetId.get(asset.id) ?? constantCase(asset.name)} = ${index}`);
+    const namesByAssetId = assetEnumNames(assets);
+    const lines = assets.map((asset, index) => `\t${namesByAssetId.get(asset.id) ?? enumIdentifier(asset.name, "asset")} = ${index}`);
     return `{\n${lines.join(",\n")}\n}`;
 }
 function assetIdsArray(assets) {

@@ -62,13 +62,21 @@ function columnConstantNames(columns: DataColumnDefinition[]): Map<string, strin
   return namesByColumnId;
 }
 
-function assetConstantNames(assets: Asset[]): Map<string, string> {
+function enumIdentifier(value: string, fallbackPrefix: string): string {
+  const name = snakeCase(value);
+  if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/.test(name)) {
+    return name;
+  }
+  return `${fallbackPrefix}_${name || "value"}`;
+}
+
+function assetEnumNames(assets: Asset[]): Map<string, string> {
   const nextSuffixByBase = new Map<string, number>();
   const usedNames = new Set<string>();
   const namesByAssetId = new Map<string, string>();
 
   for (const asset of assets) {
-    const baseName = constantCase(asset.name);
+    const baseName = enumIdentifier(asset.name, "asset");
     let suffix = nextSuffixByBase.get(baseName) ?? 1;
     let name = suffix === 1 ? baseName : `${baseName}_${suffix}`;
 
@@ -213,8 +221,8 @@ function assetEnumBody(assets: Asset[]): string {
   if (assets.length === 0) {
     return "{}";
   }
-  const namesByAssetId = assetConstantNames(assets);
-  const lines = assets.map((asset, index) => `\t${namesByAssetId.get(asset.id) ?? constantCase(asset.name)} = ${index}`);
+  const namesByAssetId = assetEnumNames(assets);
+  const lines = assets.map((asset, index) => `\t${namesByAssetId.get(asset.id) ?? enumIdentifier(asset.name, "asset")} = ${index}`);
   return `{\n${lines.join(",\n")}\n}`;
 }
 

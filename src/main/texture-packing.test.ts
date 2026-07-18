@@ -62,7 +62,7 @@ describe("texture packing", () => {
     const asset = await packTexturePackageAsset({
       albedo,
       height,
-      name: "STONE_WALL",
+      name: "stone_wall",
       normal,
       note: "packed",
       projectPath,
@@ -73,8 +73,8 @@ describe("texture packing", () => {
 
     expect(asset.category).toBe(AssetCategoryEnum.terrainTexture);
     expect(asset.extension).toBe("gppt");
-    expect(asset.id).toBe("STONE_WALL");
-    expect(asset.relativePath).toBe(".chisel/assets/TERRAIN_TEXTURE/STONE_WALL.gppt");
+    expect(asset.id).toBe("stone_wall");
+    expect(asset.relativePath).toBe(".chisel/assets/terrain_texture/stone_wall.gppt");
     expect(packageBuffer.subarray(0, 4).toString("ascii")).toBe("GPPT");
     expect(packageBuffer.readUInt32LE(4)).toBe(1);
     expect(packageBuffer.readUInt32LE(8)).toBe(2);

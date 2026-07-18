@@ -4,12 +4,12 @@ exports.ColumnType = exports.InputKeyEnum = exports.assetCategoryOptionValues = 
 exports.isTerrainTextureExtension = isTerrainTextureExtension;
 var AssetCategoryEnum;
 (function (AssetCategoryEnum) {
-    AssetCategoryEnum["terrainTexture"] = "TERRAIN_TEXTURE";
-    AssetCategoryEnum["image"] = "IMAGE";
-    AssetCategoryEnum["audio"] = "AUDIO";
-    AssetCategoryEnum["font"] = "FONT";
-    AssetCategoryEnum["data"] = "DATA";
-    AssetCategoryEnum["other"] = "OTHER";
+    AssetCategoryEnum["terrainTexture"] = "terrain_texture";
+    AssetCategoryEnum["image"] = "image";
+    AssetCategoryEnum["audio"] = "audio";
+    AssetCategoryEnum["font"] = "font";
+    AssetCategoryEnum["data"] = "data";
+    AssetCategoryEnum["other"] = "other";
 })(AssetCategoryEnum || (exports.AssetCategoryEnum = AssetCategoryEnum = {}));
 exports.assetCategoryLabelMap = {
     [AssetCategoryEnum.terrainTexture]: "Terrain Texture",

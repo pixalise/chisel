@@ -1,5 +1,6 @@
 import { type FC, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { normalizeSnakeCaseInput } from "../../../../../../shared/asset-paths";
 import { ColumnType } from "../../../../../../shared/types";
 import AssetRefCategoryFilterEditor from "./asset-ref-category-filter-editor";
 import ColumnDefaultValueEditor from "./column-default-value-editor";
@@ -47,7 +48,7 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
   }, [columnType, defaultValue, fieldPrefix, minValue, possibleValues, setValue]);
 
   function addPossibleValue(): void {
-    const value = possibleValueInput.trim();
+    const value = normalizeSnakeCaseInput(possibleValueInput);
     if (!value || enumValues.includes(value)) {
       return;
     }
@@ -171,7 +172,7 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
           disabled={disabled}
           enumValues={enumValues}
           onAddPossibleValue={addPossibleValue}
-          onPossibleValueInputChange={setPossibleValueInput}
+          onPossibleValueInputChange={(value) => setPossibleValueInput(normalizeSnakeCaseInput(value))}
           onRemovePossibleValue={removePossibleValue}
           possibleValueInput={possibleValueInput}
         />
