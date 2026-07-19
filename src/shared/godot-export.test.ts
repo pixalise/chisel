@@ -455,12 +455,22 @@ describe("Godot export", () => {
     expect(localizationFile?.content).toContain("static func _placeholder_default(placeholder_type: String) -> Variant:");
     expect(localizationFile?.content).toContain("class LocalizedText:");
     expect(translationsFile?.content).toContain("class_name ChiselTranslations");
+    expect(translationsFile?.content).toContain("class UnitToxinTractorDescriptionParameters:");
+    expect(translationsFile?.content).toContain("\tvar damage_toxin_percentage: float = -1.0");
+    expect(translationsFile?.content).toContain("\tvar aoe_radius: float = -1.0");
+    expect(translationsFile?.content).toContain('\t\tif values.has("damage_toxin_percentage"):');
+    expect(translationsFile?.content).toContain('\t\t\tdamage_toxin_percentage = float(values["damage_toxin_percentage"])');
+    expect(translationsFile?.content).toContain(
+      '\t\treturn {"damage_toxin_percentage": damage_toxin_percentage, "aoe_radius": aoe_radius}'
+    );
     expect(translationsFile?.content).toContain("static var unit := UnitTranslations.new()");
     expect(translationsFile?.content).toContain("var toxin_tractor := UnitToxinTractorTranslations.new()");
     expect(translationsFile?.content).not.toContain("var description :=");
     expect(translationsFile?.content).toContain(
-      "func description(damage_toxin_percentage: float = -1.0, aoe_radius: float = -1.0) -> ChiselLocalization.LocalizedText:"
+      "func description(parameters: UnitToxinTractorDescriptionParameters = null) -> ChiselLocalization.LocalizedText:"
     );
+    expect(translationsFile?.content).toContain("parameters = UnitToxinTractorDescriptionParameters.new()");
+    expect(translationsFile?.content).toContain("parameters.to_arguments()");
     expect(translationsFile?.content).toContain("ChiselLocalization.Id.UNIT_TOXIN_TRACTOR_DESCRIPTION");
     expect(csvFile?.content).toBe(
       '"keys","en","sl_SI"\n"TERM.AOE_RADIUS.TOOLTIP","Area radius.","Polmer obmocja."\n"UNIT.TOXIN_TRACTOR.DESCRIPTION","The unit does [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} damage in a [term:AOE_RADIUS]{float:aoe_radius} radius[/term] around it.","Enota naredi [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} skode v [term:AOE_RADIUS]polmeru {float:aoe_radius}[/term]."'

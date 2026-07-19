@@ -24,7 +24,7 @@ export const SettingsScreen: FC = () => {
       const commit = await commitDraft();
       toast({
         title: "Draft committed",
-        description: `Committed ${commit.tables.length} tables and ${commit.assets.assets.length} assets.`
+        description: `Committed ${commit.tables.length} tables, ${commit.assets.assets.length} assets, ${commit.localization.keys.length} translations, and ${commit.localization.locales.length} locales.`
       });
     } catch (error) {
       toast({
@@ -105,7 +105,8 @@ export const SettingsScreen: FC = () => {
                     <div className="min-w-0 flex-1">
                       <code className="block truncate text-xs">{commit.id}</code>
                       <p className="m-0 text-xs text-muted-foreground">
-                        {commit.committedAt} · {commit.tables.length} tables · {commit.assets.assets.length} assets
+                        {commit.committedAt} · {commit.tables.length} tables · {commit.assets.assets.length} assets ·{" "}
+                        {commit.localization.keys.length} translations · {commit.localization.locales.length} locales
                       </p>
                     </div>
                     <Button
