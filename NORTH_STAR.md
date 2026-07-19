@@ -1,14 +1,14 @@
 # Chisel North Star
 
 **Status:** North Star  
-**Role:** Authoritative game-content, metadata, asset-library, UI, localization, validation, and export workspace  
+**Role:** Authoritative game-content, metadata, asset-library, localization, validation, and export workspace  
 **Primary runtime consumer:** Godot project through generated Chisel exports  
 **Simulation:** Native C++ GDExtension core  
 **Terrain and presentation:** Godot, Terrain3D, Godot Forward+, native Controls, shaders, audio, animation, and scenes
 
 ## North-Star Statement
 
-Chisel is the authoritative workspace for game concepts, data, metadata, asset identity, localization, data-driven UI, themes, validation, and export.
+Chisel is the authoritative workspace for game concepts, data, metadata, asset identity, localization, validation, and export.
 
 Chisel authors intent. Godot realizes presentation, spatial composition, rendering, input, camera, and native UI. The native C++ core simulates authoritative runtime state.
 
@@ -17,9 +17,7 @@ A developer or designer opening Chisel should be able to answer:
 - What game concepts exist?
 - How do those concepts reference each other?
 - Which assets belong to each concept?
-- Which UI components present those concepts?
 - Which translations are required?
-- Which animation, presentation, terrain, and audio profiles are assigned?
 - What will break if a field or record is removed?
 - What will Godot receive on the next export?
 - Is the current content valid and ready to export?
@@ -36,9 +34,6 @@ Chisel is a desktop authoring application responsible for:
 - asset-library management
 - image and GPPT processing
 - cross-table references
-- animation metadata
-- UI component authoring
-- theme authoring
 - localization
 - validation
 - impact analysis
@@ -50,7 +45,6 @@ Chisel should feel like a combination of:
 - database editor
 - asset browser
 - schema editor
-- UI component workbench
 - localization workspace
 - validation console
 - content compiler
@@ -73,7 +67,6 @@ Chisel is not intended to replace:
      | Collections, schemas and metadata          |
      | Asset library                              |
      | GPPT packing                               |
-     | UI components and themes                   |
      | Localization                               |
      | Validation and re-export workflow          |
      +--------------------+-----------------------+
@@ -85,8 +78,6 @@ Chisel is not intended to replace:
      +--------------------------------------------+
      | generated types/*.gd                       |
      | generated collections/*.gd                 |
-     | UI components/*.gui.json                   |
-     | themes/*.theme.json                        |
      | localization/*.csv or *.po                 |
      | images, GPPT, GLB, audio and video         |
      | manifests                                  |
@@ -124,15 +115,6 @@ Chisel is authoritative for:
 - cross-table references
 - asset-library records
 - asset tags and import intent
-- movement profiles
-- terrain movement rules
-- animation semantic slots
-- animation clip references
-- presentation profile references
-- UI components
-- UI bindings
-- UI actions
-- UI theme tokens and classes
 - translations
 - validation rules
 - export manifests
@@ -152,7 +134,7 @@ Godot is authoritative for:
 - VFX and particles
 - audio routing
 - camera and input
-- native UI node construction
+- runtime UI implementation
 
 Chisel may reference these through stable assets and declared contracts, but should not attempt to own their internal Godot node graphs.
 
@@ -209,8 +191,6 @@ A Chisel project should conceptually contain:
   schemas/
   collections/
   assets/
-  ui/
-  themes/
   localization/
   exports/
   cache/
@@ -239,16 +219,6 @@ Examples include:
 - Blueprints
 - Waves
 - Resources
-- Biomes
-- TerrainMaterials
-- TerrainTypes
-- MovementProfiles
-- AnimationClips
-- AnimationSets
-- AnimationControllers
-- PresentationProfiles
-- HighlightStyles
-- UIActions
 - Translations
 - Assets
 
@@ -313,7 +283,6 @@ row:
   values:
     max_health: 100
     move_speed: 1.6
-    animation_set: ZOMBIE_BASIC
 ```
 
 Generated Godot enum IDs should be derived from slugs:
@@ -322,7 +291,6 @@ Generated Godot enum IDs should be derived from slugs:
 Enemies.Id.ZOMBIE_BASIC
 Buildings.Id.BARRACKS
 Blueprints.Id.FLETCHING_BULLETS
-Biomes.Id.TUNDRA
 ```
 
 These generated enum values may be dense local indexes. They must not be stored directly in long-lived saves or external protocols unless tied to the exact generated export they came from.
@@ -353,11 +321,6 @@ const SLUGS := [
 
 const MAX_HEALTH := [100, 80, 300]
 const MOVE_SPEED := [1.6, 2.2, 0.8]
-const ANIMATION_SET := [
-    AnimationSets.Id.ZOMBIE_BASIC,
-    AnimationSets.Id.ZOMBIE_RUNNER,
-    AnimationSets.Id.ZOMBIE_TANK,
-]
 ```
 
 Usage:
@@ -367,7 +330,7 @@ var enemy := Enemies.Id.ZOMBIE_BASIC
 var hp := Enemies.MAX_HEALTH[enemy]
 ```
 
-Chisel may additionally generate typed record views for UI and editor convenience.
+Chisel may additionally generate typed record views for editor convenience.
 
 ## Typed References
 
@@ -375,12 +338,8 @@ References should be typed rather than represented as arbitrary strings.
 
 Examples:
 
-- `Enemies.animation_set -> AnimationSets.Id`
 - `Buildings.model -> Models.Id`
 - `Buildings.icon -> Images.Id`
-- `Biomes.terrain_materials -> Array<TerrainMaterials.Id>`
-- `AnimationSets.run -> AnimationClips.Id`
-- `UI building prop -> Buildings.Id`
 - `Localized text -> Translations.HUD.UNIT_TEXT`
 
 Chisel must validate:
@@ -421,14 +380,11 @@ Supported categories include:
 - images
 - GPPT images
 - 3D models
-- animations
 - audio
 - video
 - fonts
 - Godot scenes
 - Godot resources
-- UI icons
-- terrain materials
 - impostor atlases
 
 Game data should reference asset IDs or asset slugs. Raw paths should be resolved by the generated asset database.
@@ -455,7 +411,6 @@ GPPT may be used for:
 - terrain texture packs
 - material packs
 - impostor atlases
-- animation atlases
 - packed masks
 - generated control textures
 
@@ -479,7 +434,7 @@ Godot remains authoritative for final engine import and scene composition.
 
 Recommended interchange:
 
-- GLB/glTF for portable 3D models and animation
+- GLB/glTF for portable 3D models
 - GPPT for project-specific texture packages
 - Godot scenes for final spatial composition
 
@@ -488,7 +443,6 @@ A 3D record may define:
 - model stable ID or slug
 - GLB path
 - skeleton profile
-- animation clips
 - LOD policy
 - collision policy
 - required sockets
@@ -514,204 +468,21 @@ Chisel must not become:
 - an animation blend-tree editor
 - a replacement for Blender
 
-## Animation Metadata
+## Second Game Phase
 
-Chisel owns animation intent and semantic clip references.
+The following systems are intentionally out of scope for the current game phase and should be revisited for the second game:
 
-Godot owns actual animation blending and playback.
+- terrain data and gameplay classifications
+- biome, terrain material, terrain type, movement profile, and placement-rule collections
+- dense movement-profile x terrain-type lookup exports
+- animation intent and presentation metadata
+- animation clips, animation sets, animation controllers, and presentation profiles
+- semantic animation slots and controller-contract validation
+- Chisel-authored UI component DSL
+- UI slots, preview data plugs, declarative UI actions, and component nesting
+- theme tokens, classes, variants, and visual theme editing
 
-Recommended collections:
-
-- Models
-- AnimationClips
-- AnimationSets
-- AnimationControllers
-- PresentationProfiles
-
-Example enemy definition:
-
-```text
-Enemies.ZOMBIE_BASIC
-  model = Models.ZOMBIE_BASIC
-  animation_set = AnimationSets.ZOMBIE_BASIC
-  animation_controller = AnimationControllers.ZOMBIE_BIPED
-```
-
-Animation clip metadata may include:
-
-- source model
-- GLB animation name
-- loop flag
-- playback speed
-- root-motion policy
-- semantic tags
-- baked or impostor equivalents
-
-Animation controller metadata may include:
-
-- Godot controller scene
-- required semantic slots
-- supported locomotion dimensions
-- supported action dimensions
-
-Chisel validates that animation sets satisfy their controller contracts.
-
-The C++ simulation exports only simulation facts:
-
-- stationary
-- moving
-- attacking
-- dying
-- dead
-- movement speed
-- state revision
-
-Godot maps those facts to animation semantics and drives AnimationTree.
-
-## Data-Driven UI
-
-Chisel should be the main authoring environment for data-driven UI components and fragments.
-
-The source format is a constrained UI intermediate representation:
-
-```text
-*.gui.json
-```
-
-It is not arbitrary HTML or CSS.
-
-Godot converts the UI IR into real native `Control` nodes.
-
-Initial primitives:
-
-- Panel
-- Margin
-- Row
-- Column
-- Grid
-- Scroll
-- Label
-- Title
-- RichText
-- Image
-- Button
-- ProgressBar
-- Separator
-- Tabs
-- List
-- Conditional
-- ForEach
-- Slot
-- Component
-
-Components support:
-
-- typed props
-- subcomponents
-- children
-- slots
-- variants
-- bindings
-- actions
-- conditions
-- loops
-- theme classes
-
-Chisel must detect recursive component dependency loops.
-
-The UI editor should provide:
-
-- component tree
-- schema-aware JSON editor
-- local preview
-- problems panel
-- binding inspector
-- props inspector
-- theme inspector
-- preview-data selector
-- generated Godot representation
-
-The local preview may use Chisel's web technology, but must only implement UI behavior supported by the project UI schema.
-
-Godot is the final representation truth.
-
-## UI Actions
-
-Chisel UI must not execute arbitrary runtime code.
-
-UI components emit declarative typed actions:
-
-```json
-{
-  "action": "building.build",
-  "args": {
-    "building": "Buildings.BARRACKS"
-  }
-}
-```
-
-Actions should be schema-defined:
-
-```text
-building.build(building: Buildings.Id)
-unit.select(unit: Units.Id)
-blueprint.unlock(blueprint: Blueprints.Id)
-```
-
-Chisel validates argument names and types.
-
-The preferred routing hierarchy is:
-
-- component
-- screen or panel controller
-- feature controller
-- optional global action bus
-
-## Themes
-
-Themes are first-class content.
-
-Theme definitions include:
-
-- tokens
-- classes
-- variants
-- inheritance
-- fonts
-- colors
-- spacing
-- radii
-- panel styles
-- button styles
-- typography
-- state styles
-
-Example tokens:
-
-```text
-space.xs
-space.sm
-space.md
-color.panel
-color.text
-color.health
-radius.md
-font.body
-font.title_size
-```
-
-Components use semantic classes:
-
-```text
-card
-unit-card
-unit-card.selected
-health-progress
-warning
-danger
-```
-
-Chisel should support both schema-aware theme JSON and a visual theme editor.
+For this game phase, Godot owns terrain generation, animation playback, presentation assembly, and runtime UI implementation.
 
 ## Localization
 
@@ -758,7 +529,6 @@ Syntax validation:
 
 - JSON syntax
 - schema syntax
-- theme syntax
 - translation syntax
 
 Schema validation:
@@ -776,20 +546,13 @@ Reference validation:
 
 - cross-table references
 - asset references
-- UI components
-- theme classes
 - translation keys
-- action IDs
-- animation slots
 - Godot scene references
 
 Semantic validation:
 
-- movement profiles cover every terrain type
-- animation controllers have required slots
 - building costs reference valid resources
-- biomes reference valid terrain materials
-- translation placeholders match UI bindings
+- translation placeholders match declared schemas
 - asset kind matches usage
 
 Compatibility validation:
@@ -802,7 +565,7 @@ An export must be blocked while blocking errors remain.
 
 ## Removal and Impact Analysis
 
-Chisel should report direct impact before rows, fields, assets, actions, translation keys, UI components, props, or themes are removed.
+Chisel should report direct impact before rows, fields, assets, translation keys, or Godot scene references are removed.
 
 Hard deletion is blocked while references remain.
 
@@ -823,11 +586,8 @@ It may declare:
 
 - required collections
 - required fields
-- required actions
-- required UI components
 - required translation keys
 - required asset kinds
-- required animation slots
 
 This lets Chisel detect dependencies that exist in handwritten Godot code and would not otherwise appear in Chisel's reference graph.
 
@@ -847,15 +607,7 @@ res://game_data/
     enemies.gd
     buildings.gd
     blueprints.gd
-    biomes.gd
-    animation_sets.gd
     translations.gd
-
-  ui/
-    components/
-    themes/
-    preview_data/
-    generated/
 
   localization/
     ui.csv
@@ -909,55 +661,6 @@ Each export should include:
 
 Re-export replaces generated files from the current Chisel source state.
 
-## Terrain and Terrain3D
-
-Godot and Terrain3D own terrain generation and rendering.
-
-Chisel owns terrain presets and gameplay classifications.
-
-Relevant collections include:
-
-- Biomes
-- TerrainGenerationPresets
-- TerrainMaterials
-- TerrainTypes
-- MovementProfiles
-- PlacementRules
-
-Godot uses Chisel definitions to generate:
-
-- Terrain3D heightmap
-- ground depressions
-- water masks
-- texture control maps
-- decorative placement
-- categorical navigation mask
-
-For the initial zombie survival RTS, navigation terrain may consist of:
-
-- Ground
-- Road
-- Mud
-- ShallowWater
-- Blocked
-
-Chisel defines movement profiles:
-
-- Human
-- Zombie
-- Vehicle
-
-and produces a dense lookup table:
-
-```text
-movement profile x terrain type
-  blocked
-  path cost
-  speed scale
-```
-
-The C++ simulation performs direct indexed lookups rather than interpreting a large runtime configuration.
-
 ## Simulation Boundary
 
 The native C++ GDExtension core owns:
@@ -975,7 +678,7 @@ The native C++ GDExtension core owns:
 
 Chisel supplies initialization definitions.
 
-Godot supplies generated terrain masks and gameplay placements.
+Godot supplies terrain, presentation, runtime UI, and gameplay placements for this phase.
 
 The simulation outputs factual observations:
 
@@ -989,14 +692,7 @@ The simulation outputs factual observations:
 - attack events
 - death events
 
-Godot maps those observations through Chisel-authored presentation profiles into:
-
-- AnimationTree states
-- sounds
-- VFX
-- selection highlights
-- health bars
-- unit cards
+Godot maps those observations into presentation, sound, VFX, selection, and runtime UI.
 
 Animation clips, shaders, UI state, and highlight colors do not belong in the simulation core.
 
@@ -1007,9 +703,7 @@ Chisel content should compile into efficient runtime forms.
 - Resolve slugs and stable IDs to dense indexes at load time.
 - Do not use string lookups in simulation loops.
 - Do not parse Chisel tables per entity per frame.
-- Compile movement rules into dense arrays.
-- Compile UI bindings into validated expressions or generated code.
-- Cache presentation definitions when actors are created.
+- Cache exported definitions when actors are created.
 - Load heavy assets lazily.
 - Transfer simulation observations in batches.
 - Keep exported content immutable during a match unless a field is explicitly hot-reloadable.
@@ -1026,15 +720,12 @@ The intended workflow is:
 1. Open Chisel.
 2. Browse collections and assets.
 3. Edit typed game data.
-4. Create or edit UI components.
-5. Preview UI with selected data records.
-6. Edit theme tokens and variants.
-7. Add translations and validate placeholders.
-8. Pack or inspect GPPT assets.
-9. Review reference impact and validation problems.
-10. Export or re-export.
-11. Godot reloads generated data.
-12. Inspect exact native previews or run the game.
+4. Add translations and validate placeholders.
+5. Pack or inspect GPPT assets.
+6. Review reference impact and validation problems.
+7. Export or re-export.
+8. Godot reloads generated data.
+9. Inspect exact native previews or run the game.
 ```
 
 The Problems panel must clearly answer:
@@ -1064,80 +755,51 @@ The shipped game must never require Chisel to be running.
 
 ## Delivery Milestones
 
-### M0 - Collections and Godot Export
+### M1 - Committed/Draft and Rollback
 
-- typed schemas
-- required `UPPER_SNAKE_CASE` row slugs
-- collection editor
-- reference fields
-- basic validation
-- Godot export skeleton
-- export manifest
-- `game_data` output folder
+- committed and draft source states
+- rollback to prior committed source states
+- export only from an explicit committed state
 
-### M1 - Asset Library
+### M2 - Typed References and Impact Analysis
+
+- typed table references
+- typed asset references
+- removal impact analysis
+- replacement target selection
+- blocking reference errors
+
+### M3 - Asset Library
 
 - images
 - GPPT
 - models
 - audio
 - video
+- fonts
 - hashing
 - previews
 - tags
 - dependencies
+- usage references
 
-### M2 - Godot Database Export
+### M4 - Godot Export and Re-Export
 
 - one file per table
 - typed enums
 - enum-indexed Structure-of-Arrays exports
 - generated loader helpers
 - manifest
+- content hashes
+- generated file list
+- generated output replacement
 
-### M3 - Validation
+### M5 - Localization
 
-- impact analysis
-- reference validation
-- Godot requirements
-- blocking export errors
-
-### M4 - UI Workbench
-
-- UI schema
-- schema-aware JSON editor
-- component tree
-- local preview
-- props
-- slots
-- ForEach
-- Conditional
-- typed actions
-
-### M5 - Themes and Localization
-
-- theme token editor
-- classes and variants
 - translation workspace
 - placeholder validation
 - locale preview
 - Godot localization export
-
-### M6 - Re-Export Workflow
-
-- content hash
-- schema version
-- re-export button
-- Godot reload support
-- generated output replacement
-
-### M7 - Advanced Assets
-
-- GPPT channel inspection
-- GLB metadata validation
-- animation clip extraction
-- animation-controller validation
-- LOD and impostor metadata
 
 ## Acceptance Criteria
 
@@ -1148,8 +810,6 @@ Chisel fulfills its north star when:
 - Every row has a required `UPPER_SNAKE_CASE` slug.
 - Removing a field or row shows its impact before export.
 - Godot receives typed table APIs with enum-style access.
-- UI components can be authored and previewed in Chisel and rendered as native Godot Controls.
-- Themes can be visually edited and previewed.
 - Translations with typed placeholders are validated before reaching Godot.
 - GPPT, images, models, video, and audio are managed through one asset library.
 - 3D assets are referenced and validated in Chisel while final spatial composition remains in Godot.
@@ -1168,8 +828,6 @@ Chisel:
   data
   metadata
   assets
-  UI
-  themes
   localization
   validation
   export
