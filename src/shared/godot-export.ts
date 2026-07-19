@@ -1,4 +1,5 @@
-import { godotAssetExportFilePath, godotAssetExportFolderPath, snakeCase } from "./asset-paths";
+import { snakeCase } from "lodash";
+import { godotAssetExportFilePath, godotAssetExportFolderPath } from "./asset-paths";
 import {
   localizationIconSlugsForKey,
   localizationKeyConstant,

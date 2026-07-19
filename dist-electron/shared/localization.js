@@ -16,14 +16,21 @@ exports.removeLocalizationTerm = removeLocalizationTerm;
 exports.localizationKeyConstant = localizationKeyConstant;
 exports.localizationTypedSegments = localizationTypedSegments;
 exports.localizationPlaceholderNames = localizationPlaceholderNames;
+exports.localizationPlaceholdersForKey = localizationPlaceholdersForKey;
+exports.localizationIconSlugsForKey = localizationIconSlugsForKey;
+exports.analyzeLocalizationText = analyzeLocalizationText;
+exports.localizationPlaceholderDefault = localizationPlaceholderDefault;
+exports.placeholderToken = placeholderToken;
+exports.placeholderSyntaxType = placeholderSyntaxType;
 const zod_1 = __importDefault(require("zod"));
-const asset_paths_1 = require("./asset-paths");
 const schemas_1 = require("./schemas");
+const types_1 = require("./types");
+const lodash_1 = require("lodash");
 var TranslationPlaceholderType;
 (function (TranslationPlaceholderType) {
     TranslationPlaceholderType["string"] = "string";
-    TranslationPlaceholderType["number"] = "number";
-    TranslationPlaceholderType["integer"] = "integer";
+    TranslationPlaceholderType["number"] = "float";
+    TranslationPlaceholderType["integer"] = "int";
 })(TranslationPlaceholderType || (exports.TranslationPlaceholderType = TranslationPlaceholderType = {}));
 var LocalizationProblemSeverity;
 (function (LocalizationProblemSeverity) {
@@ -47,7 +54,7 @@ exports.localizationPlaceholderSchema = zod_1.default
         .min(1, "Placeholder name is required")
         .max(64, "Placeholder name must be at most 64 characters")
         .regex(/^[a-z][a-z0-9_]*$/, "Placeholder name must be snake_case"),
-    type: zod_1.default.enum(TranslationPlaceholderType),
+    type: zod_1.default.preprocess((value) => legacyPlaceholderType(value), zod_1.default.enum(TranslationPlaceholderType)),
     term: schemas_1.rowSlugSchema.optional()
 })
     .strict();
@@ -134,7 +141,7 @@ exports.emptyLocalizationDocument = {
     keys: [],
     terms: []
 };
-function validateLocalizationDocument(document) {
+function validateLocalizationDocument(document, assets) {
     const parsed = exports.localizationDocumentV2Schema.safeParse(document);
     if (!parsed.success) {
         return parsed.error.issues.map((issue) => ({
@@ -148,24 +155,12 @@ function validateLocalizationDocument(document) {
     const localeSet = new Set(value.locales);
     const keySet = new Set(value.keys.map((key) => key.path));
     const termsBySlug = new Map(value.terms.map((term) => [term.slug, term]));
+    const assetsById = assets ? new Map(assets.map((asset) => [asset.id, asset])) : undefined;
     value.keys.forEach((key, keyIndex) => {
-        const placeholderNamesForKey = key.placeholders.map((placeholder) => placeholder.name);
-        for (const duplicate of duplicateValues(placeholderNamesForKey)) {
-            problems.push({
-                severity: LocalizationProblemSeverity.error,
-                path: `keys.${keyIndex}.placeholders`,
-                message: `Duplicate placeholder "${duplicate}"`
-            });
-        }
-        for (const placeholder of key.placeholders) {
-            if (placeholder.term && !termsBySlug.has(placeholder.term)) {
-                problems.push({
-                    severity: LocalizationProblemSeverity.error,
-                    path: `keys.${keyIndex}.placeholders.${placeholder.name}.term`,
-                    message: `Placeholder "${placeholder.name}" references missing term "${placeholder.term}"`
-                });
-            }
-        }
+        const defaultAnalysis = analyzeLocalizationText(key.values[value.defaultLocale] ?? "", `keys.${keyIndex}.values.${value.defaultLocale}`);
+        const expectedPlaceholders = new Map(defaultAnalysis.placeholders.map((placeholder) => [placeholder.name, placeholder]));
+        const expectedIconSlugs = new Set(defaultAnalysis.iconSlugs);
+        problems.push(...defaultAnalysis.problems);
         for (const locale of value.locales) {
             if (!Object.prototype.hasOwnProperty.call(key.values, locale)) {
                 problems.push({
@@ -175,7 +170,86 @@ function validateLocalizationDocument(document) {
                 });
                 continue;
             }
-            validatePlaceholderUsage(key.values[locale] ?? "", new Set(placeholderNamesForKey), problems, `keys.${keyIndex}.values.${locale}`);
+            const analysis = locale === value.defaultLocale
+                ? defaultAnalysis
+                : analyzeLocalizationText(key.values[locale] ?? "", `keys.${keyIndex}.values.${locale}`);
+            const placeholders = new Map(analysis.placeholders.map((placeholder) => [placeholder.name, placeholder]));
+            if (locale !== value.defaultLocale) {
+                problems.push(...analysis.problems);
+            }
+            const iconSlugs = new Set(analysis.iconSlugs);
+            for (const expectedPlaceholder of expectedPlaceholders.values()) {
+                const actualPlaceholder = placeholders.get(expectedPlaceholder.name);
+                if (!actualPlaceholder) {
+                    problems.push({
+                        severity: LocalizationProblemSeverity.error,
+                        path: `keys.${keyIndex}.values.${locale}`,
+                        message: `Translation ${key.path} is missing placeholder "{${placeholderToken(expectedPlaceholder)}}"`
+                    });
+                    continue;
+                }
+                if (actualPlaceholder.type !== expectedPlaceholder.type) {
+                    problems.push({
+                        severity: LocalizationProblemSeverity.error,
+                        path: `keys.${keyIndex}.values.${locale}`,
+                        message: `Placeholder "${expectedPlaceholder.name}" must use type ${placeholderSyntaxType(expectedPlaceholder.type)}`
+                    });
+                }
+            }
+            for (const actualPlaceholder of placeholders.values()) {
+                if (!expectedPlaceholders.has(actualPlaceholder.name)) {
+                    problems.push({
+                        severity: LocalizationProblemSeverity.error,
+                        path: `keys.${keyIndex}.values.${locale}`,
+                        message: `Translation ${key.path} has extra placeholder "{${placeholderToken(actualPlaceholder)}}"`
+                    });
+                }
+            }
+            for (const expectedIconSlug of expectedIconSlugs) {
+                if (!iconSlugs.has(expectedIconSlug)) {
+                    problems.push({
+                        severity: LocalizationProblemSeverity.error,
+                        path: `keys.${keyIndex}.values.${locale}`,
+                        message: `Translation ${key.path} is missing icon "[icon:${expectedIconSlug}]"`
+                    });
+                }
+            }
+            for (const iconSlug of iconSlugs) {
+                if (!expectedIconSlugs.has(iconSlug)) {
+                    problems.push({
+                        severity: LocalizationProblemSeverity.error,
+                        path: `keys.${keyIndex}.values.${locale}`,
+                        message: `Translation ${key.path} has extra icon "[icon:${iconSlug}]"`
+                    });
+                }
+            }
+            for (const iconSlug of analysis.iconSlugs) {
+                const asset = assetsById?.get(iconSlug);
+                if (assetsById && !asset) {
+                    problems.push({
+                        severity: LocalizationProblemSeverity.error,
+                        path: `keys.${keyIndex}.values.${locale}`,
+                        message: `Translation ${key.path} references missing UI icon asset "${iconSlug}"`
+                    });
+                    continue;
+                }
+                if (asset && asset.category !== types_1.AssetCategoryEnum.uiIcon) {
+                    problems.push({
+                        severity: LocalizationProblemSeverity.error,
+                        path: `keys.${keyIndex}.values.${locale}`,
+                        message: `Translation ${key.path} references asset "${iconSlug}" as an icon but it is ${asset.category}, not UI_ICON`
+                    });
+                }
+            }
+            for (const termSlug of analysis.termSlugs) {
+                if (!termsBySlug.has(termSlug)) {
+                    problems.push({
+                        severity: LocalizationProblemSeverity.error,
+                        path: `keys.${keyIndex}.values.${locale}`,
+                        message: `Translation ${key.path} references missing term "${termSlug}"`
+                    });
+                }
+            }
         }
         for (const locale of Object.keys(key.values)) {
             if (!localeSet.has(locale)) {
@@ -320,11 +394,119 @@ function localizationKeyConstant(path) {
     return path.split(".").join("_");
 }
 function localizationTypedSegments(path) {
-    return path.split(".").map((segment) => (0, asset_paths_1.snakeCase)(segment));
+    return path.split(".").map((segment) => (0, lodash_1.snakeCase)(segment));
 }
 function localizationPlaceholderNames(text) {
-    const matches = text.matchAll(/\{([a-z][a-z0-9_]*)\}/g);
-    return new Set([...matches].map((match) => match[1]));
+    return new Set(analyzeLocalizationText(text, "").placeholders.map((placeholder) => placeholder.name));
+}
+function localizationPlaceholdersForKey(key, defaultLocale) {
+    return analyzeLocalizationText(key.values[defaultLocale] ?? "", "").placeholders;
+}
+function localizationIconSlugsForKey(key, defaultLocale) {
+    return analyzeLocalizationText(key.values[defaultLocale] ?? "", "").iconSlugs;
+}
+function analyzeLocalizationText(text, path) {
+    const problems = [];
+    const iconSlugs = [];
+    const placeholders = [];
+    const placeholdersByName = new Map();
+    const termSlugs = [];
+    const termStack = [];
+    for (const match of text.matchAll(/\{([^{}]+)\}/g)) {
+        const token = match[1] ?? "";
+        const placeholder = parsePlaceholderToken(token);
+        if (!placeholder) {
+            problems.push({
+                severity: LocalizationProblemSeverity.error,
+                path,
+                message: `Placeholder "{${token}}" must include a type like "{int:${token}}", "{float:${token}}", or "{string:${token}}"`
+            });
+            continue;
+        }
+        const existing = placeholdersByName.get(placeholder.name);
+        if (existing && existing.type !== placeholder.type) {
+            problems.push({
+                severity: LocalizationProblemSeverity.error,
+                path,
+                message: `Placeholder "${placeholder.name}" uses conflicting types ${placeholderSyntaxType(existing.type)} and ${placeholderSyntaxType(placeholder.type)}`
+            });
+            continue;
+        }
+        if (!existing) {
+            placeholdersByName.set(placeholder.name, placeholder);
+            placeholders.push(placeholder);
+        }
+    }
+    for (const match of text.matchAll(/\[(\/term|term:([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*))\]/g)) {
+        const token = match[1] ?? "";
+        if (token === "/term") {
+            if (termStack.length === 0) {
+                problems.push({
+                    severity: LocalizationProblemSeverity.error,
+                    path,
+                    message: "Term close tag has no matching open tag"
+                });
+            }
+            else {
+                termStack.pop();
+            }
+            continue;
+        }
+        const termSlug = match[2] ?? "";
+        termSlugs.push(termSlug);
+        termStack.push(termSlug);
+    }
+    if (/\[term(?::|\])/.test(text.replace(/\[term:[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\]/g, ""))) {
+        problems.push({
+            severity: LocalizationProblemSeverity.error,
+            path,
+            message: "Term open tag must look like [term:TERM_SLUG]"
+        });
+    }
+    if (termStack.length > 0) {
+        problems.push({
+            severity: LocalizationProblemSeverity.error,
+            path,
+            message: `Term "${termStack[termStack.length - 1]}" is not closed`
+        });
+    }
+    for (const match of text.matchAll(/\[icon:([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*)\]/g)) {
+        iconSlugs.push(match[1] ?? "");
+    }
+    if (/\[icon(?::|\])/.test(text.replace(/\[icon:[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\]/g, ""))) {
+        problems.push({
+            severity: LocalizationProblemSeverity.error,
+            path,
+            message: "Icon tag must look like [icon:ICON_SLUG]"
+        });
+    }
+    return {
+        iconSlugs: uniqueValues(iconSlugs),
+        placeholders,
+        problems,
+        termSlugs: uniqueValues(termSlugs)
+    };
+}
+function localizationPlaceholderDefault(type) {
+    if (type === TranslationPlaceholderType.integer) {
+        return -1;
+    }
+    if (type === TranslationPlaceholderType.number) {
+        return -1.0;
+    }
+    return "UNKNOWN";
+}
+function placeholderToken(placeholder) {
+    return `${placeholderSyntaxType(placeholder.type)}:${placeholder.name}`;
+}
+function placeholderSyntaxType(type) {
+    if (type === TranslationPlaceholderType.integer) {
+        return "int";
+    }
+    if (type === TranslationPlaceholderType.number) {
+        return "float";
+    }
+    return "string";
 }
 function migrateV1ToV2(document) {
     const locales = uniqueValues(document.activeLocales.length > 0 ? document.activeLocales : ["en"]);
@@ -338,7 +520,7 @@ function migrateV1ToV2(document) {
             path: `${translation.namespace}.${translation.slug}`,
             description: translation.description,
             context: translation.context,
-            placeholders: translation.placeholders,
+            placeholders: translation.placeholders.map((placeholder) => exports.localizationPlaceholderSchema.parse(placeholder)),
             values: Object.fromEntries(locales.map((locale) => [locale, translation.values[locale] ?? translation.sourceText]))
         }))
     });
@@ -353,26 +535,24 @@ function normalizeLocalizationKey(document, input) {
 function parseV2(value) {
     return exports.localizationDocumentV2Schema.parse(value);
 }
-function validatePlaceholderUsage(text, declaredPlaceholders, problems, path) {
-    const usedPlaceholders = localizationPlaceholderNames(text);
-    for (const usedPlaceholder of usedPlaceholders) {
-        if (!declaredPlaceholders.has(usedPlaceholder)) {
-            problems.push({
-                severity: LocalizationProblemSeverity.error,
-                path,
-                message: `Placeholder "{${usedPlaceholder}}" is not declared`
-            });
-        }
+function parsePlaceholderToken(token) {
+    const match = /^(int|float|string):([a-z][a-z0-9_]*)$/.exec(token);
+    if (!match) {
+        return undefined;
     }
-    for (const declaredPlaceholder of declaredPlaceholders) {
-        if (!usedPlaceholders.has(declaredPlaceholder)) {
-            problems.push({
-                severity: LocalizationProblemSeverity.error,
-                path,
-                message: `Declared placeholder "{${declaredPlaceholder}}" is not used`
-            });
-        }
+    return exports.localizationPlaceholderSchema.parse({
+        type: match[1],
+        name: match[2]
+    });
+}
+function legacyPlaceholderType(value) {
+    if (value === "integer") {
+        return TranslationPlaceholderType.integer;
     }
+    if (value === "number") {
+        return TranslationPlaceholderType.number;
+    }
+    return value;
 }
 function validateGeneratedTypedPaths(keys) {
     const problems = [];

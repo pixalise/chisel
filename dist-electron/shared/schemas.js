@@ -44,6 +44,9 @@ function legacyAssetCategory(value) {
     if (normalizedSlug === types_1.AssetCategoryEnum.hdri || normalizedSlug === "HDR") {
         return types_1.AssetCategoryEnum.hdri;
     }
+    if (normalizedSlug === types_1.AssetCategoryEnum.uiIcon) {
+        return types_1.AssetCategoryEnum.uiIcon;
+    }
     if (["IMAGE", "MATERIAL", "SHADER", "UI"].includes(normalizedSlug)) {
         return types_1.AssetCategoryEnum.image;
     }

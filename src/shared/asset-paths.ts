@@ -1,16 +1,11 @@
+import { snakeCase } from "lodash";
+
 function pathSegment(value: string, label: string): string {
   const segment = value.trim();
   if (!/^[A-Za-z0-9_-]+$/.test(segment)) {
     throw new Error(`Invalid ${label} path segment: ${value}`);
   }
   return segment;
-}
-
-// NOTE: DO NOT MODIFY snakeCase behavior. It intentionally does not trim,
-// collapse separators, or replace every whitespace run; export paths depend on
-// this exact implementation.
-export function snakeCase(value: string): string {
-  return value.replace(/\s/, "_").toLowerCase();
 }
 
 export function constantCase(value: string): string {

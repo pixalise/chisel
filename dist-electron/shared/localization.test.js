@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const vitest_1 = require("vitest");
 const localization_1 = require("./localization");
+const types_1 = require("./types");
 (0, vitest_1.describe)("localization schemas", () => {
     (0, vitest_1.it)("accepts v2 key/value localization documents", () => {
         const document = localization_1.localizationDocumentSchema.parse({
@@ -27,18 +28,31 @@ const localization_1 = require("./localization");
                 {
                     path: "UNIT.TOXIN_TRACTOR.DESCRIPTION",
                     values: {
-                        en: "The unit does {damage_toxin_percentage} damage in a {aoe_radius} radius around it.",
-                        sl_SI: "Enota naredi {damage_toxin_percentage} skode v polmeru {aoe_radius}."
-                    },
-                    placeholders: [
-                        { name: "damage_toxin_percentage", type: localization_1.TranslationPlaceholderType.number },
-                        { name: "aoe_radius", type: localization_1.TranslationPlaceholderType.number, term: "AOE_RADIUS" }
-                    ]
+                        en: "The unit does [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} damage in a [term:AOE_RADIUS]{float:aoe_radius} radius[/term] around it.",
+                        sl_SI: "Enota naredi [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} skode v [term:AOE_RADIUS]polmeru {float:aoe_radius}[/term]."
+                    }
                 }
             ]
         });
         (0, vitest_1.expect)(document.locales).toEqual(["en", "sl_SI"]);
-        (0, vitest_1.expect)((0, localization_1.validateLocalizationDocument)(document)).toEqual([]);
+        (0, vitest_1.expect)((0, localization_1.localizationPlaceholdersForKey)(document.keys[1], document.defaultLocale).map((placeholder) => placeholder.name)).toEqual([
+            "damage_toxin_percentage",
+            "aoe_radius"
+        ]);
+        (0, vitest_1.expect)((0, localization_1.localizationIconSlugsForKey)(document.keys[1], document.defaultLocale)).toEqual(["PHYSICAL_DAMAGE"]);
+        (0, vitest_1.expect)((0, localization_1.validateLocalizationDocument)(document, [
+            {
+                category: types_1.AssetCategoryEnum.uiIcon,
+                extension: "png",
+                formattedBytes: "1.0 KB",
+                height: 32,
+                id: "PHYSICAL_DAMAGE",
+                name: "PHYSICAL_DAMAGE",
+                relativePath: ".chisel/assets/UI_ICON/PHYSICAL_DAMAGE.png",
+                sizeBytes: 1024,
+                width: 32
+            }
+        ])).toEqual([]);
     });
     (0, vitest_1.it)("migrates v1 documents to v2 in memory", () => {
         const document = localization_1.localizationDocumentSchema.parse({
@@ -142,13 +156,9 @@ const localization_1 = require("./localization");
                 {
                     path: "UNIT.TOXIN_TRACTOR.DESCRIPTION",
                     values: {
-                        en: "Damage {missing} in {aoe_radius}.",
-                        sl_SI: "Skoda {aoe_radius}."
-                    },
-                    placeholders: [
-                        { name: "aoe_radius", type: localization_1.TranslationPlaceholderType.number, term: "AOE_RADIUS" },
-                        { name: "unused_value", type: localization_1.TranslationPlaceholderType.string, term: "MISSING_TERM" }
-                    ]
+                        en: "Damage {missing} in [term:MISSING_TERM]{float:aoe_radius}[/term] [term:AOE_RADIUS]open.",
+                        sl_SI: "Skoda {int:aoe_radius}."
+                    }
                 },
                 {
                     path: "UNIT.TOXIN_TRACTOR",
@@ -163,15 +173,19 @@ const localization_1 = require("./localization");
         const problems = (0, localization_1.validateLocalizationDocument)(document);
         (0, vitest_1.expect)(problems).toContainEqual(vitest_1.expect.objectContaining({
             severity: localization_1.LocalizationProblemSeverity.error,
-            message: 'Placeholder "{missing}" is not declared'
+            message: 'Placeholder "{missing}" must include a type like "{int:missing}", "{float:missing}", or "{string:missing}"'
         }));
         (0, vitest_1.expect)(problems).toContainEqual(vitest_1.expect.objectContaining({
             severity: localization_1.LocalizationProblemSeverity.error,
-            message: 'Declared placeholder "{unused_value}" is not used'
+            message: 'Placeholder "aoe_radius" must use type float'
         }));
         (0, vitest_1.expect)(problems).toContainEqual(vitest_1.expect.objectContaining({
             severity: localization_1.LocalizationProblemSeverity.error,
-            message: 'Placeholder "unused_value" references missing term "MISSING_TERM"'
+            message: 'Translation UNIT.TOXIN_TRACTOR.DESCRIPTION references missing term "MISSING_TERM"'
+        }));
+        (0, vitest_1.expect)(problems).toContainEqual(vitest_1.expect.objectContaining({
+            severity: localization_1.LocalizationProblemSeverity.error,
+            message: 'Term "AOE_RADIUS" is not closed'
         }));
         (0, vitest_1.expect)(problems).toContainEqual(vitest_1.expect.objectContaining({
             severity: localization_1.LocalizationProblemSeverity.error,
@@ -180,6 +194,48 @@ const localization_1 = require("./localization");
         (0, vitest_1.expect)(problems).toContainEqual(vitest_1.expect.objectContaining({
             severity: localization_1.LocalizationProblemSeverity.error,
             message: "Localization key UNIT.TOXIN_TRACTOR collides with generated namespace path"
+        }));
+    });
+    (0, vitest_1.it)("reports localization icon asset problems", () => {
+        const document = localization_1.localizationDocumentSchema.parse({
+            schemaVersion: 2,
+            defaultLocale: "en",
+            locales: ["en", "sl_SI"],
+            terms: [],
+            keys: [
+                {
+                    path: "UNIT.RIFLEMAN.DESCRIPTION",
+                    values: {
+                        en: "Damage [icon:PHYSICAL_DAMAGE] {float:damage}.",
+                        sl_SI: "Skoda [icon:WRONG_CATEGORY] {float:damage}."
+                    }
+                }
+            ]
+        });
+        const problems = (0, localization_1.validateLocalizationDocument)(document, [
+            {
+                category: types_1.AssetCategoryEnum.image,
+                extension: "png",
+                formattedBytes: "1.0 KB",
+                height: 32,
+                id: "WRONG_CATEGORY",
+                name: "WRONG_CATEGORY",
+                relativePath: ".chisel/assets/IMAGE/WRONG_CATEGORY.png",
+                sizeBytes: 1024,
+                width: 32
+            }
+        ]);
+        (0, vitest_1.expect)(problems).toContainEqual(vitest_1.expect.objectContaining({
+            severity: localization_1.LocalizationProblemSeverity.error,
+            message: 'Translation UNIT.RIFLEMAN.DESCRIPTION references missing UI icon asset "PHYSICAL_DAMAGE"'
+        }));
+        (0, vitest_1.expect)(problems).toContainEqual(vitest_1.expect.objectContaining({
+            severity: localization_1.LocalizationProblemSeverity.error,
+            message: 'Translation UNIT.RIFLEMAN.DESCRIPTION has extra icon "[icon:WRONG_CATEGORY]"'
+        }));
+        (0, vitest_1.expect)(problems).toContainEqual(vitest_1.expect.objectContaining({
+            severity: localization_1.LocalizationProblemSeverity.error,
+            message: 'Translation UNIT.RIFLEMAN.DESCRIPTION references asset "WRONG_CATEGORY" as an icon but it is IMAGE, not UI_ICON'
         }));
     });
 });

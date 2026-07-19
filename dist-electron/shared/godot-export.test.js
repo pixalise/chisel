@@ -384,17 +384,23 @@ const localization_1 = require("./localization");
                 {
                     path: "UNIT.TOXIN_TRACTOR.DESCRIPTION",
                     values: {
-                        en: "The unit does {damage_toxin_percentage} damage in a {aoe_radius} radius around it.",
-                        sl_SI: "Enota naredi {damage_toxin_percentage} skode v polmeru {aoe_radius}."
-                    },
-                    placeholders: [
-                        { name: "damage_toxin_percentage", type: localization_1.TranslationPlaceholderType.number },
-                        { name: "aoe_radius", type: localization_1.TranslationPlaceholderType.number, term: "AOE_RADIUS" }
-                    ]
+                        en: "The unit does [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} damage in a [term:AOE_RADIUS]{float:aoe_radius} radius[/term] around it.",
+                        sl_SI: "Enota naredi [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} skode v [term:AOE_RADIUS]polmeru {float:aoe_radius}[/term]."
+                    }
                 }
             ]
         });
-        const bundle = (0, godot_export_1.createGodotExportBundle)(project, [], "2026-01-01T00:00:00.000Z", [], localization);
+        const iconAsset = schemas_1.assetSchema.parse({
+            category: types_1.AssetCategoryEnum.uiIcon,
+            extension: "png",
+            height: 32,
+            id: "PHYSICAL_DAMAGE",
+            name: "PHYSICAL_DAMAGE",
+            relativePath: ".chisel/assets/UI_ICON/PHYSICAL_DAMAGE.png",
+            sizeBytes: 1024,
+            width: 32
+        });
+        const bundle = (0, godot_export_1.createGodotExportBundle)(project, [], "2026-01-01T00:00:00.000Z", [iconAsset], localization);
         const manifestFile = bundle.files.find((file) => file.path === "game_data/manifest.gd");
         const localizationFile = bundle.files.find((file) => file.path === "game_data/localization.gd");
         const translationsFile = bundle.files.find((file) => file.path === "game_data/translations.gd");
@@ -408,18 +414,25 @@ const localization_1 = require("./localization");
         (0, vitest_1.expect)(localizationFile?.content).toContain("UNIT_TOXIN_TRACTOR_DESCRIPTION = 1");
         (0, vitest_1.expect)(localizationFile?.content).toContain('const LOCALES := ["en", "sl_SI"]');
         (0, vitest_1.expect)(localizationFile?.content).toContain("const VALUES := {");
+        (0, vitest_1.expect)(localizationFile?.content).toContain('const ICON_SLUGS := [[], ["PHYSICAL_DAMAGE"]]');
+        (0, vitest_1.expect)(localizationFile?.content).toContain('"PHYSICAL_DAMAGE": {');
+        (0, vitest_1.expect)(localizationFile?.content).toContain('"path": "res://game_data/assets/ui_icon/physical_damage.png"');
         (0, vitest_1.expect)(localizationFile?.content).toContain('const PLACEHOLDERS := [[], ["damage_toxin_percentage", "aoe_radius"]]');
-        (0, vitest_1.expect)(localizationFile?.content).toContain('const PLACEHOLDER_TYPES := [[], ["number", "number"]]');
-        (0, vitest_1.expect)(localizationFile?.content).toContain('const PLACEHOLDER_TERMS := [[], ["", "AOE_RADIUS"]]');
+        (0, vitest_1.expect)(localizationFile?.content).toContain('const PLACEHOLDER_TYPES := [[], ["float", "float"]]');
+        (0, vitest_1.expect)(localizationFile?.content).not.toContain("PLACEHOLDER_TERMS");
         (0, vitest_1.expect)(localizationFile?.content).toContain('"AOE_RADIUS": {');
         (0, vitest_1.expect)(localizationFile?.content).toContain('"tooltip_id": Id.TERM_AOE_RADIUS_TOOLTIP');
         (0, vitest_1.expect)(localizationFile?.content).toContain('static func format(id: int, arguments: Dictionary = {}, locale: String = "")');
+        (0, vitest_1.expect)(localizationFile?.content).toContain('regex.compile("\\\\[term:([A-Z][A-Z0-9_]*)\\\\]|\\\\[/term\\\\]|\\\\[icon:([A-Z][A-Z0-9_]*)\\\\]|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")');
+        (0, vitest_1.expect)(localizationFile?.content).toContain('return "[img]%s[/img]" % _bbcode_escape(icon_path)');
+        (0, vitest_1.expect)(localizationFile?.content).toContain("static func _placeholder_default(placeholder_type: String) -> Variant:");
         (0, vitest_1.expect)(localizationFile?.content).toContain("class LocalizedText:");
         (0, vitest_1.expect)(translationsFile?.content).toContain("class_name ChiselTranslations");
         (0, vitest_1.expect)(translationsFile?.content).toContain("static var unit := UnitTranslations.new()");
         (0, vitest_1.expect)(translationsFile?.content).toContain("var toxin_tractor := UnitToxinTractorTranslations.new()");
-        (0, vitest_1.expect)(translationsFile?.content).toContain("func description(damage_toxin_percentage: float, aoe_radius: float) -> ChiselLocalization.LocalizedText:");
+        (0, vitest_1.expect)(translationsFile?.content).not.toContain("var description :=");
+        (0, vitest_1.expect)(translationsFile?.content).toContain("func description(damage_toxin_percentage: float = -1.0, aoe_radius: float = -1.0) -> ChiselLocalization.LocalizedText:");
         (0, vitest_1.expect)(translationsFile?.content).toContain("ChiselLocalization.Id.UNIT_TOXIN_TRACTOR_DESCRIPTION");
-        (0, vitest_1.expect)(csvFile?.content).toBe('"keys","en","sl_SI"\n"TERM.AOE_RADIUS.TOOLTIP","Area radius.","Polmer obmocja."\n"UNIT.TOXIN_TRACTOR.DESCRIPTION","The unit does {damage_toxin_percentage} damage in a {aoe_radius} radius around it.","Enota naredi {damage_toxin_percentage} skode v polmeru {aoe_radius}."');
+        (0, vitest_1.expect)(csvFile?.content).toBe('"keys","en","sl_SI"\n"TERM.AOE_RADIUS.TOOLTIP","Area radius.","Polmer obmocja."\n"UNIT.TOXIN_TRACTOR.DESCRIPTION","The unit does [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} damage in a [term:AOE_RADIUS]{float:aoe_radius} radius[/term] around it.","Enota naredi [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} skode v [term:AOE_RADIUS]polmeru {float:aoe_radius}[/term]."');
     });
 });

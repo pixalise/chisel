@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.snakeCase = snakeCase;
 exports.constantCase = constantCase;
 exports.normalizeConstantCaseInput = normalizeConstantCaseInput;
 exports.assetSlug = assetSlug;
@@ -9,6 +8,7 @@ exports.assetExtension = assetExtension;
 exports.chiselAssetRelativePath = chiselAssetRelativePath;
 exports.godotAssetExportFolderPath = godotAssetExportFolderPath;
 exports.godotAssetExportFilePath = godotAssetExportFilePath;
+const lodash_1 = require("lodash");
 function pathSegment(value, label) {
     const segment = value.trim();
     if (!/^[A-Za-z0-9_-]+$/.test(segment)) {
@@ -16,16 +16,8 @@ function pathSegment(value, label) {
     }
     return segment;
 }
-function snakeCase(value) {
-    return value
-        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-        .replace(/[^A-Za-z0-9]+/g, "_")
-        .replace(/_+/g, "_")
-        .replace(/^_+|_+$/g, "")
-        .toLowerCase();
-}
 function constantCase(value) {
-    return snakeCase(value).toUpperCase();
+    return (0, lodash_1.snakeCase)(value).toUpperCase();
 }
 function normalizeConstantCaseInput(value) {
     return constantCase(value);
@@ -34,7 +26,7 @@ function assetSlug(name) {
     return constantCase(name);
 }
 function snakePathSegment(value, label) {
-    const segment = snakeCase(value);
+    const segment = (0, lodash_1.snakeCase)(value);
     if (!/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/.test(segment)) {
         throw new Error(`Invalid ${label} path segment: ${value}`);
     }

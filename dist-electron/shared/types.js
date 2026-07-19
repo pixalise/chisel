@@ -7,6 +7,7 @@ var AssetCategoryEnum;
 (function (AssetCategoryEnum) {
     AssetCategoryEnum["terrainTexture"] = "TERRAIN_TEXTURE";
     AssetCategoryEnum["hdri"] = "HDRI";
+    AssetCategoryEnum["uiIcon"] = "UI_ICON";
     AssetCategoryEnum["image"] = "IMAGE";
     AssetCategoryEnum["audio"] = "AUDIO";
     AssetCategoryEnum["font"] = "FONT";
@@ -16,6 +17,7 @@ var AssetCategoryEnum;
 exports.assetCategoryLabelMap = {
     [AssetCategoryEnum.terrainTexture]: "Terrain Texture",
     [AssetCategoryEnum.hdri]: "HDRI",
+    [AssetCategoryEnum.uiIcon]: "UI Icon",
     [AssetCategoryEnum.image]: "Image",
     [AssetCategoryEnum.audio]: "Audio",
     [AssetCategoryEnum.font]: "Font",

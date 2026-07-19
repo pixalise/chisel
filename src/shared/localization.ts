@@ -1,7 +1,7 @@
 import z from "zod";
-import { snakeCase } from "./asset-paths";
 import { rowSlugSchema, type Asset } from "./schemas";
 import { AssetCategoryEnum } from "./types";
+import { snakeCase } from "lodash";
 
 export enum TranslationPlaceholderType {
   string = "string",

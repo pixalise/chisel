@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { normalizeConstantCaseInput, snakeCase } from "./asset-paths";
+import { normalizeConstantCaseInput } from "./asset-paths";
+import { snakeCase } from "lodash";
 
 describe("slug formatting", () => {
   it("formats separators before trimming edge separators", () => {
