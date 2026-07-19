@@ -3,5 +3,6 @@ export enum RouteEnum {
   imageConversion = "/imageConversion",
   texturePacking = "/texturePacking",
   assets = "/assets",
-  database = "/database"
+  database = "/database",
+  todos = "/todos"
 }

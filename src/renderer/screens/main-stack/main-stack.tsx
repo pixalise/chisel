@@ -11,6 +11,7 @@ import { DataTablesScreen } from "@/screens/main-stack/data-tables-screen/data-t
 import { ImageConversionScreen } from "@/screens/main-stack/image-conversion-screen/image-conversion-screen";
 import { SettingsScreen } from "@/screens/main-stack/settings-screen";
 import { TexturePackingScreen } from "@/screens/main-stack/texture-packing-screen/texture-packing-screen";
+import TodoScreen from "@/screens/main-stack/todo-screen/todo-screen";
 
 const MainStack: FC = () => {
   const { pathname } = useLocation();
@@ -33,6 +34,7 @@ const MainStack: FC = () => {
               <Route element={<ImageConversionScreen />} path={RouteEnum.imageConversion} />
               <Route element={<TexturePackingScreen />} path={RouteEnum.texturePacking} />
               <Route element={<SettingsScreen />} path={RouteEnum.settings} />
+              <Route element={<TodoScreen />} path={RouteEnum.todos} />
               <Route element={<Navigate replace to={RouteEnum.assets} />} path="*" />
             </Routes>
           </div>
