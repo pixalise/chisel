@@ -303,9 +303,10 @@ describe("Godot export", () => {
     expect(assetsFile?.content).toContain('"path": "res://game_data/assets/hdri/sky_clear.hdr"');
   });
 
-  it("exports typed refs and asset refs as enum values", () => {
+  it("exports typed refs, asset refs, and translation refs as enum values", () => {
     const factionColumnId = nanoid();
     const portraitColumnId = nanoid();
+    const descriptionColumnId = nanoid();
     const factionTable = dataTableSchema.parse({
       columns: [],
       description: "Factions",
@@ -335,6 +336,14 @@ describe("Godot export", () => {
           required: true,
           type: ColumnType.assetRef,
           unique: false
+        },
+        {
+          defaultValue: "",
+          id: descriptionColumnId,
+          name: "description",
+          required: true,
+          type: ColumnType.translationRef,
+          unique: false
         }
       ],
       description: "Units",
@@ -348,7 +357,8 @@ describe("Godot export", () => {
           slug: "RIFLEMAN",
           values: [
             { columnId: factionColumnId, type: ColumnType.ref, value: "IRON_LEGION" },
-            { columnId: portraitColumnId, type: ColumnType.assetRef, value: "RIFLEMAN_PORTRAIT" }
+            { columnId: portraitColumnId, type: ColumnType.assetRef, value: "RIFLEMAN_PORTRAIT" },
+            { columnId: descriptionColumnId, type: ColumnType.translationRef, value: "UNIT.RIFLEMAN.DESCRIPTION" }
           ]
         }
       ],
@@ -369,12 +379,26 @@ describe("Godot export", () => {
       name: "Iron Bastion",
       path: "/tmp/iron-bastion"
     };
+    const localization = localizationDocumentSchema.parse({
+      schemaVersion: 2,
+      defaultLocale: "en",
+      locales: ["en"],
+      keys: [
+        {
+          path: "UNIT.RIFLEMAN.DESCRIPTION",
+          values: {
+            en: "The unit does {float:physical_damage} points of damage per shot."
+          }
+        }
+      ]
+    });
 
-    const bundle = createGodotExportBundle(project, [factionTable, unitTable], "2026-01-01T00:00:00.000Z", [asset]);
+    const bundle = createGodotExportBundle(project, [factionTable, unitTable], "2026-01-01T00:00:00.000Z", [asset], localization);
     const unitFile = bundle.files.find((file) => file.path === "game_data/tables/units.gd");
 
     expect(unitFile?.content).toContain("const FACTION := [\n\tChiselFactions.Id.IRON_LEGION\n]");
     expect(unitFile?.content).toContain("const PORTRAIT := [\n\tChiselAssets.Id.RIFLEMAN_PORTRAIT\n]");
+    expect(unitFile?.content).toContain("const DESCRIPTION := [\n\tChiselLocalization.Id.UNIT_RIFLEMAN_DESCRIPTION\n]");
   });
 
   it("exports localization module and Godot translation CSV", () => {

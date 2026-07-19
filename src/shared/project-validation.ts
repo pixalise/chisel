@@ -1,4 +1,5 @@
 import type { AnyDataTable, Asset, DataColumnDefinition, DataTableRow } from "./schemas";
+import type { LocalizationDocument } from "./localization";
 import { ColumnType } from "./types";
 
 export enum ProjectValidationSeverity {
@@ -29,10 +30,15 @@ export interface AssetReferenceHit {
   sourceTableName: string;
 }
 
-export function validateProjectContent(tables: AnyDataTable[], assets: Asset[]): ProjectValidationIssue[] {
+export function validateProjectContent(
+  tables: AnyDataTable[],
+  assets: Asset[],
+  localization?: LocalizationDocument
+): ProjectValidationIssue[] {
   const issues: ProjectValidationIssue[] = [];
   const tablesById = new Map(tables.map((table) => [table.id, table]));
   const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+  const localizationKeys = localization ? new Set(localization.keys.map((key) => key.path)) : undefined;
 
   for (const table of tables) {
     for (const column of table.columns) {
@@ -98,6 +104,30 @@ export function validateProjectContent(tables: AnyDataTable[], assets: Asset[]):
               severity: ProjectValidationSeverity.error,
               path: `${table.id}.${row.slug}.${column.name}`,
               message: `Asset "${value}" is ${asset.category}, expected ${column.assetCategory}`
+            });
+          }
+        }
+      }
+
+      if (column.type === ColumnType.translationRef) {
+        for (const row of table.rows) {
+          const value = columnValue(row, column);
+          if (isEmptyReferenceValue(value)) {
+            continue;
+          }
+          if (typeof value !== "string") {
+            issues.push({
+              severity: ProjectValidationSeverity.error,
+              path: `${table.id}.${row.slug}.${column.name}`,
+              message: `Translation reference must be a localization key`
+            });
+            continue;
+          }
+          if (localizationKeys && !localizationKeys.has(value)) {
+            issues.push({
+              severity: ProjectValidationSeverity.error,
+              path: `${table.id}.${row.slug}.${column.name}`,
+              message: `Translation key "${value}" does not exist`
             });
           }
         }

@@ -29,6 +29,7 @@ interface GodotTableExport {
 
 interface GodotValueContext {
   assetNamesById: Map<string, string>;
+  localizationNamesByPath: Map<string, string>;
   tablesById: Map<string, AnyDataTable>;
 }
 
@@ -108,6 +109,10 @@ function assetConstantNames(assets: Asset[]): Map<string, string> {
   }
 
   return namesByAssetId;
+}
+
+function localizationConstantNames(localization?: LocalizationDocument): Map<string, string> {
+  return new Map((localization?.keys ?? []).map((key) => [key.path, localizationKeyConstant(key.path)]));
 }
 
 function gdString(value: string): string {
@@ -231,6 +236,16 @@ function gdColumnValue(value: unknown, column: DataColumnDefinition, context: Go
     if (assetName) {
       return `ChiselAssets.Id.${assetName}`;
     }
+  }
+  if (column.type === ColumnType.translationRef) {
+    if (typeof value !== "string" || value === "") {
+      return "-1";
+    }
+    const localizationName = context.localizationNamesByPath.get(value);
+    if (localizationName) {
+      return `ChiselLocalization.Id.${localizationName}`;
+    }
+    return "-1";
   }
   return gdValue(value);
 }
@@ -902,6 +917,7 @@ export function createGodotExportBundle(
 ): GodotExportBundle {
   const context: GodotValueContext = {
     assetNamesById: assetConstantNames(assets),
+    localizationNamesByPath: localizationConstantNames(localization),
     tablesById: new Map(tables.map((table) => [table.id, table]))
   };
   const tableFiles = tables.map((table) => renderTable(table, context));

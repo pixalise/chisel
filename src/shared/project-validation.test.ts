@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { describe, expect, it } from "vitest";
 import { assetSchema, dataTableSchema } from "./schemas";
 import { findAssetReferences, findTableReferences, ProjectValidationSeverity, validateProjectContent } from "./project-validation";
+import { localizationDocumentSchema } from "./localization";
 import { AssetCategoryEnum, ColumnType } from "./types";
 
 describe("project content validation", () => {
@@ -114,5 +115,56 @@ describe("project content validation", () => {
       })
     );
     expect(findAssetReferences([table], "FOREST_SOIL")).toHaveLength(1);
+  });
+
+  it("reports missing translation references", () => {
+    const descriptionColumnId = nanoid();
+    const localization = localizationDocumentSchema.parse({
+      schemaVersion: 2,
+      defaultLocale: "en",
+      locales: ["en"],
+      keys: [
+        {
+          path: "UNIT.RIFLEMAN.NAME",
+          values: {
+            en: "Rifleman"
+          }
+        }
+      ]
+    });
+    const table = dataTableSchema.parse({
+      columns: [
+        {
+          defaultValue: "",
+          id: descriptionColumnId,
+          name: "description",
+          required: true,
+          type: ColumnType.translationRef,
+          unique: false
+        }
+      ],
+      description: "Units",
+      id: "units",
+      kind: "user",
+      lastChangeAt: "2026-01-01T00:00:00.000Z",
+      name: "Units",
+      rows: [
+        {
+          id: nanoid(),
+          slug: "RIFLEMAN",
+          values: [{ columnId: descriptionColumnId, type: ColumnType.translationRef, value: "UNIT.RIFLEMAN.DESCRIPTION" }]
+        }
+      ],
+      version: 1
+    });
+
+    const issues = validateProjectContent([table], [], localization);
+
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        severity: ProjectValidationSeverity.error,
+        message: 'Translation key "UNIT.RIFLEMAN.DESCRIPTION" does not exist'
+      })
+    );
   });
 });

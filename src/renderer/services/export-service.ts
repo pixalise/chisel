@@ -34,7 +34,9 @@ class ExportService {
     };
     const tables = commit.tables.map((table) => validatedDataTableSchema.parse(table));
     const assets = commit.assets.assets;
-    const validationErrors = validateProjectContent(tables, assets).filter((issue) => issue.severity === ProjectValidationSeverity.error);
+    const validationErrors = validateProjectContent(tables, assets, commit.localization).filter(
+      (issue) => issue.severity === ProjectValidationSeverity.error
+    );
     if (validationErrors.length > 0) {
       throw new Error(
         `Export blocked by ${validationErrors.length} content error(s): ${validationErrors[0]?.message ?? "Invalid content"}`

@@ -135,6 +135,7 @@ export enum ColumnType {
   enum = "enum",
   enumArray = "enumArray",
   assetRef = "assetRef",
+  translationRef = "translationRef",
   ref = "ref",
   color = "color",
   vector2 = "vector2",

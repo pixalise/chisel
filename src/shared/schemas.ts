@@ -327,6 +327,11 @@ export const assetRefColumnValueSchema = dataColumnValueBaseSchema.extend({
   value: z.string().nullish()
 });
 
+export const translationRefColumnValueSchema = dataColumnValueBaseSchema.extend({
+  type: z.literal(ColumnType.translationRef),
+  value: z.string().nullish()
+});
+
 export const refColumnValueSchema = dataColumnValueBaseSchema.extend({
   type: z.literal(ColumnType.ref),
   value: z.string().nullish()
@@ -367,6 +372,7 @@ export const typedDataColumnValueSchema = z.discriminatedUnion("type", [
   enumColumnValueSchema,
   enumArrayColumnValueSchema,
   assetRefColumnValueSchema,
+  translationRefColumnValueSchema,
   refColumnValueSchema,
   colorColumnValueSchema,
   vector2ColumnValueSchema,

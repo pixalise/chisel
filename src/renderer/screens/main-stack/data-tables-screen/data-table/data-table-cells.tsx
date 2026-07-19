@@ -1,11 +1,15 @@
 import { type ChangeEvent, type FC, useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
+import useLocalizationQuery from "@/hooks/use-localization-query";
 import { cn } from "@/lib/utils";
 import { type DataColumnDefinition } from "../../../../../shared/schemas";
 import { ColumnType } from "../../../../../shared/types";
@@ -136,6 +140,10 @@ export const CellValue: FC<CellValueProps> = (props) => {
     return <AssetRefCellValue value={value} />;
   }
 
+  if (column.type === ColumnType.translationRef) {
+    return <TranslationRefCellValue value={value} />;
+  }
+
   if (column.type === ColumnType.color) {
     return (
       <span className="inline-flex items-center gap-1.5 font-mono">
@@ -258,6 +266,10 @@ export const CellEditor: FC<CellEditorProps> = (props) => {
 
   if (column.type === ColumnType.assetRef) {
     return <AssetRefCellEditor column={column} value={value} onCommit={onCommit} />;
+  }
+
+  if (column.type === ColumnType.translationRef) {
+    return <TranslationRefCellEditor column={column} value={value} onCommit={onCommit} />;
   }
 
   if (isStructuredColumnType(column.type)) {
@@ -387,5 +399,112 @@ export const CellEditor: FC<CellEditorProps> = (props) => {
         }
       }}
     />
+  );
+};
+
+const TranslationRefCellValue: FC<{ value: unknown }> = (props) => {
+  const { value } = props;
+  const { localization } = useLocalizationQuery();
+  const keyPath = typeof value === "string" ? value : "";
+  const key = localization.keys.find((entry) => entry.path === keyPath);
+
+  if (!keyPath) {
+    return <span className="text-muted-foreground/65">-</span>;
+  }
+
+  return (
+    <span className="flex items-center gap-1.5">
+      <Badge variant={key ? "secondary" : "outline"}>{key ? "translation" : "missing"}</Badge>
+      <span className="font-mono text-xs">{keyPath}</span>
+    </span>
+  );
+};
+
+const TranslationRefCellEditor: FC<CellEditorProps> = (props) => {
+  const { column, value, onCommit } = props;
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const { localization } = useLocalizationQuery();
+  const keyPath = typeof value === "string" ? value : "";
+  const selectedKey = localization.keys.find((entry) => entry.path === keyPath);
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredKeys = localization.keys.filter((key) => {
+    if (!normalizedQuery) {
+      return true;
+    }
+    return (
+      key.path.toLowerCase().includes(normalizedQuery) ||
+      (key.description ?? "").toLowerCase().includes(normalizedQuery) ||
+      (key.values[localization.defaultLocale] ?? "").toLowerCase().includes(normalizedQuery)
+    );
+  });
+
+  return (
+    <div className="flex min-w-64 items-center gap-1.5">
+      <Button
+        className="h-7 w-full justify-start px-2 font-mono text-[0.7rem]"
+        onClick={() => setIsOpen(true)}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        {selectedKey ? selectedKey.path : keyPath || "Choose translation"}
+      </Button>
+      {keyPath && (
+        <Button className="h-7 px-2" onClick={() => onCommit("")} size="sm" type="button" variant="ghost">
+          Clear
+        </Button>
+      )}
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Pick Translation</DialogTitle>
+            <DialogDescription>Showing localization keys for {column.name}.</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center gap-2 border border-input bg-background px-2">
+            <Search className="size-4 text-muted-foreground" />
+            <Input
+              className="border-0 px-0 shadow-none focus-visible:ring-0"
+              placeholder="Search by key, description, or default text"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+
+          <ScrollArea className="max-h-80 border border-border">
+            <div className="divide-y divide-border">
+              {filteredKeys.map((key) => (
+                <button
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 p-2 text-left hover:bg-muted",
+                    key.path === keyPath && "bg-accent/35"
+                  )}
+                  key={key.path}
+                  onClick={() => {
+                    onCommit(key.path);
+                    setIsOpen(false);
+                  }}
+                  type="button"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-mono text-sm font-medium">{key.path}</span>
+                    {key.values[localization.defaultLocale] && (
+                      <span className="block truncate text-xs text-muted-foreground">{key.values[localization.defaultLocale]}</span>
+                    )}
+                    {key.description && <span className="block truncate text-xs text-muted-foreground">{key.description}</span>}
+                  </span>
+                  <Badge className="shrink-0" variant="outline">
+                    {localization.defaultLocale}
+                  </Badge>
+                </button>
+              ))}
+              {filteredKeys.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No matching translations.</div>}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };

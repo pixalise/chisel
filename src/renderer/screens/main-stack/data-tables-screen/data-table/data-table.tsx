@@ -140,8 +140,8 @@ function isVectorColumnType(type: ColumnType): boolean {
   return vectorLengthForColumnType(type) > 0;
 }
 
-function isRefColumnType(type: ColumnType): boolean {
-  return type === ColumnType.ref;
+function isReferenceStringColumnType(type: ColumnType): boolean {
+  return type === ColumnType.ref || type === ColumnType.translationRef;
 }
 
 function validateCell(column: DataColumnDefinition, value: unknown, rows: EditorRow[], rowId: string): string[] {
@@ -175,7 +175,7 @@ function validateCell(column: DataColumnDefinition, value: unknown, rows: Editor
     errors.push(`${column.name} must match an allowed value`);
   }
 
-  if (isRefColumnType(column.type) && typeof value !== "string") {
+  if (isReferenceStringColumnType(column.type) && typeof value !== "string") {
     errors.push(`${column.name} must be a reference string`);
   }
 
@@ -329,6 +329,9 @@ function columnWidthClassName(column: DataColumnDefinition): string {
   }
   if (column.type === ColumnType.enumArray) {
     return "min-w-56";
+  }
+  if (column.type === ColumnType.translationRef) {
+    return "min-w-72";
   }
   if (column.type === ColumnType.color) {
     return "min-w-44";
