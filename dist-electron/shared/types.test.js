@@ -10,7 +10,7 @@ const types_1 = require("./types");
     (0, vitest_1.it)("recognizes HDRI file extensions without stealing terrain texture extensions", () => {
         (0, vitest_1.expect)((0, types_1.isHdriExtension)("hdr")).toBe(true);
         (0, vitest_1.expect)((0, types_1.isHdriExtension)("HDR")).toBe(true);
-        (0, vitest_1.expect)((0, types_1.isHdriExtension)("exr")).toBe(false);
+        (0, vitest_1.expect)((0, types_1.isHdriExtension)("exr")).toBe(true);
         (0, vitest_1.expect)((0, types_1.isTerrainTextureExtension)("exr")).toBe(true);
     });
 });

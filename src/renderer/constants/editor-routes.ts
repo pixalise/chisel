@@ -12,7 +12,7 @@ export const editorRoutes: EditorRouteDefinition[] = [
   { id: RouteEnum.database, label: "Data Tables", section: "Workspace", hint: "Typed authoring data" },
   { id: RouteEnum.imageConversion, label: "Image Conversion", section: "Tools", hint: "Convert images to PNG" },
   { id: RouteEnum.texturePacking, label: "Texture Packing", section: "Tools", hint: "Pack and create GPPT textures" },
-  { id: RouteEnum.todos, label: "Todos", section: "Tools", hint: "Track progress and checklist" },
+  { id: RouteEnum.todos, label: "Project Management", section: "Tools", hint: "Track todos and checklist items" },
   { id: RouteEnum.settings, label: "Settings", section: "Project", hint: "Output and projects" }
 ];
 

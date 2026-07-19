@@ -23,7 +23,7 @@ exports.assetCategoryLabelMap = {
     [AssetCategoryEnum.other]: "Other"
 };
 const terrainTextureExtensions = new Set(["exr", "gppt", "tga", "tif", "tiff"]);
-const hdriExtensions = new Set(["hdr"]);
+const hdriExtensions = new Set(["exr", "hdr"]);
 function isTerrainTextureExtension(extension) {
     return terrainTextureExtensions.has(extension.toLowerCase());
 }

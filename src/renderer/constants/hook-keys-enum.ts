@@ -11,5 +11,7 @@ export enum HookKeysEnum {
   deleteTableMutation = "deleteTableMutation",
   saveTableRowsMutation = "saveTableRowsMutation",
   updateTableMutation = "updateTableMutation",
-  listTablesQuery = "listTablesQuery"
+  listTablesQuery = "listTablesQuery",
+  listProjectTodosQuery = "listProjectTodosQuery",
+  projectTodoMutation = "projectTodoMutation"
 }

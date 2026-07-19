@@ -13,6 +13,7 @@ import {
   TableRowsJson,
   TablesJson
 } from "../../shared/schemas";
+import { projectManagementJsonSchema, type ProjectManagementJson } from "../../shared/project-management";
 import useAppStore from "@/stores/app-store";
 import { nanoid } from "nanoid";
 
@@ -20,7 +21,8 @@ enum FilePathEnum {
   chiselJson = "chisel.json",
   gitignore = ".gitignore",
   tablesJson = "tables.json",
-  assetsJson = "assets.json"
+  assetsJson = "assets.json",
+  projectManagementJson = "project-management.json"
 }
 
 class FileService {
@@ -121,6 +123,19 @@ class FileService {
     }
 
     return zodParse(assetsJsonSchema, data);
+  }
+
+  public async writeProjectManagementJson(project: Project, value: ProjectManagementJson): Promise<void> {
+    await this.writeJsonFile(this.fullPath(project.path, FilePathEnum.projectManagementJson), zodParse(projectManagementJsonSchema, value));
+  }
+
+  public async tryReadProjectManagementJson(path: string): Promise<Nullish<ProjectManagementJson>> {
+    const data = await this.tryReadJsonFile<ProjectManagementJson>(this.fullPath(path, FilePathEnum.projectManagementJson));
+    if (isNil(data)) {
+      return undefined;
+    }
+
+    return zodParse(projectManagementJsonSchema, data);
   }
 
   public async copyProjectFile(project: Project, sourcePath: string, relativePath: string): Promise<void> {
