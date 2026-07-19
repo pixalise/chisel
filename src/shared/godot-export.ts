@@ -365,7 +365,22 @@ class LocalizedText:
 \t\t_tooltips = next_tooltips
 
 \tfunc tooltip_for(tooltip_slug: StringName) -> String:
-\t\treturn String(_tooltips.get(String(tooltip_slug), ""))
+\t\treturn tooltip_content_for(tooltip_slug).description.plain_text
+
+\tfunc tooltip_content_for(tooltip_slug: StringName) -> TooltipContent:
+\t\treturn _tooltips.get(String(tooltip_slug), TooltipContent.new(tooltip_slug))
+
+class TooltipContent:
+\tvar slug: StringName
+\tvar icon_path: String
+\tvar title: LocalizedText
+\tvar description: LocalizedText
+
+\tfunc _init(next_slug: StringName = &"", next_icon_path: String = "", next_title: LocalizedText = null, next_description: LocalizedText = null) -> void:
+\t\tslug = next_slug
+\t\ticon_path = next_icon_path
+\t\ttitle = next_title if next_title != null else LocalizedText.new()
+\t\tdescription = next_description if next_description != null else LocalizedText.new()
 
 enum Id ${localizationEnumBody(localization)}
 
@@ -378,11 +393,14 @@ const ICONS := ${localizationIconsDictionary(assets)}
 const PLACEHOLDERS := ${gdValue(placeholdersByKey.map((placeholders) => placeholders.map((placeholder) => placeholder.name)))}
 const PLACEHOLDER_TYPES := ${gdValue(placeholdersByKey.map((placeholders) => placeholders.map((placeholder) => placeholderSyntaxType(placeholder.type))))}
 const STYLES := ${localizationStylesDictionary(localization)}
-const TOOLTIPS := ${localizationTooltipsDictionary(localization)}
+const TOOLTIPS := ${localizationTooltipsDictionary(localization, assets)}
 const CSV_PATH := "res://game_data/localization/translations.csv"
 
 static func format(id: int, arguments: Dictionary = {}, locale: String = "") -> LocalizedText:
 \treturn _format(id, arguments, locale, 0)
+
+static func tooltip_content(tooltip_slug: StringName, arguments: Dictionary = {}, locale: String = "") -> TooltipContent:
+\treturn _tooltip_content(String(tooltip_slug), arguments, _locale_key(locale), 0)
 
 static func _format(id: int, arguments: Dictionary, locale: String, depth: int) -> LocalizedText:
 \tif id < 0 or id >= KEYS.size():
@@ -503,21 +521,32 @@ static func _close_tooltip(active_tooltips: Array[Dictionary], spans: Array[Dict
 \t\treturn
 \tvar span: Dictionary = active_tooltips.pop_back()
 \tvar tooltip_slug := String(span.get("tooltip", ""))
-\tvar tooltip_data: Dictionary = TOOLTIPS.get(tooltip_slug, {})
-\tvar tooltip_text := LocalizedText.new()
-\tvar tooltip_id: Variant = tooltip_data.get("key_id", null)
-\tif tooltip_id != null and depth < 4:
-\t\ttooltip_text = _format(int(tooltip_id), arguments, locale_key, depth + 1)
-\tvar tooltip := tooltip_text.plain_text
-\ttooltips[tooltip_slug] = tooltip
+\tvar tooltip_content := _tooltip_content(tooltip_slug, arguments, locale_key, depth)
+\ttooltips[tooltip_slug] = tooltip_content
 \tspans.append({
 \t\t"type": "tooltip",
 \t\t"tooltip": tooltip_slug,
 \t\t"start": int(span.get("start", 0)),
 \t\t"end": plain_length,
-\t\t"tooltip_text": tooltip,
-\t\t"tooltip_bbcode_text": tooltip_text.bbcode_text
+\t\t"tooltip_text": tooltip_content.description.plain_text,
+\t\t"tooltip_bbcode_text": tooltip_content.description.bbcode_text,
+\t\t"tooltip_title_text": tooltip_content.title.plain_text,
+\t\t"tooltip_title_bbcode_text": tooltip_content.title.bbcode_text,
+\t\t"tooltip_icon_path": tooltip_content.icon_path
 \t})
+
+static func _tooltip_content(tooltip_slug: String, arguments: Dictionary, locale_key: String, depth: int) -> TooltipContent:
+\tvar tooltip_data: Dictionary = TOOLTIPS.get(tooltip_slug, {})
+\tvar title_text := LocalizedText.new()
+\tvar description_text := LocalizedText.new()
+\tvar title_id: Variant = tooltip_data.get("title_id", null)
+\tvar description_id: Variant = tooltip_data.get("description_id", null)
+\tif depth < 4:
+\t\tif title_id != null:
+\t\t\ttitle_text = _format(int(title_id), arguments, locale_key, depth + 1)
+\t\tif description_id != null:
+\t\t\tdescription_text = _format(int(description_id), arguments, locale_key, depth + 1)
+\treturn TooltipContent.new(StringName(tooltip_slug), String(tooltip_data.get("icon_path", "")), title_text, description_text)
 
 static func _style_open_bbcode(style_slug: String) -> String:
 \tvar tags := ""
@@ -661,20 +690,31 @@ function localizationStylesDictionary(localization: LocalizationDocument): strin
   return `{\n${lines.join(",\n")}\n}`;
 }
 
-function localizationTooltipsDictionary(localization: LocalizationDocument): string {
+function localizationTooltipsDictionary(localization: LocalizationDocument, assets: Asset[]): string {
   if (localization.tooltips.length === 0) {
     return "{}";
   }
   const keyIndexByPath = new Map(localization.keys.map((key, index) => [key.path, index]));
+  const uiIconAssetsById = new Map(assets.filter((asset) => asset.category === AssetCategoryEnum.uiIcon).map((asset) => [asset.id, asset]));
   const lines = localization.tooltips.map((tooltip) => {
     const fields: string[] = [];
-    const keyIndex = keyIndexByPath.get(tooltip.key);
-    if (typeof keyIndex === "number") {
-      fields.push(`\t\t"key_id": Id.${localizationKeyConstant(tooltip.key)}`);
+    const titleIndex = keyIndexByPath.get(tooltip.titleKey);
+    const descriptionIndex = keyIndexByPath.get(tooltip.descriptionKey);
+    const iconAsset = tooltip.iconAssetId ? uiIconAssetsById.get(tooltip.iconAssetId) : undefined;
+    if (typeof titleIndex === "number") {
+      fields.push(`\t\t"title_id": Id.${localizationKeyConstant(tooltip.titleKey)}`);
     } else {
-      fields.push(`\t\t"key_id": null`);
-      fields.push(`\t\t"missing_key": ${gdString(tooltip.key)}`);
+      fields.push(`\t\t"title_id": null`);
+      fields.push(`\t\t"missing_title_key": ${gdString(tooltip.titleKey)}`);
     }
+    if (typeof descriptionIndex === "number") {
+      fields.push(`\t\t"description_id": Id.${localizationKeyConstant(tooltip.descriptionKey)}`);
+    } else {
+      fields.push(`\t\t"description_id": null`);
+      fields.push(`\t\t"missing_description_key": ${gdString(tooltip.descriptionKey)}`);
+    }
+    fields.push(`\t\t"icon_asset_id": ${gdString(tooltip.iconAssetId ?? "")}`);
+    fields.push(`\t\t"icon_path": ${gdString(iconAsset ? `res://${godotAssetExportPath(iconAsset)}` : "")}`);
     return `\t${gdString(tooltip.slug)}: {\n${fields.join(",\n")}\n\t}`;
   });
   return `{\n${lines.join(",\n")}\n}`;

@@ -399,7 +399,9 @@ describe("Godot export", () => {
       tooltips: [
         {
           slug: "AOE_RADIUS",
-          key: "TERM.AOE_RADIUS.TOOLTIP"
+          iconAssetId: "PHYSICAL_DAMAGE",
+          titleKey: "TERM.AOE_RADIUS.TOOLTIP",
+          descriptionKey: "TERM.AOE_RADIUS.TOOLTIP"
         }
       ],
       keys: [
@@ -459,8 +461,12 @@ describe("Godot export", () => {
     expect(localizationFile?.content).toContain('"bold": true');
     expect(localizationFile?.content).toContain('"underline": true');
     expect(localizationFile?.content).toContain("const TOOLTIPS := {");
-    expect(localizationFile?.content).toContain('"key_id": Id.TERM_AOE_RADIUS_TOOLTIP');
-    expect(localizationFile?.content).toContain('"tooltip_bbcode_text": tooltip_text.bbcode_text');
+    expect(localizationFile?.content).toContain('"title_id": Id.TERM_AOE_RADIUS_TOOLTIP');
+    expect(localizationFile?.content).toContain('"description_id": Id.TERM_AOE_RADIUS_TOOLTIP');
+    expect(localizationFile?.content).toContain('"icon_path": "res://game_data/assets/ui_icon/physical_damage.png"');
+    expect(localizationFile?.content).toContain("class TooltipContent:");
+    expect(localizationFile?.content).toContain('"tooltip_title_bbcode_text": tooltip_content.title.bbcode_text');
+    expect(localizationFile?.content).toContain('"tooltip_bbcode_text": tooltip_content.description.bbcode_text');
     expect(localizationFile?.content).toContain('return "[hint=%s]" % tooltip_slug');
     expect(localizationFile?.content).toContain('static func format(id: int, arguments: Dictionary = {}, locale: String = "")');
     expect(localizationFile?.content).toContain(

@@ -40,16 +40,20 @@ const LocalizationScreen: FC = () => {
   const { saveLocalization, isSaveLocalizationLoading } = useSaveLocalizationMutation();
   const { toast } = useToast();
   const [draft, setDraft] = useState<LocalizationDocument>(localization);
-  const [newLocale, setNewLocale] = useState("sl_SI");
-  const [newKeyPath, setNewKeyPath] = useState("UNIT.NEW_ENTRY.DESCRIPTION");
-  const [newStyleSlug, setNewStyleSlug] = useState("PHYSICAL_DAMAGE_STYLE");
-  const [newTooltipSlug, setNewTooltipSlug] = useState("PHYSICAL_DAMAGE");
-  const [newTooltipKey, setNewTooltipKey] = useState("");
+  const [newLocale, setNewLocale] = useState("");
+  const [newKeyPath, setNewKeyPath] = useState("");
+  const [newStyleSlug, setNewStyleSlug] = useState("");
+  const [newTooltipSlug, setNewTooltipSlug] = useState("");
+  const [newTooltipIconAssetId, setNewTooltipIconAssetId] = useState("");
+  const [newTooltipTitleKey, setNewTooltipTitleKey] = useState("");
+  const [newTooltipDescriptionKey, setNewTooltipDescriptionKey] = useState("");
   const [selectedKeyPath, setSelectedKeyPath] = useState<string | undefined>(undefined);
+  const [filteredKeyPath, setFilteredKeyPath] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     setDraft(localization);
     setSelectedKeyPath(localization.keys[0]?.path);
+    setFilteredKeyPath(undefined);
   }, [localization]);
 
   const problems = useMemo(() => validateLocalizationDocument(draft, assets), [assets, draft]);
@@ -108,6 +112,7 @@ const LocalizationScreen: FC = () => {
       const nextDraft = addLocalizationKey(draft, { path: newKeyPath });
       setDraft(nextDraft);
       setSelectedKeyPath(newKeyPath);
+      setFilteredKeyPath(newKeyPath);
       setNewKeyPath("");
     } catch (error) {
       showDraftError(error);
@@ -122,6 +127,7 @@ const LocalizationScreen: FC = () => {
       const nextDraft = removeLocalizationKey(draft, path);
       setDraft(nextDraft);
       setSelectedKeyPath(nextDraft.keys[0]?.path);
+      setFilteredKeyPath((current) => (current === path ? undefined : current));
     } catch (error) {
       showDraftError(error);
     }
@@ -149,8 +155,19 @@ const LocalizationScreen: FC = () => {
 
   function onAddTooltip(): void {
     try {
-      setDraft(addLocalizationTooltip(draft, { slug: newTooltipSlug, key: newTooltipKey || draft.keys[0]?.path || "TERM.NEW_TOOLTIP" }));
+      const fallbackKey = selectedKey?.path ?? draft.keys[0]?.path ?? "TOOLTIP.NEW_TOOLTIP.DESCRIPTION";
+      setDraft(
+        addLocalizationTooltip(draft, {
+          slug: newTooltipSlug,
+          iconAssetId: newTooltipIconAssetId || undefined,
+          titleKey: newTooltipTitleKey || fallbackKey,
+          descriptionKey: newTooltipDescriptionKey || fallbackKey
+        })
+      );
       setNewTooltipSlug("");
+      setNewTooltipIconAssetId("");
+      setNewTooltipTitleKey("");
+      setNewTooltipDescriptionKey("");
     } catch (error) {
       showDraftError(error);
     }
@@ -165,6 +182,11 @@ const LocalizationScreen: FC = () => {
     } catch (error) {
       showDraftError(error);
     }
+  }
+
+  function onToggleKeyFilter(path: string): void {
+    setSelectedKeyPath(path);
+    setFilteredKeyPath((current) => (current === path ? undefined : path));
   }
 
   function showDraftError(error: unknown): void {
@@ -199,7 +221,7 @@ const LocalizationScreen: FC = () => {
                   )}
                 </Badge>
               ))}
-              <Input className="h-8 w-28" onChange={(event) => setNewLocale(event.target.value)} value={newLocale} />
+              <Input className="h-8 w-28" onChange={(event) => setNewLocale(event.target.value)} placeholder="sl_SI" value={newLocale} />
               <Button onClick={onAddLocale} size="sm" type="button" variant="secondary">
                 Add Language
               </Button>
@@ -208,18 +230,27 @@ const LocalizationScreen: FC = () => {
 
           <Section title="Keys">
             <div className="mb-3 flex gap-2 max-[760px]:flex-col">
-              <Input onChange={(event) => setNewKeyPath(event.target.value)} value={newKeyPath} />
+              <Input onChange={(event) => setNewKeyPath(event.target.value)} placeholder="UNIT.NEW_ENTRY.DESCRIPTION" value={newKeyPath} />
               <Button className="shrink-0" onClick={onAddKey} type="button" variant="secondary">
                 Add Key
               </Button>
             </div>
-            <LocalizationMatrix
-              document={draft}
-              onChange={setDraft}
-              onRemoveKey={onRemoveKey}
-              onSelectKey={setSelectedKeyPath}
-              selectedKeyPath={selectedKey?.path}
-            />
+            <div className="grid grid-cols-[15rem_minmax(0,1fr)] gap-3 max-[860px]:grid-cols-1">
+              <LocalizationKeyTree
+                document={draft}
+                filteredKeyPath={filteredKeyPath}
+                onToggleKeyFilter={onToggleKeyFilter}
+                selectedKeyPath={selectedKey?.path}
+              />
+              <LocalizationMatrix
+                document={draft}
+                filteredKeyPath={filteredKeyPath}
+                onChange={setDraft}
+                onRemoveKey={onRemoveKey}
+                onSelectKey={setSelectedKeyPath}
+                selectedKeyPath={selectedKey?.path}
+              />
+            </div>
           </Section>
         </div>
 
@@ -234,7 +265,7 @@ const LocalizationScreen: FC = () => {
 
           <Section title="Styles">
             <div className="mb-3 flex gap-2">
-              <Input onChange={(event) => setNewStyleSlug(event.target.value)} value={newStyleSlug} />
+              <Input onChange={(event) => setNewStyleSlug(event.target.value)} placeholder="PHYSICAL_DAMAGE_STYLE" value={newStyleSlug} />
               <Button onClick={onAddStyle} type="button" variant="secondary">
                 Add Style
               </Button>
@@ -244,13 +275,43 @@ const LocalizationScreen: FC = () => {
 
           <Section title="Tooltips">
             <div className="mb-3 grid gap-2">
-              <Input onChange={(event) => setNewTooltipSlug(event.target.value)} value={newTooltipSlug} />
+              <Input
+                onChange={(event) => setNewTooltipSlug(event.target.value)}
+                placeholder="PHYSICAL_DAMAGE_TYPE"
+                value={newTooltipSlug}
+              />
               <select
                 className="h-9 w-full border border-input bg-background px-2 text-sm"
-                onChange={(event) => setNewTooltipKey(event.target.value)}
-                value={newTooltipKey}
+                onChange={(event) => setNewTooltipIconAssetId(event.target.value)}
+                value={newTooltipIconAssetId}
               >
-                <option value="">Select tooltip key</option>
+                <option value="">No icon</option>
+                {assets
+                  .filter((asset) => asset.category === AssetCategoryEnum.uiIcon)
+                  .map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.name}
+                    </option>
+                  ))}
+              </select>
+              <select
+                className="h-9 w-full border border-input bg-background px-2 text-sm"
+                onChange={(event) => setNewTooltipTitleKey(event.target.value)}
+                value={newTooltipTitleKey}
+              >
+                <option value="">Title key</option>
+                {draft.keys.map((key) => (
+                  <option key={key.path} value={key.path}>
+                    {key.path}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="h-9 w-full border border-input bg-background px-2 text-sm"
+                onChange={(event) => setNewTooltipDescriptionKey(event.target.value)}
+                value={newTooltipDescriptionKey}
+              >
+                <option value="">Description key</option>
                 {draft.keys.map((key) => (
                   <option key={key.path} value={key.path}>
                     {key.path}
@@ -261,7 +322,7 @@ const LocalizationScreen: FC = () => {
                 Add Tooltip
               </Button>
             </div>
-            <TooltipEditor document={draft} onChange={setDraft} onRemoveTooltip={onRemoveTooltip} />
+            <TooltipEditor assets={assets} document={draft} onChange={setDraft} onRemoveTooltip={onRemoveTooltip} />
           </Section>
 
           <Section title="Preview">
@@ -287,14 +348,132 @@ const LocalizationScreen: FC = () => {
 
 interface LocalizationMatrixProps {
   document: LocalizationDocument;
+  filteredKeyPath?: string;
   onChange: (document: LocalizationDocument) => void;
   onRemoveKey: (path: string) => void;
   onSelectKey: (path: string) => void;
   selectedKeyPath?: string;
 }
 
+interface LocalizationKeyTreeNode {
+  children: LocalizationKeyTreeNode[];
+  key?: LocalizationKey;
+  path: string;
+  segment: string;
+}
+
+const LocalizationKeyTree: FC<{
+  document: LocalizationDocument;
+  filteredKeyPath?: string;
+  onToggleKeyFilter: (path: string) => void;
+  selectedKeyPath?: string;
+}> = (props) => {
+  const { document, filteredKeyPath, onToggleKeyFilter, selectedKeyPath } = props;
+  const [search, setSearch] = useState("");
+  const visibleKeys = useMemo(() => filterLocalizationKeys(document.keys, search), [document.keys, search]);
+  const tree = useMemo(() => buildLocalizationKeyTree(visibleKeys), [visibleKeys]);
+
+  if (document.keys.length === 0) {
+    return <p className="m-0 border border-dashed border-border p-3 text-sm text-muted-foreground">No key tree.</p>;
+  }
+
+  return (
+    <div className="max-h-[32rem] overflow-auto border border-border p-2">
+      <div className="mb-2 grid gap-2">
+        <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">Tree</div>
+        <Input
+          className="h-8 font-mono text-xs"
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search keys"
+          value={search}
+        />
+      </div>
+      <div className="space-y-1">
+        {tree.children.length > 0 ? (
+          tree.children.map((node) => (
+            <LocalizationKeyTreeBranch
+              filteredKeyPath={filteredKeyPath}
+              key={node.path}
+              node={node}
+              onToggleKeyFilter={onToggleKeyFilter}
+              selectedKeyPath={selectedKeyPath}
+            />
+          ))
+        ) : (
+          <p className="m-0 p-2 text-xs text-muted-foreground">No matching keys.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const LocalizationKeyTreeBranch: FC<{
+  filteredKeyPath?: string;
+  node: LocalizationKeyTreeNode;
+  onToggleKeyFilter: (path: string) => void;
+  selectedKeyPath?: string;
+}> = (props) => {
+  const { filteredKeyPath, node, onToggleKeyFilter, selectedKeyPath } = props;
+  const isSelected = node.key?.path === selectedKeyPath;
+  const isFiltered = node.key?.path === filteredKeyPath;
+
+  if (node.children.length === 0) {
+    return (
+      <button
+        className={
+          isFiltered
+            ? "block w-full border border-primary bg-primary/10 px-2 py-1 text-left font-mono text-xs"
+            : isSelected
+              ? "block w-full border border-border bg-muted px-2 py-1 text-left font-mono text-xs"
+              : "block w-full px-2 py-1 text-left font-mono text-xs hover:bg-muted"
+        }
+        onClick={() => node.key && onToggleKeyFilter(node.key.path)}
+        type="button"
+      >
+        {node.segment}
+      </button>
+    );
+  }
+
+  return (
+    <details className="group" open>
+      <summary className="cursor-pointer select-none px-2 py-1 font-mono text-xs text-muted-foreground">{node.segment}</summary>
+      {node.key && (
+        <button
+          className={
+            isFiltered
+              ? "ml-3 block w-[calc(100%-0.75rem)] border border-primary bg-primary/10 px-2 py-1 text-left font-mono text-xs"
+              : isSelected
+                ? "ml-3 block w-[calc(100%-0.75rem)] border border-border bg-muted px-2 py-1 text-left font-mono text-xs"
+                : "ml-3 block w-[calc(100%-0.75rem)] px-2 py-1 text-left font-mono text-xs hover:bg-muted"
+          }
+          onClick={() => onToggleKeyFilter(node.key!.path)}
+          type="button"
+        >
+          {node.segment}
+        </button>
+      )}
+      <div className="ml-3 border-l border-border pl-2">
+        {node.children.map((child) => (
+          <LocalizationKeyTreeBranch
+            filteredKeyPath={filteredKeyPath}
+            key={child.path}
+            node={child}
+            onToggleKeyFilter={onToggleKeyFilter}
+            selectedKeyPath={selectedKeyPath}
+          />
+        ))}
+      </div>
+    </details>
+  );
+};
+
 const LocalizationMatrix: FC<LocalizationMatrixProps> = (props) => {
-  const { document, onChange, onRemoveKey, onSelectKey, selectedKeyPath } = props;
+  const { document, filteredKeyPath, onChange, onRemoveKey, onSelectKey, selectedKeyPath } = props;
+  const filteredKeyExists = filteredKeyPath ? document.keys.some((key) => key.path === filteredKeyPath) : false;
+  const visibleKeys = document.keys
+    .map((key, index) => ({ index, key }))
+    .filter((entry) => !filteredKeyPath || !filteredKeyExists || entry.key.path === filteredKeyPath);
 
   function updateKey(index: number, nextKey: LocalizationKey): void {
     onChange({
@@ -309,7 +488,7 @@ const LocalizationMatrix: FC<LocalizationMatrixProps> = (props) => {
 
   return (
     <div className="space-y-3">
-      {document.keys.map((key, index) => (
+      {visibleKeys.map(({ key, index }) => (
         <div className={key.path === selectedKeyPath ? "border border-primary bg-primary/10 p-3" : "border border-border p-3"} key={index}>
           <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
             <Input
@@ -474,11 +653,13 @@ const StyleEditor: FC<{
 };
 
 const TooltipEditor: FC<{
+  assets: Asset[];
   document: LocalizationDocument;
   onChange: (document: LocalizationDocument) => void;
   onRemoveTooltip: (slug: string) => void;
 }> = (props) => {
-  const { document, onChange, onRemoveTooltip } = props;
+  const { assets, document, onChange, onRemoveTooltip } = props;
+  const uiIconAssets = assets.filter((asset) => asset.category === AssetCategoryEnum.uiIcon);
 
   function updateTooltip(index: number, tooltip: LocalizationTooltip): void {
     onChange({
@@ -502,8 +683,31 @@ const TooltipEditor: FC<{
           />
           <select
             className="h-9 w-full border border-input bg-background px-2 text-sm"
-            onChange={(event) => updateTooltip(index, { ...tooltip, key: event.target.value })}
-            value={tooltip.key}
+            onChange={(event) => updateTooltip(index, { ...tooltip, iconAssetId: event.target.value || undefined })}
+            value={tooltip.iconAssetId ?? ""}
+          >
+            <option value="">No icon</option>
+            {uiIconAssets.map((asset) => (
+              <option key={asset.id} value={asset.id}>
+                {asset.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="h-9 w-full border border-input bg-background px-2 text-sm"
+            onChange={(event) => updateTooltip(index, { ...tooltip, titleKey: event.target.value })}
+            value={tooltip.titleKey}
+          >
+            {document.keys.map((key) => (
+              <option key={key.path} value={key.path}>
+                {key.path}
+              </option>
+            ))}
+          </select>
+          <select
+            className="h-9 w-full border border-input bg-background px-2 text-sm"
+            onChange={(event) => updateTooltip(index, { ...tooltip, descriptionKey: event.target.value })}
+            value={tooltip.descriptionKey}
           >
             {document.keys.map((key) => (
               <option key={key.path} value={key.path}>
@@ -691,7 +895,6 @@ function appendIconPreviewPart(
   const label = iconAsset?.name ?? iconSlug;
   const style = activeStyles[activeStyles.length - 1];
   const tooltip = activeTooltips[activeTooltips.length - 1];
-  const tooltipKey = tooltip ? keysByPath.get(tooltip.key) : undefined;
   parts.push({
     bold: style?.bold,
     iconAsset,
@@ -699,7 +902,7 @@ function appendIconPreviewPart(
     italic: style?.italic,
     label,
     color: style?.color,
-    tooltip: tooltipKey?.values[defaultLocale],
+    tooltip: tooltip ? previewTooltipText(tooltip, keysByPath, defaultLocale) : undefined,
     underline: style?.underline
   });
 }
@@ -721,15 +924,77 @@ function appendPreviewPart(
   }
   const style = activeStyles[activeStyles.length - 1];
   const tooltip = activeTooltips[activeTooltips.length - 1];
-  const tooltipKey = tooltip ? keysByPath.get(tooltip.key) : undefined;
   parts.push({
     bold: style?.bold,
     label,
     color: style?.color,
     italic: style?.italic,
-    tooltip: tooltipKey?.values[defaultLocale],
+    tooltip: tooltip ? previewTooltipText(tooltip, keysByPath, defaultLocale) : undefined,
     underline: style?.underline
   });
+}
+
+function previewTooltipText(
+  tooltip: LocalizationTooltip,
+  keysByPath: Map<string, LocalizationKey>,
+  defaultLocale: string
+): string | undefined {
+  const title = keysByPath.get(tooltip.titleKey)?.values[defaultLocale] ?? "";
+  const description = keysByPath.get(tooltip.descriptionKey)?.values[defaultLocale] ?? "";
+  if (title && description && title !== description) {
+    return `${title}\n${description}`;
+  }
+  return title || description || undefined;
+}
+
+function filterLocalizationKeys(keys: LocalizationKey[], search: string): LocalizationKey[] {
+  if (search.length === 0) {
+    return keys;
+  }
+  const normalizedSearch = search.toUpperCase();
+  return keys.filter((key) => key.path.includes(normalizedSearch));
+}
+
+function buildLocalizationKeyTree(keys: LocalizationKey[]): LocalizationKeyTreeNode {
+  const root: LocalizationKeyTreeNode = { children: [], path: "", segment: "root" };
+  const childrenByPath = new Map<string, Map<string, LocalizationKeyTreeNode>>();
+
+  function childrenFor(path: string, node: LocalizationKeyTreeNode): Map<string, LocalizationKeyTreeNode> {
+    let children = childrenByPath.get(path);
+    if (!children) {
+      children = new Map(node.children.map((child) => [child.segment, child]));
+      childrenByPath.set(path, children);
+    }
+    return children;
+  }
+
+  for (const key of keys) {
+    let node = root;
+    let path = "";
+    for (const segment of key.path.split(".")) {
+      const nextPath = path ? `${path}.${segment}` : segment;
+      const children = childrenFor(path, node);
+      let child = children.get(segment);
+      if (!child) {
+        child = { children: [], path: nextPath, segment };
+        children.set(segment, child);
+        node.children.push(child);
+      }
+      node = child;
+      path = nextPath;
+    }
+    node.key = key;
+  }
+
+  sortLocalizationKeyTree(root);
+  return root;
+}
+
+function sortLocalizationKeyTree(node: LocalizationKeyTreeNode): void {
+  node.children.sort((left, right) => left.segment.localeCompare(right.segment));
+  for (const child of node.children) {
+    sortLocalizationKeyTree(child);
+  }
 }
 
 const ProblemList: FC<{ problems: LocalizationProblem[] }> = (props) => {

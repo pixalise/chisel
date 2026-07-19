@@ -77,12 +77,32 @@ export const localizationStyleSchema = z
   .strict();
 export type LocalizationStyle = z.infer<typeof localizationStyleSchema>;
 
-export const localizationTooltipSchema = z
+const optionalAssetSlugSchema = z.preprocess((value) => (value === "" ? undefined : value), rowSlugSchema.optional());
+
+const localizationTooltipNormalizedSchema = z
   .object({
     slug: rowSlugSchema,
-    key: localizationKeyPathSchema
+    iconAssetId: optionalAssetSlugSchema,
+    titleKey: localizationKeyPathSchema,
+    descriptionKey: localizationKeyPathSchema
   })
   .strict();
+
+export const localizationTooltipSchema = z.preprocess((input) => {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return input;
+  }
+  const record = input as Record<string, unknown>;
+  if (typeof record.key === "string" && typeof record.titleKey !== "string" && typeof record.descriptionKey !== "string") {
+    const { key, ...rest } = record;
+    return {
+      ...rest,
+      titleKey: key,
+      descriptionKey: key
+    };
+  }
+  return input;
+}, localizationTooltipNormalizedSchema);
 export type LocalizationTooltip = z.infer<typeof localizationTooltipSchema>;
 
 const legacyLocalizationTermSchema = z
@@ -383,12 +403,35 @@ export function validateLocalizationDocument(document: LocalizationDocument, ass
   });
 
   value.tooltips.forEach((tooltip, tooltipIndex) => {
-    if (!keySet.has(tooltip.key)) {
+    if (!keySet.has(tooltip.titleKey)) {
       problems.push({
         severity: LocalizationProblemSeverity.error,
-        path: `tooltips.${tooltipIndex}.key`,
-        message: `Tooltip ${tooltip.slug} references missing tooltip key ${tooltip.key}`
+        path: `tooltips.${tooltipIndex}.titleKey`,
+        message: `Tooltip ${tooltip.slug} references missing tooltip title key ${tooltip.titleKey}`
       });
+    }
+    if (!keySet.has(tooltip.descriptionKey)) {
+      problems.push({
+        severity: LocalizationProblemSeverity.error,
+        path: `tooltips.${tooltipIndex}.descriptionKey`,
+        message: `Tooltip ${tooltip.slug} references missing tooltip description key ${tooltip.descriptionKey}`
+      });
+    }
+    if (tooltip.iconAssetId) {
+      const asset = assetsById?.get(tooltip.iconAssetId);
+      if (assetsById && !asset) {
+        problems.push({
+          severity: LocalizationProblemSeverity.error,
+          path: `tooltips.${tooltipIndex}.iconAssetId`,
+          message: `Tooltip ${tooltip.slug} references missing UI icon asset "${tooltip.iconAssetId}"`
+        });
+      } else if (asset && asset.category !== AssetCategoryEnum.uiIcon) {
+        problems.push({
+          severity: LocalizationProblemSeverity.error,
+          path: `tooltips.${tooltipIndex}.iconAssetId`,
+          message: `Tooltip ${tooltip.slug} references asset "${tooltip.iconAssetId}" as an icon but it is ${asset.category}, not UI_ICON`
+        });
+      }
     }
   });
 
@@ -469,7 +512,7 @@ export function removeLocalizationKey(document: LocalizationDocument, path: stri
   return parseV2({
     ...document,
     keys: document.keys.filter((key) => key.path !== path),
-    tooltips: document.tooltips.filter((tooltip) => tooltip.key !== path)
+    tooltips: document.tooltips.filter((tooltip) => tooltip.titleKey !== path && tooltip.descriptionKey !== path)
   });
 }
 
@@ -826,7 +869,8 @@ function migrateLegacyRichMetadata(document: z.infer<typeof localizationDocument
     if (term.tooltipKey && !tooltips.some((tooltip) => tooltip.slug === term.slug)) {
       tooltips.push({
         slug: term.slug,
-        key: term.tooltipKey
+        titleKey: term.tooltipKey,
+        descriptionKey: term.tooltipKey
       });
     }
   }

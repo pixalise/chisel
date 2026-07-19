@@ -111,13 +111,23 @@ describe("localization service", () => {
       italic: false,
       underline: false
     });
-    const withTooltip = await localizationService.addTooltip({ slug: "AOE_RADIUS", key: "UNIT.TOXIN_TRACTOR.DESCRIPTION" });
+    const withTooltip = await localizationService.addTooltip({
+      slug: "AOE_RADIUS",
+      titleKey: "UNIT.TOXIN_TRACTOR.DESCRIPTION",
+      descriptionKey: "UNIT.TOXIN_TRACTOR.DESCRIPTION"
+    });
 
     expect(withKey.keys[0]?.values).toEqual({
       en: "Deals {float:aoe_radius} damage.",
       sl_SI: "Deals {float:aoe_radius} damage."
     });
     expect(withStyle.styles).toEqual([{ slug: "AOE_RADIUS", color: "#65C7FF", bold: false, italic: false, underline: false }]);
-    expect(withTooltip.tooltips).toEqual([{ slug: "AOE_RADIUS", key: "UNIT.TOXIN_TRACTOR.DESCRIPTION" }]);
+    expect(withTooltip.tooltips).toEqual([
+      {
+        slug: "AOE_RADIUS",
+        titleKey: "UNIT.TOXIN_TRACTOR.DESCRIPTION",
+        descriptionKey: "UNIT.TOXIN_TRACTOR.DESCRIPTION"
+      }
+    ]);
   });
 });

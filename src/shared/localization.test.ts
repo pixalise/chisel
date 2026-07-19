@@ -31,7 +31,9 @@ describe("localization schemas", () => {
       tooltips: [
         {
           slug: "PHYSICAL_DAMAGE",
-          key: "TERM.PHYSICAL_DAMAGE.TOOLTIP"
+          iconAssetId: "PHYSICAL_DAMAGE",
+          titleKey: "TERM.PHYSICAL_DAMAGE.TOOLTIP",
+          descriptionKey: "TERM.PHYSICAL_DAMAGE.TOOLTIP"
         }
       ],
       keys: [
@@ -204,7 +206,8 @@ describe("localization schemas", () => {
       tooltips: [
         {
           slug: "AOE_RADIUS",
-          key: "TERM.MISSING.TOOLTIP"
+          titleKey: "TERM.MISSING.TOOLTIP",
+          descriptionKey: "TERM.MISSING.TOOLTIP"
         }
       ],
       keys: [
@@ -261,7 +264,7 @@ describe("localization schemas", () => {
     expect(problems).toContainEqual(
       expect.objectContaining({
         severity: LocalizationProblemSeverity.error,
-        message: "Tooltip AOE_RADIUS references missing tooltip key TERM.MISSING.TOOLTIP"
+        message: "Tooltip AOE_RADIUS references missing tooltip title key TERM.MISSING.TOOLTIP"
       })
     );
     expect(problems).toContainEqual(
