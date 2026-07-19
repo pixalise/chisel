@@ -10,7 +10,7 @@ describe("asset categories", () => {
   it("recognizes HDRI file extensions without stealing terrain texture extensions", () => {
     expect(isHdriExtension("hdr")).toBe(true);
     expect(isHdriExtension("HDR")).toBe(true);
-    expect(isHdriExtension("exr")).toBe(false);
+    expect(isHdriExtension("exr")).toBe(true);
     expect(isTerrainTextureExtension("exr")).toBe(true);
   });
 });

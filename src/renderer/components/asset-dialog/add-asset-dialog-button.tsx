@@ -14,7 +14,7 @@ import { normalizeConstantCaseInput } from "../../../shared/asset-paths";
 
 function categoryForFile(metadata: FileMetadata): AssetCategoryEnum {
   const extension = metadata.extension.toLowerCase();
-  console.log(extension);
+  console.log(extension, isHdriExtension(extension));
 
   if (isHdriExtension(extension)) {
     return AssetCategoryEnum.hdri;

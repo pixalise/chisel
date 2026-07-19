@@ -34,7 +34,7 @@ export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
 };
 
 const terrainTextureExtensions = new Set(["exr", "gppt", "tga", "tif", "tiff"]);
-const hdriExtensions = new Set(["hdr"]);
+const hdriExtensions = new Set(["exr", "hdr"]);
 
 export function isTerrainTextureExtension(extension: string): boolean {
   return terrainTextureExtensions.has(extension.toLowerCase());

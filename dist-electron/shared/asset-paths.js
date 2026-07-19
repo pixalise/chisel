@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.snakeCase = snakeCase;
 exports.constantCase = constantCase;
 exports.normalizeConstantCaseInput = normalizeConstantCaseInput;
-exports.assetStem = assetStem;
 exports.assetSlug = assetSlug;
 exports.legacyAssetStem = legacyAssetStem;
 exports.assetExtension = assetExtension;
@@ -18,21 +17,13 @@ function pathSegment(value, label) {
     return segment;
 }
 function snakeCase(value) {
-    return value
-        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-        .replace(/[^A-Za-z0-9]+/g, "_")
-        .replace(/_+/g, "_")
-        .replace(/^_+|_+$/g, "")
-        .toLowerCase();
+    return value.replace(/\s/g, "_").toLowerCase().trim();
 }
 function constantCase(value) {
     return snakeCase(value).toUpperCase();
 }
 function normalizeConstantCaseInput(value) {
     return constantCase(value);
-}
-function assetStem(name) {
-    return snakeCase(name);
 }
 function assetSlug(name) {
     return constantCase(name);
