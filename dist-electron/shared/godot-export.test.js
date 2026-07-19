@@ -5,6 +5,7 @@ const vitest_1 = require("vitest");
 const schemas_1 = require("./schemas");
 const types_1 = require("./types");
 const godot_export_1 = require("./godot-export");
+const localization_1 = require("./localization");
 (0, vitest_1.describe)("Godot export", () => {
     (0, vitest_1.it)("exports rows as enum-indexed structure-of-arrays", () => {
         const displayNameColumnId = (0, nanoid_1.nanoid)();
@@ -129,6 +130,30 @@ const godot_export_1 = require("./godot-export");
         (0, vitest_1.expect)(tableFile?.content).toContain("const MAX_HEALTH_2 := [\n\t200\n]");
         (0, vitest_1.expect)(tableFile?.content).toContain("const MAX_HEALTH_2_2 := [\n\t300\n]");
     });
+    (0, vitest_1.it)("uses snake case generated table paths from table names, not internal ids", () => {
+        const table = schemas_1.dataTableSchema.parse({
+            columns: [],
+            description: "Enemy type definitions",
+            id: (0, nanoid_1.nanoid)(),
+            kind: "user",
+            lastChangeAt: "2026-01-01T00:00:00.000Z",
+            name: "Enemy Types",
+            rows: [],
+            version: 1
+        });
+        const project = {
+            id: (0, nanoid_1.nanoid)(),
+            name: "Iron Bastion",
+            path: "/tmp/iron-bastion"
+        };
+        const bundle = (0, godot_export_1.createGodotExportBundle)(project, [table], "2026-01-01T00:00:00.000Z");
+        const tableFile = bundle.files.find((file) => file.path === "game_data/tables/enemy_types.gd");
+        const manifestFile = bundle.files.find((file) => file.path === "game_data/manifest.gd");
+        (0, vitest_1.expect)(tableFile?.content).toContain("class_name ChiselEnemyTypes");
+        (0, vitest_1.expect)(tableFile?.content).toContain(`const TABLE_ID := "${table.id}"`);
+        (0, vitest_1.expect)(manifestFile?.content).toContain(`"${table.id}": {`);
+        (0, vitest_1.expect)(manifestFile?.content).toContain('"path": "res://game_data/tables/enemy_types.gd"');
+    });
     (0, vitest_1.it)("exports input bindings as a Godot InputMap setup script", () => {
         const sortOrderColumnId = (0, nanoid_1.nanoid)();
         const bindingsColumnId = (0, nanoid_1.nanoid)();
@@ -225,6 +250,9 @@ const godot_export_1 = require("./godot-export");
         const assetsFile = bundle.files.find((file) => file.path === "game_data/assets.gd");
         (0, vitest_1.expect)(manifestFile?.content).toContain('"path": "res://game_data/assets.gd"');
         (0, vitest_1.expect)(manifestFile?.content).toContain('"count": 1');
+        (0, vitest_1.expect)(manifestFile?.content).toContain("const FILES := [");
+        (0, vitest_1.expect)(manifestFile?.content).toContain('"hash":');
+        (0, vitest_1.expect)(manifestFile?.content).toContain('"bytes":');
         (0, vitest_1.expect)(assetsFile?.content).toContain("class_name ChiselAssets");
         (0, vitest_1.expect)(assetsFile?.content).toContain(`"${asset.id}": {`);
         (0, vitest_1.expect)(assetsFile?.content).toContain("FOREST_SOIL_1 = 0");
@@ -255,5 +283,109 @@ const godot_export_1 = require("./godot-export");
         (0, vitest_1.expect)(assetsFile?.content).toContain("SKY_CLEAR = 0");
         (0, vitest_1.expect)(assetsFile?.content).toContain('"category": "hdri"');
         (0, vitest_1.expect)(assetsFile?.content).toContain('"path": "res://game_data/assets/hdri/sky_clear.hdr"');
+    });
+    (0, vitest_1.it)("exports typed refs and asset refs as enum values", () => {
+        const factionColumnId = (0, nanoid_1.nanoid)();
+        const portraitColumnId = (0, nanoid_1.nanoid)();
+        const factionTable = schemas_1.dataTableSchema.parse({
+            columns: [],
+            description: "Factions",
+            id: "factions",
+            kind: "user",
+            lastChangeAt: "2026-01-01T00:00:00.000Z",
+            name: "Factions",
+            rows: [{ id: (0, nanoid_1.nanoid)(), slug: "IRON_LEGION", values: [] }],
+            version: 1
+        });
+        const unitTable = schemas_1.dataTableSchema.parse({
+            columns: [
+                {
+                    defaultValue: "",
+                    id: factionColumnId,
+                    name: "faction",
+                    refTableId: "factions",
+                    required: true,
+                    type: types_1.ColumnType.ref,
+                    unique: false
+                },
+                {
+                    assetCategory: types_1.AssetCategoryEnum.image,
+                    defaultValue: "",
+                    id: portraitColumnId,
+                    name: "portrait",
+                    required: true,
+                    type: types_1.ColumnType.assetRef,
+                    unique: false
+                }
+            ],
+            description: "Units",
+            id: "units",
+            kind: "user",
+            lastChangeAt: "2026-01-01T00:00:00.000Z",
+            name: "Units",
+            rows: [
+                {
+                    id: (0, nanoid_1.nanoid)(),
+                    slug: "RIFLEMAN",
+                    values: [
+                        { columnId: factionColumnId, type: types_1.ColumnType.ref, value: "IRON_LEGION" },
+                        { columnId: portraitColumnId, type: types_1.ColumnType.assetRef, value: "RIFLEMAN_PORTRAIT" }
+                    ]
+                }
+            ],
+            version: 1
+        });
+        const asset = schemas_1.assetSchema.parse({
+            category: types_1.AssetCategoryEnum.image,
+            extension: "png",
+            height: 64,
+            id: "RIFLEMAN_PORTRAIT",
+            name: "RIFLEMAN_PORTRAIT",
+            relativePath: ".chisel/assets/IMAGE/RIFLEMAN_PORTRAIT.png",
+            sizeBytes: 1024,
+            width: 64
+        });
+        const project = {
+            id: (0, nanoid_1.nanoid)(),
+            name: "Iron Bastion",
+            path: "/tmp/iron-bastion"
+        };
+        const bundle = (0, godot_export_1.createGodotExportBundle)(project, [factionTable, unitTable], "2026-01-01T00:00:00.000Z", [asset]);
+        const unitFile = bundle.files.find((file) => file.path === "game_data/tables/units.gd");
+        (0, vitest_1.expect)(unitFile?.content).toContain("const FACTION := [\n\tChiselFactions.Id.IRON_LEGION\n]");
+        (0, vitest_1.expect)(unitFile?.content).toContain("const PORTRAIT := [\n\tChiselAssets.Id.RIFLEMAN_PORTRAIT\n]");
+    });
+    (0, vitest_1.it)("exports localization module and Godot translation CSV", () => {
+        const project = {
+            id: (0, nanoid_1.nanoid)(),
+            name: "Iron Bastion",
+            path: "/tmp/iron-bastion"
+        };
+        const localization = localization_1.localizationDocumentSchema.parse({
+            schemaVersion: 1,
+            activeLocales: ["en", "sl_SI"],
+            translations: [
+                {
+                    namespace: "HUD",
+                    slug: "UNIT_COUNT",
+                    sourceText: "{count} units",
+                    placeholders: [{ name: "count", type: localization_1.TranslationPlaceholderType.integer }],
+                    values: {
+                        en: "{count} units",
+                        sl_SI: "{count} enot"
+                    }
+                }
+            ]
+        });
+        const bundle = (0, godot_export_1.createGodotExportBundle)(project, [], "2026-01-01T00:00:00.000Z", [], localization);
+        const manifestFile = bundle.files.find((file) => file.path === "game_data/manifest.gd");
+        const localizationFile = bundle.files.find((file) => file.path === "game_data/localization.gd");
+        const csvFile = bundle.files.find((file) => file.path === "game_data/localization/translations.csv");
+        (0, vitest_1.expect)(manifestFile?.content).toContain("const LOCALIZATION := {");
+        (0, vitest_1.expect)(manifestFile?.content).toContain('"csv_path": "res://game_data/localization/translations.csv"');
+        (0, vitest_1.expect)(localizationFile?.content).toContain("class_name ChiselLocalization");
+        (0, vitest_1.expect)(localizationFile?.content).toContain('HUD_UNIT_COUNT = "HUD.UNIT_COUNT"');
+        (0, vitest_1.expect)(localizationFile?.content).toContain('const LOCALES := ["en", "sl_SI"]');
+        (0, vitest_1.expect)(csvFile?.content).toBe('"keys","en","sl_SI"\n"HUD.UNIT_COUNT","{count} units","{count} enot"');
     });
 });

@@ -44,6 +44,7 @@ declare global {
       ensureGitignoreEntry: (path: string, entry: string) => Promise<void>;
       copyFile: (sourcePath: string, destinationPath: string) => Promise<void>;
       deleteFile: (path: string) => Promise<void>;
+      deleteDirectory: (path: string) => Promise<void>;
       getFileMetadata: (sourcePath: string) => Promise<FileMetadata>;
       importAsset: (input: ImportAssetInput) => Promise<Asset>;
       upgradeAssetLibraryPaths: (projectPath: string) => Promise<UpgradeAssetLibraryPathsResult>;

@@ -4,5 +4,6 @@ export enum RouteEnum {
   texturePacking = "/texturePacking",
   assets = "/assets",
   database = "/database",
+  localization = "/localization",
   todos = "/todos"
 }

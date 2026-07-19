@@ -12,6 +12,7 @@ electron_1.contextBridge.exposeInMainWorld("electron", {
     ensureGitignoreEntry: (path, entry) => electron_1.ipcRenderer.invoke("file:ensure-gitignore-entry", path, entry),
     copyFile: (sourcePath, destinationPath) => electron_1.ipcRenderer.invoke("file:copy", sourcePath, destinationPath),
     deleteFile: (path) => electron_1.ipcRenderer.invoke("file:delete", path),
+    deleteDirectory: (path) => electron_1.ipcRenderer.invoke("file:delete-directory", path),
     getFileMetadata: (sourcePath) => electron_1.ipcRenderer.invoke("file:get-metadata", sourcePath),
     importAsset: (input) => electron_1.ipcRenderer.invoke("asset:import", input),
     upgradeAssetLibraryPaths: (projectPath) => electron_1.ipcRenderer.invoke("asset:upgrade-library-paths", projectPath),

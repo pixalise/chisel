@@ -14,6 +14,8 @@ import {
   TablesJson
 } from "../../shared/schemas";
 import { projectManagementJsonSchema, type ProjectManagementJson } from "../../shared/project-management";
+import { sourceStateJsonSchema, type SourceStateJson } from "../../shared/source-state";
+import { localizationDocumentSchema, type LocalizationDocument } from "../../shared/localization";
 import useAppStore from "@/stores/app-store";
 import { nanoid } from "nanoid";
 
@@ -22,7 +24,9 @@ enum FilePathEnum {
   gitignore = ".gitignore",
   tablesJson = "tables.json",
   assetsJson = "assets.json",
-  projectManagementJson = "project-management.json"
+  localizationJson = "localization.json",
+  projectManagementJson = "project-management.json",
+  sourceStateJson = "commits.json"
 }
 
 class FileService {
@@ -138,6 +142,32 @@ class FileService {
     return zodParse(projectManagementJsonSchema, data);
   }
 
+  public async writeLocalizationJson(project: Project, value: LocalizationDocument): Promise<void> {
+    await this.writeJsonFile(this.fullPath(project.path, FilePathEnum.localizationJson), zodParse(localizationDocumentSchema, value));
+  }
+
+  public async tryReadLocalizationJson(path: string): Promise<Nullish<LocalizationDocument>> {
+    const data = await this.tryReadJsonFile<LocalizationDocument>(this.fullPath(path, FilePathEnum.localizationJson));
+    if (isNil(data)) {
+      return undefined;
+    }
+
+    return zodParse(localizationDocumentSchema, data);
+  }
+
+  public async writeSourceStateJson(project: Project, value: SourceStateJson): Promise<void> {
+    await this.writeJsonFile(this.fullPath(project.path, FilePathEnum.sourceStateJson), zodParse(sourceStateJsonSchema, value));
+  }
+
+  public async tryReadSourceStateJson(path: string): Promise<Nullish<SourceStateJson>> {
+    const data = await this.tryReadJsonFile<SourceStateJson>(this.fullPath(path, FilePathEnum.sourceStateJson));
+    if (isNil(data)) {
+      return undefined;
+    }
+
+    return zodParse(sourceStateJsonSchema, data);
+  }
+
   public async copyProjectFile(project: Project, sourcePath: string, relativePath: string): Promise<void> {
     await window.electron.copyFile(sourcePath, this.projectRelativePath(project.path, relativePath));
   }
@@ -160,6 +190,10 @@ class FileService {
 
   public async deleteProjectFile(project: Project, relativePath: string): Promise<void> {
     await window.electron.deleteFile(this.projectRelativePath(project.path, relativePath));
+  }
+
+  public async deleteProjectDirectory(project: Project, relativePath: string): Promise<void> {
+    await window.electron.deleteDirectory(this.projectRelativePath(project.path, relativePath));
   }
 
   public async getFileMetadata(sourcePath: string): Promise<FileMetadata> {

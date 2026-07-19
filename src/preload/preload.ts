@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld("electron", {
   copyFile: (sourcePath: string, destinationPath: string): Promise<void> =>
     ipcRenderer.invoke("file:copy", sourcePath, destinationPath) as Promise<void>,
   deleteFile: (path: string): Promise<void> => ipcRenderer.invoke("file:delete", path) as Promise<void>,
+  deleteDirectory: (path: string): Promise<void> => ipcRenderer.invoke("file:delete-directory", path) as Promise<void>,
   getFileMetadata: (sourcePath: string): Promise<FileMetadata> =>
     ipcRenderer.invoke("file:get-metadata", sourcePath) as Promise<FileMetadata>,
   importAsset: (input: ImportAssetInput): Promise<Asset> => ipcRenderer.invoke("asset:import", input) as Promise<Asset>,

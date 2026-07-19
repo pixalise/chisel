@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validatedDataTableSchema = exports.tableRowsJsonSchema = exports.tablesJsonSchema = exports.dataTableJsonSchema = exports.anyDataTableSchema = exports.systemDataTableSchema = exports.dataTableSchema = exports.createOrUpdateUserTableSchema = exports.dataTableIdSchema = exports.dataTableRowSchema = exports.typedDataColumnValueSchema = exports.jsonColumnValueSchema = exports.vector4ColumnValueSchema = exports.vector3ColumnValueSchema = exports.vector2ColumnValueSchema = exports.colorColumnValueSchema = exports.refColumnValueSchema = exports.assetRefColumnValueSchema = exports.enumArrayColumnValueSchema = exports.enumColumnValueSchema = exports.booleanColumnValueSchema = exports.rangeColumnValueSchema = exports.decimalColumnValueSchema = exports.integerColumnValueSchema = exports.textColumnValueSchema = exports.stringColumnValueSchema = exports.dataColumnValueSchema = exports.dataColumnDefinitionSchema = exports.convertImagesSchema = exports.packTexturePackageSchema = exports.packNormalRoughnessTextureSchema = exports.packAlbedoHeightTextureSchema = exports.packedTextureNameSchema = exports.importAssetSchema = exports.addAssetSchema = exports.createOrUpdateAssetSchema = exports.assetsJsonSchema = exports.assetSchema = exports.assetSlugSchema = exports.rowSlugSchema = exports.createOrUpdateProjectSchema = exports.projectFileSchema = exports.projectSchema = void 0;
+exports.validatedDataTableSchema = exports.tableRowsJsonSchema = exports.tablesJsonSchema = exports.dataTableJsonSchema = exports.anyDataTableSchema = exports.systemDataTableSchema = exports.dataTableSchema = exports.createOrUpdateUserTableSchema = exports.dataTableRowSchema = exports.typedDataColumnValueSchema = exports.jsonColumnValueSchema = exports.vector4ColumnValueSchema = exports.vector3ColumnValueSchema = exports.vector2ColumnValueSchema = exports.colorColumnValueSchema = exports.refColumnValueSchema = exports.assetRefColumnValueSchema = exports.enumArrayColumnValueSchema = exports.enumColumnValueSchema = exports.booleanColumnValueSchema = exports.rangeColumnValueSchema = exports.decimalColumnValueSchema = exports.integerColumnValueSchema = exports.textColumnValueSchema = exports.stringColumnValueSchema = exports.dataColumnValueSchema = exports.dataColumnDefinitionSchema = exports.convertImagesSchema = exports.packTexturePackageSchema = exports.packNormalRoughnessTextureSchema = exports.packAlbedoHeightTextureSchema = exports.packedTextureNameSchema = exports.dataTableIdSchema = exports.importAssetSchema = exports.addAssetSchema = exports.createOrUpdateAssetSchema = exports.assetsJsonSchema = exports.assetSchema = exports.assetSlugSchema = exports.rowSlugSchema = exports.createOrUpdateProjectSchema = exports.projectFileSchema = exports.projectSchema = void 0;
 const zod_1 = __importDefault(require("zod"));
 const asset_paths_1 = require("./asset-paths");
 const types_1 = require("./types");
@@ -162,6 +162,13 @@ exports.importAssetSchema = zod_1.default.object({
     note: zod_1.default.string().optional()
 });
 const pngImagePathSchema = filePathSchema.refine((value) => /\.png$/i.test(value), "Image must be a PNG file");
+const schemaVersionSchema = zod_1.default.int().min(1);
+exports.dataTableIdSchema = zod_1.default
+    .string()
+    .trim()
+    .min(1)
+    .max(96)
+    .regex(/^[A-Za-z0-9_-]+$/);
 exports.packedTextureNameSchema = exports.assetSlugSchema;
 exports.packAlbedoHeightTextureSchema = zod_1.default.object({
     albedo: pngImagePathSchema,
@@ -199,6 +206,7 @@ exports.dataColumnDefinitionSchema = zod_1.default.preprocess((value) => {
     maxChars: zod_1.default.int().positive().optional(),
     min: zod_1.default.number().optional(),
     possibleValues: zod_1.default.array(zod_1.default.string()).optional(),
+    refTableId: exports.dataTableIdSchema.optional(),
     required: zod_1.default.boolean().default(true),
     step: zod_1.default.number().positive().optional(),
     unique: zod_1.default.boolean().default(false)
@@ -293,13 +301,6 @@ exports.dataTableRowSchema = zod_1.default.object({
     slug: exports.rowSlugSchema,
     values: zod_1.default.array(exports.typedDataColumnValueSchema)
 });
-const schemaVersionSchema = zod_1.default.int().min(1);
-exports.dataTableIdSchema = zod_1.default
-    .string()
-    .trim()
-    .min(1)
-    .max(96)
-    .regex(/^[A-Za-z0-9_-]+$/);
 const baseDataTableSchema = zod_1.default.object({
     id: exports.dataTableIdSchema,
     lastChangeAt: zod_1.default.string(),

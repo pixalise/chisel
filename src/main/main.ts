@@ -179,6 +179,10 @@ function registerIpc(): void {
     await fs.rm(filePath, { force: true });
   });
 
+  ipcMain.handle("file:delete-directory", async (_event, directoryPath: string) => {
+    await fs.rm(directoryPath, { force: true, recursive: true });
+  });
+
   ipcMain.handle("file:get-metadata", (_event, sourcePath: string) => getFileMetadata(sourcePath));
 
   ipcMain.handle("project:open-folder-dialog", async () => {

@@ -10,6 +10,7 @@ import type { DataSchemaColumnEditorProps } from "./data-schema-column-editor.ty
 import { createDefaultValueForColumnType, isDefaultValueValidForColumnType, isVectorColumnType } from "./data-schema-column-utils";
 import NumericMetadataInput from "./numeric-metadata-input";
 import PossibleValuesEditor from "./possible-values-editor";
+import RefTableTargetEditor from "./ref-table-target-editor";
 import { useWatch } from "react-hook-form";
 
 const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
@@ -165,6 +166,8 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
       {columnType === ColumnType.assetRef && (
         <AssetRefCategoryFilterEditor control={control} disabled={disabled} fieldPrefix={fieldPrefix} />
       )}
+
+      {columnType === ColumnType.ref && <RefTableTargetEditor control={control} disabled={disabled} fieldPrefix={fieldPrefix} />}
 
       {(columnType === ColumnType.enum || columnType === ColumnType.enumArray) && (
         <PossibleValuesEditor

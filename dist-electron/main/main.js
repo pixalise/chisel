@@ -140,6 +140,9 @@ function registerIpc() {
     electron_1.ipcMain.handle("file:delete", async (_event, filePath) => {
         await promises_1.default.rm(filePath, { force: true });
     });
+    electron_1.ipcMain.handle("file:delete-directory", async (_event, directoryPath) => {
+        await promises_1.default.rm(directoryPath, { force: true, recursive: true });
+    });
     electron_1.ipcMain.handle("file:get-metadata", (_event, sourcePath) => (0, file_metadata_1.getFileMetadata)(sourcePath));
     electron_1.ipcMain.handle("project:open-folder-dialog", async () => {
         const result = await electron_1.dialog.showOpenDialog({

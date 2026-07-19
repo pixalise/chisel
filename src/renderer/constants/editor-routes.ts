@@ -10,6 +10,7 @@ export interface EditorRouteDefinition {
 export const editorRoutes: EditorRouteDefinition[] = [
   { id: RouteEnum.assets, label: "Asset Library", section: "Workspace", hint: "Managed imports" },
   { id: RouteEnum.database, label: "Data Tables", section: "Workspace", hint: "Typed authoring data" },
+  { id: RouteEnum.localization, label: "Localization", section: "Workspace", hint: "Translation source data" },
   { id: RouteEnum.imageConversion, label: "Image Conversion", section: "Tools", hint: "Convert images to PNG" },
   { id: RouteEnum.texturePacking, label: "Texture Packing", section: "Tools", hint: "Pack and create GPPT textures" },
   { id: RouteEnum.todos, label: "Project Management", section: "Tools", hint: "Track todos and checklist items" },

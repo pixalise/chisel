@@ -9,6 +9,7 @@ import { RouteEnum } from "@/constants/route-enum";
 import { AssetLibraryScreen } from "@/screens/main-stack/asset-library-screen/asset-library-screen";
 import { DataTablesScreen } from "@/screens/main-stack/data-tables-screen/data-tables-screen";
 import { ImageConversionScreen } from "@/screens/main-stack/image-conversion-screen/image-conversion-screen";
+import LocalizationScreen from "@/screens/main-stack/localization-screen/localization-screen";
 import { SettingsScreen } from "@/screens/main-stack/settings-screen";
 import { TexturePackingScreen } from "@/screens/main-stack/texture-packing-screen/texture-packing-screen";
 import TodoScreen from "@/screens/main-stack/todo-screen/todo-screen";
@@ -31,6 +32,7 @@ const MainStack: FC = () => {
             <Routes>
               <Route element={<AssetLibraryScreen />} path={RouteEnum.assets} />
               <Route element={<DataTablesScreen />} path={RouteEnum.database} />
+              <Route element={<LocalizationScreen />} path={RouteEnum.localization} />
               <Route element={<ImageConversionScreen />} path={RouteEnum.imageConversion} />
               <Route element={<TexturePackingScreen />} path={RouteEnum.texturePacking} />
               <Route element={<SettingsScreen />} path={RouteEnum.settings} />

@@ -199,6 +199,13 @@ export const importAssetSchema = z.object({
 export type ImportAssetInput = z.infer<typeof importAssetSchema>;
 
 const pngImagePathSchema = filePathSchema.refine((value) => /\.png$/i.test(value), "Image must be a PNG file");
+const schemaVersionSchema = z.int().min(1);
+export const dataTableIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(96)
+  .regex(/^[A-Za-z0-9_-]+$/);
 
 export const packedTextureNameSchema = assetSlugSchema;
 
@@ -253,6 +260,7 @@ export const dataColumnDefinitionSchema = z.preprocess(
     maxChars: z.int().positive().optional(),
     min: z.number().optional(),
     possibleValues: z.array(z.string()).optional(),
+    refTableId: dataTableIdSchema.optional(),
     required: z.boolean().default(true),
     step: z.number().positive().optional(),
     unique: z.boolean().default(false)
@@ -371,14 +379,6 @@ export const dataTableRowSchema = z.object({
   values: z.array(typedDataColumnValueSchema)
 });
 export type DataTableRow = z.infer<typeof dataTableRowSchema>;
-
-const schemaVersionSchema = z.int().min(1);
-export const dataTableIdSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(96)
-  .regex(/^[A-Za-z0-9_-]+$/);
 
 const baseDataTableSchema = z.object({
   id: dataTableIdSchema,

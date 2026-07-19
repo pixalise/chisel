@@ -3,6 +3,8 @@ import BaseService from "@/services/base-service";
 import appStore from "@/stores/app-store";
 import { assetSchema, addAssetSchema, type Asset, type AddAsset } from "../../shared/schemas";
 import { assetSlug, chiselAssetRelativePath } from "../../shared/asset-paths";
+import { findAssetReferences } from "../../shared/project-validation";
+import tableService from "@/services/table-service";
 
 class AssetService extends BaseService {
   private static schemaVersion: number = 1;
@@ -72,6 +74,11 @@ class AssetService extends BaseService {
     const asset = assets.find((entry) => entry.id === assetId);
     if (!asset) {
       throw new Error(`Asset ${assetId} does not exist`);
+    }
+    const references = findAssetReferences(await tableService.listAllTables(), assetId);
+    if (references.length > 0) {
+      const reference = references[0]!;
+      throw new Error(`Asset ${assetId} is referenced by ${reference.sourceTableName}.${reference.sourceRowSlug}.${reference.columnName}`);
     }
     const project = appStore.getState().computed.project;
     await fileService.deleteProjectFile(project, asset.relativePath);

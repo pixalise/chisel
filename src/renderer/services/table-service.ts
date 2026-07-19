@@ -4,6 +4,7 @@ import BaseService from "@/services/base-service";
 import fileService from "@/services/file-service";
 import appStore from "@/stores/app-store";
 import { zodParse } from "@/utils/zod-parse";
+import { findTableReferences } from "../../shared/project-validation";
 import {
   AnyDataTable,
   CreateOrUpdateTable,
@@ -45,6 +46,12 @@ class TableService extends BaseService {
     const existingTable = userTables.find((table) => table.id === id);
     if (!existingTable) {
       throw new Error(`Table ${id} does not exist`);
+    }
+
+    const references = findTableReferences(await this.listAllTables(), id).filter((reference) => reference.sourceTableId !== id);
+    if (references.length > 0) {
+      const reference = references[0]!;
+      throw new Error(`Table ${existingTable.name} is referenced by ${reference.sourceTableName}.${reference.columnName}`);
     }
 
     await this.backupUserTableSchema(existingTable);
@@ -96,6 +103,7 @@ class TableService extends BaseService {
     }
 
     const currentTable = await this.readSystemTable(definition);
+    await this.assertRemovedRowsAreUnreferenced(id, currentTable.rows, rows);
     const table = zodParse(systemDataTableSchema, {
       ...definition,
       lastChangeAt: new Date().toISOString(),
@@ -121,6 +129,8 @@ class TableService extends BaseService {
     if (!existingTable) {
       throw new Error(`Table ${id} does not exist`);
     }
+
+    await this.assertRemovedRowsAreUnreferenced(id, existingTable.rows, rows);
 
     const table = zodParse(dataTableSchema, {
       ...existingTable,
@@ -208,6 +218,26 @@ class TableService extends BaseService {
 
   private backupTimestamp(): string {
     return new Date().toISOString().replace(/[:.]/g, "-");
+  }
+
+  private async assertRemovedRowsAreUnreferenced(tableId: string, currentRows: DataTableRow[], nextRows: DataTableRow[]): Promise<void> {
+    const nextSlugs = new Set(nextRows.map((row) => row.slug));
+    const removedSlugs = new Set(currentRows.map((row) => row.slug).filter((slug) => !nextSlugs.has(slug)));
+    if (removedSlugs.size === 0) {
+      return;
+    }
+
+    const tables = await this.listAllTables();
+    const nextTables = tables.map((table) => (table.id === tableId ? { ...table, rows: nextRows } : table));
+    const references = findTableReferences(nextTables, tableId, removedSlugs);
+    if (references.length === 0) {
+      return;
+    }
+
+    const reference = references[0]!;
+    throw new Error(
+      `Row ${reference.targetRowSlug ?? "unknown"} is referenced by ${reference.sourceTableName}.${reference.sourceRowSlug}.${reference.columnName}`
+    );
   }
 }
 
