@@ -40,8 +40,7 @@ export const localizationPlaceholderSchema = z
       .min(1, "Placeholder name is required")
       .max(64, "Placeholder name must be at most 64 characters")
       .regex(/^[a-z][a-z0-9_]*$/, "Placeholder name must be snake_case"),
-    type: z.preprocess((value) => legacyPlaceholderType(value), z.enum(TranslationPlaceholderType)),
-    term: rowSlugSchema.optional()
+    type: z.preprocess((value) => legacyPlaceholderType(value), z.enum(TranslationPlaceholderType))
   })
   .strict();
 export type LocalizationPlaceholder = z.infer<typeof localizationPlaceholderSchema>;
@@ -50,7 +49,8 @@ export interface LocalizationTextAnalysis {
   iconSlugs: string[];
   placeholders: LocalizationPlaceholder[];
   problems: LocalizationProblem[];
-  termSlugs: string[];
+  styleSlugs: string[];
+  tooltipSlugs: string[];
 }
 
 export const localizationKeySchema = z
@@ -66,22 +66,41 @@ export type LocalizationKey = z.infer<typeof localizationKeySchema>;
 
 const colorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color must be #RRGGBB");
 
-export const localizationTermSchema = z
+export const localizationStyleSchema = z
+  .object({
+    slug: rowSlugSchema,
+    color: colorSchema.optional(),
+    bold: z.boolean().default(false),
+    italic: z.boolean().default(false),
+    underline: z.boolean().default(false)
+  })
+  .strict();
+export type LocalizationStyle = z.infer<typeof localizationStyleSchema>;
+
+export const localizationTooltipSchema = z
+  .object({
+    slug: rowSlugSchema,
+    key: localizationKeyPathSchema
+  })
+  .strict();
+export type LocalizationTooltip = z.infer<typeof localizationTooltipSchema>;
+
+const legacyLocalizationTermSchema = z
   .object({
     slug: rowSlugSchema,
     color: colorSchema.optional(),
     tooltipKey: localizationKeyPathSchema.optional()
   })
   .strict();
-export type LocalizationTerm = z.infer<typeof localizationTermSchema>;
 
-export const localizationDocumentV2Schema = z
+const localizationDocumentV2NormalizedSchema = z
   .object({
     schemaVersion: z.literal(2),
     defaultLocale: localeCodeSchema.default("en"),
     locales: z.array(localeCodeSchema).default(["en"]),
     keys: z.array(localizationKeySchema).default([]),
-    terms: z.array(localizationTermSchema).default([])
+    styles: z.array(localizationStyleSchema).default([]),
+    tooltips: z.array(localizationTooltipSchema).default([])
   })
   .strict()
   .superRefine((document, context) => {
@@ -106,17 +125,44 @@ export const localizationDocumentV2Schema = z
         path: ["keys"]
       });
     }
-    for (const duplicate of duplicateValues(document.terms.map((term) => term.slug))) {
+    for (const duplicate of duplicateValues(document.styles.map((style) => style.slug))) {
       context.addIssue({
         code: "custom",
-        message: `Duplicate localization term "${duplicate}"`,
-        path: ["terms"]
+        message: `Duplicate localization style "${duplicate}"`,
+        path: ["styles"]
+      });
+    }
+    for (const duplicate of duplicateValues(document.tooltips.map((tooltip) => tooltip.slug))) {
+      context.addIssue({
+        code: "custom",
+        message: `Duplicate localization tooltip "${duplicate}"`,
+        path: ["tooltips"]
       });
     }
   });
-export type LocalizationDocumentV2 = z.infer<typeof localizationDocumentV2Schema>;
+export type LocalizationDocumentV2 = z.infer<typeof localizationDocumentV2NormalizedSchema>;
 
-const legacyTranslationPlaceholderSchema = localizationPlaceholderSchema.omit({ term: true });
+const localizationDocumentV2SourceSchema = z
+  .object({
+    schemaVersion: z.literal(2),
+    defaultLocale: localeCodeSchema.default("en"),
+    locales: z.array(localeCodeSchema).default(["en"]),
+    keys: z.array(localizationKeySchema).default([]),
+    styles: z.array(localizationStyleSchema).default([]),
+    tooltips: z.array(localizationTooltipSchema).default([]),
+    terms: z.array(legacyLocalizationTermSchema).optional()
+  })
+  .strict();
+
+export const localizationDocumentV2Schema = z.preprocess((input) => {
+  const parsed = localizationDocumentV2SourceSchema.safeParse(input);
+  if (!parsed.success) {
+    return input;
+  }
+  return migrateLegacyRichMetadata(parsed.data);
+}, localizationDocumentV2NormalizedSchema);
+
+const legacyTranslationPlaceholderSchema = localizationPlaceholderSchema;
 const legacyTranslationEntrySchema = z
   .object({
     slug: rowSlugSchema,
@@ -145,7 +191,8 @@ export const emptyLocalizationDocument = {
   defaultLocale: "en",
   locales: ["en"],
   keys: [],
-  terms: []
+  styles: [],
+  tooltips: []
 } satisfies LocalizationDocumentV2;
 
 export type CreateOrUpdateLocalizationKey = Omit<LocalizationKey, "values" | "placeholders"> & {
@@ -153,7 +200,8 @@ export type CreateOrUpdateLocalizationKey = Omit<LocalizationKey, "values" | "pl
   values?: Record<string, string>;
 };
 
-export type CreateOrUpdateLocalizationTerm = LocalizationTerm;
+export type CreateOrUpdateLocalizationStyle = LocalizationStyle;
+export type CreateOrUpdateLocalizationTooltip = LocalizationTooltip;
 
 export function validateLocalizationDocument(document: LocalizationDocument, assets?: Asset[]): LocalizationProblem[] {
   const parsed = localizationDocumentV2Schema.safeParse(document);
@@ -169,7 +217,8 @@ export function validateLocalizationDocument(document: LocalizationDocument, ass
   const problems: LocalizationProblem[] = [];
   const localeSet = new Set(value.locales);
   const keySet = new Set(value.keys.map((key) => key.path));
-  const termsBySlug = new Map(value.terms.map((term) => [term.slug, term]));
+  const stylesBySlug = new Map(value.styles.map((style) => [style.slug, style]));
+  const tooltipsBySlug = new Map(value.tooltips.map((tooltip) => [tooltip.slug, tooltip]));
   const assetsById = assets ? new Map(assets.map((asset) => [asset.id, asset])) : undefined;
 
   value.keys.forEach((key, keyIndex) => {
@@ -179,6 +228,8 @@ export function validateLocalizationDocument(document: LocalizationDocument, ass
     );
     const expectedPlaceholders = new Map(defaultAnalysis.placeholders.map((placeholder) => [placeholder.name, placeholder]));
     const expectedIconSlugs = new Set(defaultAnalysis.iconSlugs);
+    const expectedStyleSlugs = new Set(defaultAnalysis.styleSlugs);
+    const expectedTooltipSlugs = new Set(defaultAnalysis.tooltipSlugs);
     problems.push(...defaultAnalysis.problems);
 
     for (const locale of value.locales) {
@@ -199,6 +250,8 @@ export function validateLocalizationDocument(document: LocalizationDocument, ass
         problems.push(...analysis.problems);
       }
       const iconSlugs = new Set(analysis.iconSlugs);
+      const styleSlugs = new Set(analysis.styleSlugs);
+      const tooltipSlugs = new Set(analysis.tooltipSlugs);
       for (const expectedPlaceholder of expectedPlaceholders.values()) {
         const actualPlaceholder = placeholders.get(expectedPlaceholder.name);
         if (!actualPlaceholder) {
@@ -231,7 +284,7 @@ export function validateLocalizationDocument(document: LocalizationDocument, ass
           problems.push({
             severity: LocalizationProblemSeverity.error,
             path: `keys.${keyIndex}.values.${locale}`,
-            message: `Translation ${key.path} is missing icon "[icon:${expectedIconSlug}]"`
+            message: `Translation ${key.path} is missing icon "<icon:${expectedIconSlug}/>"`
           });
         }
       }
@@ -240,7 +293,43 @@ export function validateLocalizationDocument(document: LocalizationDocument, ass
           problems.push({
             severity: LocalizationProblemSeverity.error,
             path: `keys.${keyIndex}.values.${locale}`,
-            message: `Translation ${key.path} has extra icon "[icon:${iconSlug}]"`
+            message: `Translation ${key.path} has extra icon "<icon:${iconSlug}/>"`
+          });
+        }
+      }
+      for (const expectedStyleSlug of expectedStyleSlugs) {
+        if (!styleSlugs.has(expectedStyleSlug)) {
+          problems.push({
+            severity: LocalizationProblemSeverity.error,
+            path: `keys.${keyIndex}.values.${locale}`,
+            message: `Translation ${key.path} is missing style "<style:${expectedStyleSlug}>"`
+          });
+        }
+      }
+      for (const styleSlug of styleSlugs) {
+        if (!expectedStyleSlugs.has(styleSlug)) {
+          problems.push({
+            severity: LocalizationProblemSeverity.error,
+            path: `keys.${keyIndex}.values.${locale}`,
+            message: `Translation ${key.path} has extra style "<style:${styleSlug}>"`
+          });
+        }
+      }
+      for (const expectedTooltipSlug of expectedTooltipSlugs) {
+        if (!tooltipSlugs.has(expectedTooltipSlug)) {
+          problems.push({
+            severity: LocalizationProblemSeverity.error,
+            path: `keys.${keyIndex}.values.${locale}`,
+            message: `Translation ${key.path} is missing tooltip "<tooltip:${expectedTooltipSlug}>"`
+          });
+        }
+      }
+      for (const tooltipSlug of tooltipSlugs) {
+        if (!expectedTooltipSlugs.has(tooltipSlug)) {
+          problems.push({
+            severity: LocalizationProblemSeverity.error,
+            path: `keys.${keyIndex}.values.${locale}`,
+            message: `Translation ${key.path} has extra tooltip "<tooltip:${tooltipSlug}>"`
           });
         }
       }
@@ -262,12 +351,21 @@ export function validateLocalizationDocument(document: LocalizationDocument, ass
           });
         }
       }
-      for (const termSlug of analysis.termSlugs) {
-        if (!termsBySlug.has(termSlug)) {
+      for (const styleSlug of analysis.styleSlugs) {
+        if (!stylesBySlug.has(styleSlug)) {
           problems.push({
             severity: LocalizationProblemSeverity.error,
             path: `keys.${keyIndex}.values.${locale}`,
-            message: `Translation ${key.path} references missing term "${termSlug}"`
+            message: `Translation ${key.path} references missing style "${styleSlug}"`
+          });
+        }
+      }
+      for (const tooltipSlug of analysis.tooltipSlugs) {
+        if (!tooltipsBySlug.has(tooltipSlug)) {
+          problems.push({
+            severity: LocalizationProblemSeverity.error,
+            path: `keys.${keyIndex}.values.${locale}`,
+            message: `Translation ${key.path} references missing tooltip "${tooltipSlug}"`
           });
         }
       }
@@ -284,12 +382,12 @@ export function validateLocalizationDocument(document: LocalizationDocument, ass
     }
   });
 
-  value.terms.forEach((term, termIndex) => {
-    if (term.tooltipKey && !keySet.has(term.tooltipKey)) {
+  value.tooltips.forEach((tooltip, tooltipIndex) => {
+    if (!keySet.has(tooltip.key)) {
       problems.push({
         severity: LocalizationProblemSeverity.error,
-        path: `terms.${termIndex}.tooltipKey`,
-        message: `Term ${term.slug} references missing tooltip key ${term.tooltipKey}`
+        path: `tooltips.${tooltipIndex}.key`,
+        message: `Tooltip ${tooltip.slug} references missing tooltip key ${tooltip.key}`
       });
     }
   });
@@ -371,68 +469,85 @@ export function removeLocalizationKey(document: LocalizationDocument, path: stri
   return parseV2({
     ...document,
     keys: document.keys.filter((key) => key.path !== path),
-    terms: document.terms.map((term) => (term.tooltipKey === path ? { ...term, tooltipKey: undefined } : term))
+    tooltips: document.tooltips.filter((tooltip) => tooltip.key !== path)
   });
 }
 
-export function addLocalizationTerm(document: LocalizationDocument, input: CreateOrUpdateLocalizationTerm): LocalizationDocument {
-  const term = localizationTermSchema.parse(input);
-  if (document.terms.some((entry) => entry.slug === term.slug)) {
-    throw new Error(`Localization term ${term.slug} already exists`);
+export function addLocalizationStyle(document: LocalizationDocument, input: CreateOrUpdateLocalizationStyle): LocalizationDocument {
+  const style = localizationStyleSchema.parse(input);
+  if (document.styles.some((entry) => entry.slug === style.slug)) {
+    throw new Error(`Localization style ${style.slug} already exists`);
   }
   return parseV2({
     ...document,
-    terms: [...document.terms, term]
+    styles: [...document.styles, style]
   });
 }
 
-export function updateLocalizationTerm(
+export function updateLocalizationStyle(
   document: LocalizationDocument,
   slug: string,
-  input: CreateOrUpdateLocalizationTerm
+  input: CreateOrUpdateLocalizationStyle
 ): LocalizationDocument {
-  const term = localizationTermSchema.parse(input);
-  if (!document.terms.some((entry) => entry.slug === slug)) {
-    throw new Error(`Localization term ${slug} does not exist`);
+  const style = localizationStyleSchema.parse(input);
+  if (!document.styles.some((entry) => entry.slug === slug)) {
+    throw new Error(`Localization style ${slug} does not exist`);
   }
-  if (slug !== term.slug && document.terms.some((entry) => entry.slug === term.slug)) {
-    throw new Error(`Localization term ${term.slug} already exists`);
+  if (slug !== style.slug && document.styles.some((entry) => entry.slug === style.slug)) {
+    throw new Error(`Localization style ${style.slug} already exists`);
   }
   return parseV2({
     ...document,
-    terms: document.terms.map((entry) => (entry.slug === slug ? term : entry)),
-    keys: document.keys.map((key) => ({
-      ...key,
-      placeholders: key.placeholders.map((placeholder) =>
-        placeholder.term === slug
-          ? {
-              ...placeholder,
-              term: term.slug
-            }
-          : placeholder
-      )
-    }))
+    styles: document.styles.map((entry) => (entry.slug === slug ? style : entry))
   });
 }
 
-export function removeLocalizationTerm(document: LocalizationDocument, slug: string): LocalizationDocument {
-  if (!document.terms.some((term) => term.slug === slug)) {
-    throw new Error(`Localization term ${slug} does not exist`);
+export function removeLocalizationStyle(document: LocalizationDocument, slug: string): LocalizationDocument {
+  if (!document.styles.some((style) => style.slug === slug)) {
+    throw new Error(`Localization style ${slug} does not exist`);
   }
   return parseV2({
     ...document,
-    terms: document.terms.filter((term) => term.slug !== slug),
-    keys: document.keys.map((key) => ({
-      ...key,
-      placeholders: key.placeholders.map((placeholder) =>
-        placeholder.term === slug
-          ? {
-              ...placeholder,
-              term: undefined
-            }
-          : placeholder
-      )
-    }))
+    styles: document.styles.filter((style) => style.slug !== slug)
+  });
+}
+
+export function addLocalizationTooltip(document: LocalizationDocument, input: CreateOrUpdateLocalizationTooltip): LocalizationDocument {
+  const tooltip = localizationTooltipSchema.parse(input);
+  if (document.tooltips.some((entry) => entry.slug === tooltip.slug)) {
+    throw new Error(`Localization tooltip ${tooltip.slug} already exists`);
+  }
+  return parseV2({
+    ...document,
+    tooltips: [...document.tooltips, tooltip]
+  });
+}
+
+export function updateLocalizationTooltip(
+  document: LocalizationDocument,
+  slug: string,
+  input: CreateOrUpdateLocalizationTooltip
+): LocalizationDocument {
+  const tooltip = localizationTooltipSchema.parse(input);
+  if (!document.tooltips.some((entry) => entry.slug === slug)) {
+    throw new Error(`Localization tooltip ${slug} does not exist`);
+  }
+  if (slug !== tooltip.slug && document.tooltips.some((entry) => entry.slug === tooltip.slug)) {
+    throw new Error(`Localization tooltip ${tooltip.slug} already exists`);
+  }
+  return parseV2({
+    ...document,
+    tooltips: document.tooltips.map((entry) => (entry.slug === slug ? tooltip : entry))
+  });
+}
+
+export function removeLocalizationTooltip(document: LocalizationDocument, slug: string): LocalizationDocument {
+  if (!document.tooltips.some((tooltip) => tooltip.slug === slug)) {
+    throw new Error(`Localization tooltip ${slug} does not exist`);
+  }
+  return parseV2({
+    ...document,
+    tooltips: document.tooltips.filter((tooltip) => tooltip.slug !== slug)
   });
 }
 
@@ -440,6 +555,7 @@ export function localizationKeyConstant(path: string): string {
   return path.split(".").join("_");
 }
 
+// NOTE: Do not replace or "simplify" this. The generated GDScript API intentionally relies on lodash snakeCase here.
 export function localizationTypedSegments(path: string): string[] {
   return path.split(".").map((segment) => snakeCase(segment));
 }
@@ -461,8 +577,10 @@ export function analyzeLocalizationText(text: string, path: string): Localizatio
   const iconSlugs: string[] = [];
   const placeholders: LocalizationPlaceholder[] = [];
   const placeholdersByName = new Map<string, LocalizationPlaceholder>();
-  const termSlugs: string[] = [];
-  const termStack: string[] = [];
+  const styleSlugs: string[] = [];
+  const styleStack: string[] = [];
+  const tooltipSlugs: string[] = [];
+  const tooltipStack: string[] = [];
 
   for (const match of text.matchAll(/\{([^{}]+)\}/g)) {
     const token = match[1] ?? "";
@@ -490,23 +608,69 @@ export function analyzeLocalizationText(text: string, path: string): Localizatio
     }
   }
 
-  for (const match of text.matchAll(/\[(\/term|term:([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*))\]/g)) {
-    const token = match[1] ?? "";
-    if (token === "/term") {
-      if (termStack.length === 0) {
+  for (const match of text.matchAll(localizationRichTagRegex)) {
+    const token = match[0] ?? "";
+    if (token.startsWith("<style:")) {
+      const styleSlug = match[1] ?? "";
+      styleSlugs.push(styleSlug);
+      styleStack.push(styleSlug);
+      continue;
+    }
+    if (token === "</style>") {
+      if (styleStack.length === 0) {
+        problems.push({
+          severity: LocalizationProblemSeverity.error,
+          path,
+          message: "Style close tag has no matching open tag"
+        });
+      } else {
+        styleStack.pop();
+      }
+      continue;
+    }
+    if (token.startsWith("<tooltip:")) {
+      const tooltipSlug = match[2] ?? "";
+      tooltipSlugs.push(tooltipSlug);
+      tooltipStack.push(tooltipSlug);
+      continue;
+    }
+    if (token === "</tooltip>") {
+      if (tooltipStack.length === 0) {
+        problems.push({
+          severity: LocalizationProblemSeverity.error,
+          path,
+          message: "Tooltip close tag has no matching open tag"
+        });
+      } else {
+        tooltipStack.pop();
+      }
+      continue;
+    }
+    if (token.startsWith("<icon:")) {
+      iconSlugs.push(match[3] ?? "");
+      continue;
+    }
+    if (token.startsWith("[icon:")) {
+      iconSlugs.push(match[4] ?? "");
+      continue;
+    }
+    if (token.startsWith("[term:")) {
+      const legacyTermSlug = match[5] ?? "";
+      styleSlugs.push(legacyTermSlug);
+      styleStack.push(legacyTermSlug);
+      continue;
+    }
+    if (token === "[/term]") {
+      if (styleStack.length === 0) {
         problems.push({
           severity: LocalizationProblemSeverity.error,
           path,
           message: "Term close tag has no matching open tag"
         });
       } else {
-        termStack.pop();
+        styleStack.pop();
       }
-      continue;
     }
-    const termSlug = match[2] ?? "";
-    termSlugs.push(termSlug);
-    termStack.push(termSlug);
   }
 
   if (/\[term(?::|\])/.test(text.replace(/\[term:[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\]/g, ""))) {
@@ -516,16 +680,33 @@ export function analyzeLocalizationText(text: string, path: string): Localizatio
       message: "Term open tag must look like [term:TERM_SLUG]"
     });
   }
-  if (termStack.length > 0) {
+  if (/<style(?::|\s|>)/.test(text.replace(/<style:[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*>/g, ""))) {
     problems.push({
       severity: LocalizationProblemSeverity.error,
       path,
-      message: `Term "${termStack[termStack.length - 1]}" is not closed`
+      message: "Style open tag must look like <style:STYLE_SLUG>"
     });
   }
-
-  for (const match of text.matchAll(/\[icon:([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*)\]/g)) {
-    iconSlugs.push(match[1] ?? "");
+  if (styleStack.length > 0) {
+    problems.push({
+      severity: LocalizationProblemSeverity.error,
+      path,
+      message: `Style "${styleStack[styleStack.length - 1]}" is not closed`
+    });
+  }
+  if (/<tooltip(?::|\s|>)/.test(text.replace(/<tooltip:[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*>/g, ""))) {
+    problems.push({
+      severity: LocalizationProblemSeverity.error,
+      path,
+      message: "Tooltip open tag must look like <tooltip:TOOLTIP_SLUG>"
+    });
+  }
+  if (tooltipStack.length > 0) {
+    problems.push({
+      severity: LocalizationProblemSeverity.error,
+      path,
+      message: `Tooltip "${tooltipStack[tooltipStack.length - 1]}" is not closed`
+    });
   }
 
   if (/\[icon(?::|\])/.test(text.replace(/\[icon:[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\]/g, ""))) {
@@ -535,14 +716,37 @@ export function analyzeLocalizationText(text: string, path: string): Localizatio
       message: "Icon tag must look like [icon:ICON_SLUG]"
     });
   }
+  if (/<icon(?::|\s|>)/.test(text.replace(/<icon:[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\s*\/>/g, ""))) {
+    problems.push({
+      severity: LocalizationProblemSeverity.error,
+      path,
+      message: "Icon tag must look like <icon:ICON_SLUG/>"
+    });
+  }
 
   return {
     iconSlugs: uniqueValues(iconSlugs),
     placeholders,
     problems,
-    termSlugs: uniqueValues(termSlugs)
+    styleSlugs: uniqueValues(styleSlugs),
+    tooltipSlugs: uniqueValues(tooltipSlugs)
   };
 }
+
+const localizationSlugPattern = "[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*";
+const localizationRichTagRegex = new RegExp(
+  [
+    `<style:(${localizationSlugPattern})>`,
+    "<\\/style>",
+    `<tooltip:(${localizationSlugPattern})>`,
+    "<\\/tooltip>",
+    `<icon:(${localizationSlugPattern})\\s*\\/>`,
+    `\\[icon:(${localizationSlugPattern})\\]`,
+    `\\[term:(${localizationSlugPattern})\\]`,
+    "\\[\\/term\\]"
+  ].join("|"),
+  "g"
+);
 
 export function localizationPlaceholderDefault(type: TranslationPlaceholderType): string | number {
   if (type === TranslationPlaceholderType.integer) {
@@ -582,7 +786,8 @@ function migrateV1ToV2(document: z.infer<typeof localizationDocumentV1Schema>): 
     schemaVersion: 2,
     defaultLocale,
     locales,
-    terms: [],
+    styles: [],
+    tooltips: [],
     keys: document.translations.map((translation) => ({
       path: `${translation.namespace}.${translation.slug}`,
       description: translation.description,
@@ -600,6 +805,66 @@ function normalizeLocalizationKey(document: LocalizationDocument, input: CreateO
       document.locales.map((locale) => [locale, input.values?.[locale] ?? input.values?.[document.defaultLocale] ?? ""])
     ),
     placeholders: input.placeholders ?? []
+  });
+}
+
+function migrateLegacyRichMetadata(document: z.infer<typeof localizationDocumentV2SourceSchema>): LocalizationDocumentV2 {
+  const styles = [...document.styles];
+  const tooltips = [...document.tooltips];
+  const legacyTerms = document.terms ?? [];
+
+  for (const term of legacyTerms) {
+    if (!styles.some((style) => style.slug === term.slug)) {
+      styles.push({
+        slug: term.slug,
+        color: term.color,
+        bold: false,
+        italic: false,
+        underline: false
+      });
+    }
+    if (term.tooltipKey && !tooltips.some((tooltip) => tooltip.slug === term.slug)) {
+      tooltips.push({
+        slug: term.slug,
+        key: term.tooltipKey
+      });
+    }
+  }
+
+  return {
+    schemaVersion: 2,
+    defaultLocale: document.defaultLocale,
+    locales: document.locales,
+    keys: document.keys.map((key) => ({
+      ...key,
+      values: Object.fromEntries(Object.entries(key.values).map(([locale, text]) => [locale, migrateLegacyTermMarkup(text, legacyTerms)]))
+    })),
+    styles,
+    tooltips
+  };
+}
+
+function migrateLegacyTermMarkup(text: string, legacyTerms: z.infer<typeof legacyLocalizationTermSchema>[]): string {
+  if (legacyTerms.length === 0 || !text.includes("[term:")) {
+    return text;
+  }
+  const termsBySlug = new Map(legacyTerms.map((term) => [term.slug, term]));
+  const stack: Array<{ hasTooltip: boolean; slug: string }> = [];
+  return text.replace(/\[term:([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*)\]|\[\/term\]/g, (token: string, slug?: string) => {
+    if (token === "[/term]") {
+      const entry = stack.pop();
+      if (!entry) {
+        return token;
+      }
+      return entry.hasTooltip ? "</tooltip></style>" : "</style>";
+    }
+    const term = termsBySlug.get(slug ?? "");
+    if (!term) {
+      return token;
+    }
+    const hasTooltip = Boolean(term.tooltipKey);
+    stack.push({ hasTooltip, slug: term.slug });
+    return hasTooltip ? `<style:${term.slug}><tooltip:${term.slug}>` : `<style:${term.slug}>`;
   });
 }
 

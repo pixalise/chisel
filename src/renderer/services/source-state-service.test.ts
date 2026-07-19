@@ -27,7 +27,8 @@ const mocks = vi.hoisted(() => {
       schemaVersion: 2,
       defaultLocale: "en",
       locales: ["en"],
-      terms: [],
+      styles: [],
+      tooltips: [],
       keys: [{ path: "HUD.START", placeholders: [], values: { en: "Start" } }]
     } as LocalizationDocument,
     project,

@@ -387,11 +387,19 @@ describe("Godot export", () => {
       schemaVersion: 2,
       defaultLocale: "en",
       locales: ["en", "sl_SI"],
-      terms: [
+      styles: [
         {
           slug: "AOE_RADIUS",
           color: "#65C7FF",
-          tooltipKey: "TERM.AOE_RADIUS.TOOLTIP"
+          bold: true,
+          italic: false,
+          underline: true
+        }
+      ],
+      tooltips: [
+        {
+          slug: "AOE_RADIUS",
+          key: "TERM.AOE_RADIUS.TOOLTIP"
         }
       ],
       keys: [
@@ -406,9 +414,9 @@ describe("Godot export", () => {
         {
           path: "UNIT.TOXIN_TRACTOR.DESCRIPTION",
           values: {
-            en: "The unit does [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} damage in a [term:AOE_RADIUS]{float:aoe_radius} radius[/term] around it.",
+            en: "The unit does <icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage} damage in a <style:AOE_RADIUS><tooltip:AOE_RADIUS>{float:aoe_radius} radius</tooltip></style> around it.",
             sl_SI:
-              "Enota naredi [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} skode v [term:AOE_RADIUS]polmeru {float:aoe_radius}[/term]."
+              "Enota naredi <icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage} skode v <style:AOE_RADIUS><tooltip:AOE_RADIUS>polmeru {float:aoe_radius}</tooltip></style>."
           }
         }
       ]
@@ -445,11 +453,17 @@ describe("Godot export", () => {
     expect(localizationFile?.content).toContain('const PLACEHOLDERS := [[], ["damage_toxin_percentage", "aoe_radius"]]');
     expect(localizationFile?.content).toContain('const PLACEHOLDER_TYPES := [[], ["float", "float"]]');
     expect(localizationFile?.content).not.toContain("PLACEHOLDER_TERMS");
+    expect(localizationFile?.content).not.toContain("const TERMS");
+    expect(localizationFile?.content).toContain("const STYLES := {");
     expect(localizationFile?.content).toContain('"AOE_RADIUS": {');
-    expect(localizationFile?.content).toContain('"tooltip_id": Id.TERM_AOE_RADIUS_TOOLTIP');
+    expect(localizationFile?.content).toContain('"bold": true');
+    expect(localizationFile?.content).toContain('"underline": true');
+    expect(localizationFile?.content).toContain("const TOOLTIPS := {");
+    expect(localizationFile?.content).toContain('"key_id": Id.TERM_AOE_RADIUS_TOOLTIP');
+    expect(localizationFile?.content).toContain('"tooltip_bbcode_text": tooltip_text.bbcode_text');
     expect(localizationFile?.content).toContain('static func format(id: int, arguments: Dictionary = {}, locale: String = "")');
     expect(localizationFile?.content).toContain(
-      'regex.compile("\\\\[term:([A-Z][A-Z0-9_]*)\\\\]|\\\\[/term\\\\]|\\\\[icon:([A-Z][A-Z0-9_]*)\\\\]|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")'
+      'regex.compile("<style:([A-Z][A-Z0-9_]*)>|</style>|<tooltip:([A-Z][A-Z0-9_]*)>|</tooltip>|<icon:([A-Z][A-Z0-9_]*)\\\\s*/>|\\\\[icon:([A-Z][A-Z0-9_]*)\\\\]|\\\\[term:([A-Z][A-Z0-9_]*)\\\\]|\\\\[/term\\\\]|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")'
     );
     expect(localizationFile?.content).toContain('return "[img]%s[/img]" % _bbcode_escape(icon_path)');
     expect(localizationFile?.content).toContain("static func _placeholder_default(placeholder_type: String) -> Variant:");
@@ -473,7 +487,7 @@ describe("Godot export", () => {
     expect(translationsFile?.content).toContain("parameters.to_arguments()");
     expect(translationsFile?.content).toContain("ChiselLocalization.Id.UNIT_TOXIN_TRACTOR_DESCRIPTION");
     expect(csvFile?.content).toBe(
-      '"keys","en","sl_SI"\n"TERM.AOE_RADIUS.TOOLTIP","Area radius.","Polmer obmocja."\n"UNIT.TOXIN_TRACTOR.DESCRIPTION","The unit does [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} damage in a [term:AOE_RADIUS]{float:aoe_radius} radius[/term] around it.","Enota naredi [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} skode v [term:AOE_RADIUS]polmeru {float:aoe_radius}[/term]."'
+      '"keys","en","sl_SI"\n"TERM.AOE_RADIUS.TOOLTIP","Area radius.","Polmer obmocja."\n"UNIT.TOXIN_TRACTOR.DESCRIPTION","The unit does <icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage} damage in a <style:AOE_RADIUS><tooltip:AOE_RADIUS>{float:aoe_radius} radius</tooltip></style> around it.","Enota naredi <icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage} skode v <style:AOE_RADIUS><tooltip:AOE_RADIUS>polmeru {float:aoe_radius}</tooltip></style>."'
     );
   });
 });

@@ -1,4 +1,4 @@
-import { type FC, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type FC, type ReactNode, useEffect, useMemo, useState } from "react";
 import Section from "@/components/layout/section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,19 +14,22 @@ import {
   TranslationPlaceholderType,
   addLocaleToLocalization,
   addLocalizationKey,
-  addLocalizationTerm,
+  addLocalizationStyle,
+  addLocalizationTooltip,
   analyzeLocalizationText,
   localizationPlaceholderDefaultText,
   localizationPlaceholdersForKey,
   placeholderToken,
   removeLocaleFromLocalization,
   removeLocalizationKey,
-  removeLocalizationTerm,
+  removeLocalizationStyle,
+  removeLocalizationTooltip,
   validateLocalizationDocument,
   type LocalizationDocument,
   type LocalizationKey,
   type LocalizationProblem,
-  type LocalizationTerm
+  type LocalizationStyle,
+  type LocalizationTooltip
 } from "../../../../shared/localization";
 import type { Asset } from "../../../../shared/schemas";
 import { AssetCategoryEnum } from "../../../../shared/types";
@@ -39,7 +42,9 @@ const LocalizationScreen: FC = () => {
   const [draft, setDraft] = useState<LocalizationDocument>(localization);
   const [newLocale, setNewLocale] = useState("sl_SI");
   const [newKeyPath, setNewKeyPath] = useState("UNIT.NEW_ENTRY.DESCRIPTION");
-  const [newTermSlug, setNewTermSlug] = useState("AOE_RADIUS");
+  const [newStyleSlug, setNewStyleSlug] = useState("PHYSICAL_DAMAGE_STYLE");
+  const [newTooltipSlug, setNewTooltipSlug] = useState("PHYSICAL_DAMAGE");
+  const [newTooltipKey, setNewTooltipKey] = useState("");
   const [selectedKeyPath, setSelectedKeyPath] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -122,21 +127,41 @@ const LocalizationScreen: FC = () => {
     }
   }
 
-  function onAddTerm(): void {
+  function onAddStyle(): void {
     try {
-      setDraft(addLocalizationTerm(draft, { slug: newTermSlug }));
-      setNewTermSlug("");
+      setDraft(addLocalizationStyle(draft, { slug: newStyleSlug, bold: false, italic: false, underline: false }));
+      setNewStyleSlug("");
     } catch (error) {
       showDraftError(error);
     }
   }
 
-  function onRemoveTerm(slug: string): void {
-    if (!window.confirm(`Remove localization term ${slug}?`)) {
+  function onRemoveStyle(slug: string): void {
+    if (!window.confirm(`Remove localization style ${slug}?`)) {
       return;
     }
     try {
-      setDraft(removeLocalizationTerm(draft, slug));
+      setDraft(removeLocalizationStyle(draft, slug));
+    } catch (error) {
+      showDraftError(error);
+    }
+  }
+
+  function onAddTooltip(): void {
+    try {
+      setDraft(addLocalizationTooltip(draft, { slug: newTooltipSlug, key: newTooltipKey || draft.keys[0]?.path || "TERM.NEW_TOOLTIP" }));
+      setNewTooltipSlug("");
+    } catch (error) {
+      showDraftError(error);
+    }
+  }
+
+  function onRemoveTooltip(slug: string): void {
+    if (!window.confirm(`Remove localization tooltip ${slug}?`)) {
+      return;
+    }
+    try {
+      setDraft(removeLocalizationTooltip(draft, slug));
     } catch (error) {
       showDraftError(error);
     }
@@ -153,7 +178,7 @@ const LocalizationScreen: FC = () => {
   return (
     <Section
       title="Localization"
-      copy="Key/value translation matrix with typed placeholders, reusable rich terms, and generated Godot exports."
+      copy="Key/value translation matrix with typed placeholders, reusable rich styles, tooltips, and generated Godot exports."
       actions={[
         <Button disabled={isLocalizationLoading || isSaveLocalizationLoading || errorCount > 0} key="save" onClick={onSave} type="button">
           {isSaveLocalizationLoading ? "Saving..." : "Save Localization"}
@@ -207,14 +232,36 @@ const LocalizationScreen: FC = () => {
             )}
           </Section>
 
-          <Section title="Terms">
+          <Section title="Styles">
             <div className="mb-3 flex gap-2">
-              <Input onChange={(event) => setNewTermSlug(event.target.value)} value={newTermSlug} />
-              <Button onClick={onAddTerm} type="button" variant="secondary">
-                Add
+              <Input onChange={(event) => setNewStyleSlug(event.target.value)} value={newStyleSlug} />
+              <Button onClick={onAddStyle} type="button" variant="secondary">
+                Add Style
               </Button>
             </div>
-            <TermEditor document={draft} onChange={setDraft} onRemoveTerm={onRemoveTerm} />
+            <StyleEditor document={draft} onChange={setDraft} onRemoveStyle={onRemoveStyle} />
+          </Section>
+
+          <Section title="Tooltips">
+            <div className="mb-3 grid gap-2">
+              <Input onChange={(event) => setNewTooltipSlug(event.target.value)} value={newTooltipSlug} />
+              <select
+                className="h-9 w-full border border-input bg-background px-2 text-sm"
+                onChange={(event) => setNewTooltipKey(event.target.value)}
+                value={newTooltipKey}
+              >
+                <option value="">Select tooltip key</option>
+                {draft.keys.map((key) => (
+                  <option key={key.path} value={key.path}>
+                    {key.path}
+                  </option>
+                ))}
+              </select>
+              <Button onClick={onAddTooltip} type="button" variant="secondary">
+                Add Tooltip
+              </Button>
+            </div>
+            <TooltipEditor document={draft} onChange={setDraft} onRemoveTooltip={onRemoveTooltip} />
           </Section>
 
           <Section title="Preview">
@@ -263,10 +310,7 @@ const LocalizationMatrix: FC<LocalizationMatrixProps> = (props) => {
   return (
     <div className="space-y-3">
       {document.keys.map((key, index) => (
-        <div
-          className={key.path === selectedKeyPath ? "border border-primary bg-primary/10 p-3" : "border border-border p-3"}
-          key={`${key.path}-${index}`}
-        >
+        <div className={key.path === selectedKeyPath ? "border border-primary bg-primary/10 p-3" : "border border-border p-3"} key={index}>
           <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
             <Input
               className="font-mono text-xs"
@@ -317,9 +361,12 @@ const PlaceholderSummary: FC<{
 
   return (
     <div className="space-y-2">
-      {placeholders.length === 0 && analysis.iconSlugs.length === 0 && (
-        <p className="m-0 text-sm text-muted-foreground">No typed placeholders or icons.</p>
-      )}
+      {placeholders.length === 0 &&
+        analysis.iconSlugs.length === 0 &&
+        analysis.styleSlugs.length === 0 &&
+        analysis.tooltipSlugs.length === 0 && (
+          <p className="m-0 text-sm text-muted-foreground">No typed placeholders, icons, styles, or tooltips.</p>
+        )}
       {placeholders.map((placeholder) => (
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border border-border p-2" key={placeholder.name}>
           <code className="truncate text-xs">{`{${placeholderToken(placeholder)}}`}</code>
@@ -331,11 +378,23 @@ const PlaceholderSummary: FC<{
         const isUiIcon = asset?.category === AssetCategoryEnum.uiIcon;
         return (
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border border-border p-2" key={iconSlug}>
-            <code className="truncate text-xs">{`[icon:${iconSlug}]`}</code>
+            <code className="truncate text-xs">{`<icon:${iconSlug}/>`}</code>
             <Badge variant={isUiIcon ? "outline" : "destructive"}>{asset?.category ?? "missing"}</Badge>
           </div>
         );
       })}
+      {analysis.styleSlugs.map((styleSlug) => (
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border border-border p-2" key={styleSlug}>
+          <code className="truncate text-xs">{`<style:${styleSlug}>`}</code>
+          <Badge variant={document.styles.some((style) => style.slug === styleSlug) ? "outline" : "destructive"}>style</Badge>
+        </div>
+      ))}
+      {analysis.tooltipSlugs.map((tooltipSlug) => (
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border border-border p-2" key={tooltipSlug}>
+          <code className="truncate text-xs">{`<tooltip:${tooltipSlug}>`}</code>
+          <Badge variant={document.tooltips.some((tooltip) => tooltip.slug === tooltipSlug) ? "outline" : "destructive"}>tooltip</Badge>
+        </div>
+      ))}
       {analysis.problems.length > 0 && (
         <div className="space-y-2 pt-1">
           {analysis.problems.map((problem) => (
@@ -349,51 +408,110 @@ const PlaceholderSummary: FC<{
   );
 };
 
-const TermEditor: FC<{
+const StyleEditor: FC<{
   document: LocalizationDocument;
   onChange: (document: LocalizationDocument) => void;
-  onRemoveTerm: (slug: string) => void;
+  onRemoveStyle: (slug: string) => void;
 }> = (props) => {
-  const { document, onChange, onRemoveTerm } = props;
+  const { document, onChange, onRemoveStyle } = props;
 
-  function updateTerm(index: number, term: LocalizationTerm): void {
+  function updateStyle(index: number, style: LocalizationStyle): void {
     onChange({
       ...document,
-      terms: document.terms.map((entry, entryIndex) => (entryIndex === index ? term : entry))
+      styles: document.styles.map((entry, entryIndex) => (entryIndex === index ? style : entry))
     });
   }
 
-  if (document.terms.length === 0) {
-    return <p className="m-0 text-sm text-muted-foreground">No rich terms.</p>;
+  if (document.styles.length === 0) {
+    return <p className="m-0 text-sm text-muted-foreground">No rich styles.</p>;
   }
 
   return (
     <div className="space-y-2">
-      {document.terms.map((term, index) => (
-        <div className="space-y-2 border border-border p-2" key={`${term.slug}-${index}`}>
+      {document.styles.map((style, index) => (
+        <div className="space-y-2 border border-border p-2" key={index}>
           <Input
             className="font-mono text-xs"
-            onChange={(event) => updateTerm(index, { ...term, slug: event.target.value })}
-            value={term.slug}
+            onChange={(event) => updateStyle(index, { ...style, slug: event.target.value })}
+            value={style.slug}
           />
           <Input
-            onChange={(event) => updateTerm(index, { ...term, color: event.target.value || undefined })}
+            onChange={(event) => updateStyle(index, { ...style, color: event.target.value || undefined })}
             placeholder="#65C7FF"
-            value={term.color ?? ""}
+            value={style.color ?? ""}
+          />
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              checked={style.bold}
+              onChange={(event) => updateStyle(index, { ...style, bold: event.target.checked })}
+              type="checkbox"
+            />
+            Bold
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              checked={style.italic}
+              onChange={(event) => updateStyle(index, { ...style, italic: event.target.checked })}
+              type="checkbox"
+            />
+            Italic
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              checked={style.underline}
+              onChange={(event) => updateStyle(index, { ...style, underline: event.target.checked })}
+              type="checkbox"
+            />
+            Underline
+          </label>
+          <Button onClick={() => onRemoveStyle(style.slug)} size="sm" type="button" variant="ghost">
+            Remove
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const TooltipEditor: FC<{
+  document: LocalizationDocument;
+  onChange: (document: LocalizationDocument) => void;
+  onRemoveTooltip: (slug: string) => void;
+}> = (props) => {
+  const { document, onChange, onRemoveTooltip } = props;
+
+  function updateTooltip(index: number, tooltip: LocalizationTooltip): void {
+    onChange({
+      ...document,
+      tooltips: document.tooltips.map((entry, entryIndex) => (entryIndex === index ? tooltip : entry))
+    });
+  }
+
+  if (document.tooltips.length === 0) {
+    return <p className="m-0 text-sm text-muted-foreground">No rich tooltips.</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {document.tooltips.map((tooltip, index) => (
+        <div className="space-y-2 border border-border p-2" key={index}>
+          <Input
+            className="font-mono text-xs"
+            onChange={(event) => updateTooltip(index, { ...tooltip, slug: event.target.value })}
+            value={tooltip.slug}
           />
           <select
             className="h-9 w-full border border-input bg-background px-2 text-sm"
-            onChange={(event) => updateTerm(index, { ...term, tooltipKey: event.target.value.length > 0 ? event.target.value : undefined })}
-            value={term.tooltipKey ?? ""}
+            onChange={(event) => updateTooltip(index, { ...tooltip, key: event.target.value })}
+            value={tooltip.key}
           >
-            <option value="">No tooltip key</option>
             {document.keys.map((key) => (
               <option key={key.path} value={key.path}>
                 {key.path}
               </option>
             ))}
           </select>
-          <Button onClick={() => onRemoveTerm(term.slug)} size="sm" type="button" variant="ghost">
+          <Button onClick={() => onRemoveTooltip(tooltip.slug)} size="sm" type="button" variant="ghost">
             Remove
           </Button>
         </div>
@@ -410,7 +528,7 @@ const Preview: FC<{ assets: Asset[]; document: LocalizationDocument; keyEntry: L
       <code className="block truncate text-xs">{keyEntry.path}</code>
       <div className="border border-border p-3 text-sm leading-relaxed">
         {previewParts(document, keyEntry, assets).map((part, index) => (
-          <span key={`${part.label}-${index}`} style={part.color ? { color: part.color } : undefined} title={part.tooltip}>
+          <span key={`${part.label}-${index}`} style={previewPartStyle(part)} title={part.tooltip}>
             {part.iconAsset && project ? (
               <InlineIconPreview asset={part.iconAsset} projectPath={project.path} title={part.tooltip ?? part.iconSlug} />
             ) : part.iconSlug ? (
@@ -472,42 +590,78 @@ const InlineIconPreview: FC<{ asset: Asset; projectPath: string; title?: string 
 };
 
 interface PreviewPart {
+  bold?: boolean;
   color?: string;
   iconAsset?: Asset;
   iconSlug?: string;
+  italic?: boolean;
   label: ReactNode;
   tooltip?: string;
+  underline?: boolean;
+}
+
+function previewPartStyle(part: PreviewPart): CSSProperties | undefined {
+  if (!part.color && !part.bold && !part.italic && !part.underline) {
+    return undefined;
+  }
+  return {
+    color: part.color,
+    fontStyle: part.italic ? "italic" : undefined,
+    fontWeight: part.bold ? 700 : undefined,
+    textDecorationColor: part.color,
+    textDecorationLine: part.underline ? "underline" : undefined
+  };
 }
 
 function previewParts(document: LocalizationDocument, keyEntry: LocalizationKey, assets: Asset[]): PreviewPart[] {
   const text = keyEntry.values[document.defaultLocale] ?? "";
   const parts: PreviewPart[] = [];
   const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
-  const termsBySlug = new Map(document.terms.map((term) => [term.slug, term]));
+  const stylesBySlug = new Map(document.styles.map((style) => [style.slug, style]));
+  const tooltipsBySlug = new Map(document.tooltips.map((tooltip) => [tooltip.slug, tooltip]));
   const keysByPath = new Map(document.keys.map((key) => [key.path, key]));
-  const activeTerms: LocalizationTerm[] = [];
-  const regex = /\[term:([A-Z][A-Z0-9_]*)\]|\[\/term\]|\[icon:([A-Z][A-Z0-9_]*)\]|\{(int|float|string):([a-z][a-z0-9_]*)\}/g;
+  const activeStyles: LocalizationStyle[] = [];
+  const activeTooltips: LocalizationTooltip[] = [];
+  const regex =
+    /<style:([A-Z][A-Z0-9_]*)>|<\/style>|<tooltip:([A-Z][A-Z0-9_]*)>|<\/tooltip>|<icon:([A-Z][A-Z0-9_]*)\s*\/>|\[icon:([A-Z][A-Z0-9_]*)\]|\[term:([A-Z][A-Z0-9_]*)\]|\[\/term\]|\{(int|float|string):([a-z][a-z0-9_]*)\}/g;
   let cursor = 0;
   for (const match of text.matchAll(regex)) {
     const index = match.index ?? 0;
     if (index > cursor) {
-      appendPreviewPart(parts, text.slice(cursor, index), activeTerms, keysByPath, document.defaultLocale);
+      appendPreviewPart(parts, text.slice(cursor, index), activeStyles, activeTooltips, keysByPath, document.defaultLocale);
     }
     const token = match[0] ?? "";
-    if (token.startsWith("[term:")) {
-      const term = termsBySlug.get(match[1] ?? "");
-      if (term) {
-        activeTerms.push(term);
+    if (token.startsWith("<style:")) {
+      const style = stylesBySlug.get(match[1] ?? "");
+      if (style) {
+        activeStyles.push(style);
+      }
+    } else if (token === "</style>") {
+      activeStyles.pop();
+    } else if (token.startsWith("<tooltip:")) {
+      const tooltip = tooltipsBySlug.get(match[2] ?? "");
+      if (tooltip) {
+        activeTooltips.push(tooltip);
+      }
+    } else if (token === "</tooltip>") {
+      activeTooltips.pop();
+    } else if (token.startsWith("<icon:")) {
+      appendIconPreviewPart(parts, match[3] ?? "", activeStyles, activeTooltips, keysByPath, document.defaultLocale, assetsById);
+    } else if (token.startsWith("[icon:")) {
+      appendIconPreviewPart(parts, match[4] ?? "", activeStyles, activeTooltips, keysByPath, document.defaultLocale, assetsById);
+    } else if (token.startsWith("[term:")) {
+      const style = stylesBySlug.get(match[5] ?? "");
+      if (style) {
+        activeStyles.push(style);
       }
     } else if (token === "[/term]") {
-      activeTerms.pop();
-    } else if (token.startsWith("[icon:")) {
-      appendIconPreviewPart(parts, match[2] ?? "", activeTerms, keysByPath, document.defaultLocale, assetsById);
+      activeStyles.pop();
     } else {
       appendPreviewPart(
         parts,
-        localizationPlaceholderDefaultText(match[3] as TranslationPlaceholderType),
-        activeTerms,
+        localizationPlaceholderDefaultText(match[6] as TranslationPlaceholderType),
+        activeStyles,
+        activeTooltips,
         keysByPath,
         document.defaultLocale
       );
@@ -515,7 +669,7 @@ function previewParts(document: LocalizationDocument, keyEntry: LocalizationKey,
     cursor = index + match[0].length;
   }
   if (cursor < text.length) {
-    appendPreviewPart(parts, text.slice(cursor), activeTerms, keysByPath, document.defaultLocale);
+    appendPreviewPart(parts, text.slice(cursor), activeStyles, activeTooltips, keysByPath, document.defaultLocale);
   }
   return parts;
 }
@@ -523,7 +677,8 @@ function previewParts(document: LocalizationDocument, keyEntry: LocalizationKey,
 function appendIconPreviewPart(
   parts: PreviewPart[],
   iconSlug: string,
-  activeTerms: LocalizationTerm[],
+  activeStyles: LocalizationStyle[],
+  activeTooltips: LocalizationTooltip[],
   keysByPath: Map<string, LocalizationKey>,
   defaultLocale: string,
   assetsById: Map<string, Asset>
@@ -534,14 +689,18 @@ function appendIconPreviewPart(
   const asset = assetsById.get(iconSlug);
   const iconAsset = asset?.category === AssetCategoryEnum.uiIcon ? asset : undefined;
   const label = iconAsset?.name ?? iconSlug;
-  const term = activeTerms[activeTerms.length - 1];
-  const tooltipKey = term?.tooltipKey ? keysByPath.get(term.tooltipKey) : undefined;
+  const style = activeStyles[activeStyles.length - 1];
+  const tooltip = activeTooltips[activeTooltips.length - 1];
+  const tooltipKey = tooltip ? keysByPath.get(tooltip.key) : undefined;
   parts.push({
+    bold: style?.bold,
     iconAsset,
     iconSlug: label,
+    italic: style?.italic,
     label,
-    color: term?.color,
-    tooltip: tooltipKey?.values[defaultLocale]
+    color: style?.color,
+    tooltip: tooltipKey?.values[defaultLocale],
+    underline: style?.underline
   });
 }
 
@@ -552,19 +711,24 @@ function assetPreviewPath(asset: Asset, projectPath: string): string {
 function appendPreviewPart(
   parts: PreviewPart[],
   label: string,
-  activeTerms: LocalizationTerm[],
+  activeStyles: LocalizationStyle[],
+  activeTooltips: LocalizationTooltip[],
   keysByPath: Map<string, LocalizationKey>,
   defaultLocale: string
 ): void {
   if (label.length === 0) {
     return;
   }
-  const term = activeTerms[activeTerms.length - 1];
-  const tooltipKey = term?.tooltipKey ? keysByPath.get(term.tooltipKey) : undefined;
+  const style = activeStyles[activeStyles.length - 1];
+  const tooltip = activeTooltips[activeTooltips.length - 1];
+  const tooltipKey = tooltip ? keysByPath.get(tooltip.key) : undefined;
   parts.push({
+    bold: style?.bold,
     label,
-    color: term?.color,
-    tooltip: tooltipKey?.values[defaultLocale]
+    color: style?.color,
+    italic: style?.italic,
+    tooltip: tooltipKey?.values[defaultLocale],
+    underline: style?.underline
   });
 }
 

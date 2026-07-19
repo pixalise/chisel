@@ -52,7 +52,8 @@ describe("localization service", () => {
       defaultLocale: "en",
       locales: ["en"],
       keys: [],
-      terms: []
+      styles: [],
+      tooltips: []
     });
     expect(mocks.writeLocalizationJson).not.toHaveBeenCalled();
   });
@@ -78,7 +79,8 @@ describe("localization service", () => {
       defaultLocale: "en",
       locales: ["en"],
       keys: [{ path: "HUD.START", values: { en: "Start" }, placeholders: [] }],
-      terms: []
+      styles: [],
+      tooltips: []
     });
 
     const document = await localizationService.addLocale("sl_SI");
@@ -88,25 +90,34 @@ describe("localization service", () => {
     expect(mocks.writeLocalizationJson).toHaveBeenCalledWith(mocks.project, document);
   });
 
-  it("adds keys and terms through the shared localization rules", async () => {
+  it("adds keys, styles, and tooltips through the shared localization rules", async () => {
     mocks.document = localizationDocumentSchema.parse({
       schemaVersion: 2,
       defaultLocale: "en",
       locales: ["en", "sl_SI"],
       keys: [],
-      terms: []
+      styles: [],
+      tooltips: []
     });
 
     const withKey = await localizationService.addKey({
       path: "UNIT.TOXIN_TRACTOR.DESCRIPTION",
       values: { en: "Deals {float:aoe_radius} damage." }
     });
-    const withTerm = await localizationService.addTerm({ slug: "AOE_RADIUS", color: "#65C7FF" });
+    const withStyle = await localizationService.addStyle({
+      slug: "AOE_RADIUS",
+      color: "#65C7FF",
+      bold: false,
+      italic: false,
+      underline: false
+    });
+    const withTooltip = await localizationService.addTooltip({ slug: "AOE_RADIUS", key: "UNIT.TOXIN_TRACTOR.DESCRIPTION" });
 
     expect(withKey.keys[0]?.values).toEqual({
       en: "Deals {float:aoe_radius} damage.",
       sl_SI: "Deals {float:aoe_radius} damage."
     });
-    expect(withTerm.terms).toEqual([{ slug: "AOE_RADIUS", color: "#65C7FF" }]);
+    expect(withStyle.styles).toEqual([{ slug: "AOE_RADIUS", color: "#65C7FF", bold: false, italic: false, underline: false }]);
+    expect(withTooltip.tooltips).toEqual([{ slug: "AOE_RADIUS", key: "UNIT.TOXIN_TRACTOR.DESCRIPTION" }]);
   });
 });

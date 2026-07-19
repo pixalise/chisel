@@ -19,28 +19,36 @@ describe("localization schemas", () => {
       schemaVersion: 2,
       defaultLocale: "en",
       locales: ["en", "sl_SI"],
-      terms: [
+      styles: [
         {
-          slug: "AOE_RADIUS",
+          slug: "PHYSICAL_DAMAGE_STYLE",
           color: "#65C7FF",
-          tooltipKey: "TERM.AOE_RADIUS.TOOLTIP"
+          bold: true,
+          italic: false,
+          underline: true
+        }
+      ],
+      tooltips: [
+        {
+          slug: "PHYSICAL_DAMAGE",
+          key: "TERM.PHYSICAL_DAMAGE.TOOLTIP"
         }
       ],
       keys: [
         {
-          path: "TERM.AOE_RADIUS.TOOLTIP",
+          path: "TERM.PHYSICAL_DAMAGE.TOOLTIP",
           values: {
-            en: "Area of effect radius.",
-            sl_SI: "Polmer obmocja ucinka."
+            en: "Physical damage.",
+            sl_SI: "Fizicna skoda."
           },
           placeholders: []
         },
         {
           path: "UNIT.TOXIN_TRACTOR.DESCRIPTION",
           values: {
-            en: "The unit does [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} damage in a [term:AOE_RADIUS]{float:aoe_radius} radius[/term] around it.",
+            en: "The unit does <style:PHYSICAL_DAMAGE_STYLE><tooltip:PHYSICAL_DAMAGE><icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage}</tooltip></style> damage in a {float:aoe_radius} radius around it.",
             sl_SI:
-              "Enota naredi [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} skode v [term:AOE_RADIUS]polmeru {float:aoe_radius}[/term]."
+              "Enota naredi <style:PHYSICAL_DAMAGE_STYLE><tooltip:PHYSICAL_DAMAGE><icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage}</tooltip></style> skode v polmeru {float:aoe_radius}."
           }
         }
       ]
@@ -106,7 +114,8 @@ describe("localization schemas", () => {
       schemaVersion: 2,
       defaultLocale: "en",
       locales: ["en"],
-      terms: [],
+      styles: [],
+      tooltips: [],
       keys: [{ path: "HUD.START", values: { en: "Start" }, placeholders: [] }]
     });
 
@@ -121,7 +130,8 @@ describe("localization schemas", () => {
       schemaVersion: 2,
       defaultLocale: "en",
       locales: ["en", "sl_SI"],
-      terms: [],
+      styles: [],
+      tooltips: [],
       keys: []
     });
 
@@ -148,7 +158,8 @@ describe("localization schemas", () => {
         schemaVersion: 2,
         defaultLocale: "en",
         locales: ["en"],
-        terms: [],
+        styles: [],
+        tooltips: [],
         keys: [{ path: "hud.start", values: { en: "Start" }, placeholders: [] }]
       }).success
     ).toBe(false);
@@ -157,7 +168,8 @@ describe("localization schemas", () => {
         schemaVersion: 2,
         defaultLocale: "en",
         locales: ["en"],
-        terms: [],
+        styles: [],
+        tooltips: [],
         keys: [
           { path: "HUD.START", values: { en: "Start" }, placeholders: [] },
           { path: "HUD.START", values: { en: "Begin" }, placeholders: [] }
@@ -169,28 +181,37 @@ describe("localization schemas", () => {
         schemaVersion: 2,
         defaultLocale: "sl_SI",
         locales: ["en"],
-        terms: [],
+        styles: [],
+        tooltips: [],
         keys: []
       }).success
     ).toBe(false);
   });
 
-  it("reports placeholder, term, tooltip, and generated API problems", () => {
+  it("reports placeholder, style, tooltip, and generated API problems", () => {
     const document = localizationDocumentSchema.parse({
       schemaVersion: 2,
       defaultLocale: "en",
       locales: ["en", "sl_SI"],
-      terms: [
+      styles: [
         {
           slug: "AOE_RADIUS",
-          tooltipKey: "TERM.MISSING.TOOLTIP"
+          bold: false,
+          italic: false,
+          underline: false
+        }
+      ],
+      tooltips: [
+        {
+          slug: "AOE_RADIUS",
+          key: "TERM.MISSING.TOOLTIP"
         }
       ],
       keys: [
         {
           path: "UNIT.TOXIN_TRACTOR.DESCRIPTION",
           values: {
-            en: "Damage {missing} in [term:MISSING_TERM]{float:aoe_radius}[/term] [term:AOE_RADIUS]open.",
+            en: "Damage {missing} in <style:MISSING_STYLE>{float:aoe_radius}</style> <style:AOE_RADIUS><tooltip:AOE_RADIUS>open.",
             sl_SI: "Skoda {int:aoe_radius}."
           }
         },
@@ -222,19 +243,25 @@ describe("localization schemas", () => {
     expect(problems).toContainEqual(
       expect.objectContaining({
         severity: LocalizationProblemSeverity.error,
-        message: 'Translation UNIT.TOXIN_TRACTOR.DESCRIPTION references missing term "MISSING_TERM"'
+        message: 'Translation UNIT.TOXIN_TRACTOR.DESCRIPTION references missing style "MISSING_STYLE"'
       })
     );
     expect(problems).toContainEqual(
       expect.objectContaining({
         severity: LocalizationProblemSeverity.error,
-        message: 'Term "AOE_RADIUS" is not closed'
+        message: 'Style "AOE_RADIUS" is not closed'
       })
     );
     expect(problems).toContainEqual(
       expect.objectContaining({
         severity: LocalizationProblemSeverity.error,
-        message: "Term AOE_RADIUS references missing tooltip key TERM.MISSING.TOOLTIP"
+        message: 'Tooltip "AOE_RADIUS" is not closed'
+      })
+    );
+    expect(problems).toContainEqual(
+      expect.objectContaining({
+        severity: LocalizationProblemSeverity.error,
+        message: "Tooltip AOE_RADIUS references missing tooltip key TERM.MISSING.TOOLTIP"
       })
     );
     expect(problems).toContainEqual(
@@ -250,13 +277,14 @@ describe("localization schemas", () => {
       schemaVersion: 2,
       defaultLocale: "en",
       locales: ["en", "sl_SI"],
-      terms: [],
+      styles: [],
+      tooltips: [],
       keys: [
         {
           path: "UNIT.RIFLEMAN.DESCRIPTION",
           values: {
-            en: "Damage [icon:PHYSICAL_DAMAGE] {float:damage}.",
-            sl_SI: "Skoda [icon:WRONG_CATEGORY] {float:damage}."
+            en: "Damage <icon:PHYSICAL_DAMAGE/> {float:damage}.",
+            sl_SI: "Skoda <icon:WRONG_CATEGORY/> {float:damage}."
           }
         }
       ]
@@ -285,7 +313,7 @@ describe("localization schemas", () => {
     expect(problems).toContainEqual(
       expect.objectContaining({
         severity: LocalizationProblemSeverity.error,
-        message: 'Translation UNIT.RIFLEMAN.DESCRIPTION has extra icon "[icon:WRONG_CATEGORY]"'
+        message: 'Translation UNIT.RIFLEMAN.DESCRIPTION has extra icon "<icon:WRONG_CATEGORY/>"'
       })
     );
     expect(problems).toContainEqual(

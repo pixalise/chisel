@@ -5,17 +5,21 @@ import { zodParse } from "@/utils/zod-parse";
 import {
   addLocaleToLocalization,
   addLocalizationKey,
-  addLocalizationTerm,
+  addLocalizationStyle,
+  addLocalizationTooltip,
   emptyLocalizationDocument,
   localizationDocumentSchema,
   removeLocaleFromLocalization,
   removeLocalizationKey,
-  removeLocalizationTerm,
+  removeLocalizationStyle,
+  removeLocalizationTooltip,
   updateLocalizationKey,
-  updateLocalizationTerm,
+  updateLocalizationStyle,
+  updateLocalizationTooltip,
   validateLocalizationDocument,
   type CreateOrUpdateLocalizationKey,
-  type CreateOrUpdateLocalizationTerm,
+  type CreateOrUpdateLocalizationStyle,
+  type CreateOrUpdateLocalizationTooltip,
   type LocalizationDocument,
   type LocalizationProblem
 } from "../../shared/localization";
@@ -51,16 +55,28 @@ class LocalizationService extends BaseService {
     return this.saveLocalization(removeLocalizationKey(await this.readLocalization(), path));
   }
 
-  public async addTerm(input: CreateOrUpdateLocalizationTerm): Promise<LocalizationDocument> {
-    return this.saveLocalization(addLocalizationTerm(await this.readLocalization(), input));
+  public async addStyle(input: CreateOrUpdateLocalizationStyle): Promise<LocalizationDocument> {
+    return this.saveLocalization(addLocalizationStyle(await this.readLocalization(), input));
   }
 
-  public async updateTerm(slug: string, input: CreateOrUpdateLocalizationTerm): Promise<LocalizationDocument> {
-    return this.saveLocalization(updateLocalizationTerm(await this.readLocalization(), slug, input));
+  public async updateStyle(slug: string, input: CreateOrUpdateLocalizationStyle): Promise<LocalizationDocument> {
+    return this.saveLocalization(updateLocalizationStyle(await this.readLocalization(), slug, input));
   }
 
-  public async removeTerm(slug: string): Promise<LocalizationDocument> {
-    return this.saveLocalization(removeLocalizationTerm(await this.readLocalization(), slug));
+  public async removeStyle(slug: string): Promise<LocalizationDocument> {
+    return this.saveLocalization(removeLocalizationStyle(await this.readLocalization(), slug));
+  }
+
+  public async addTooltip(input: CreateOrUpdateLocalizationTooltip): Promise<LocalizationDocument> {
+    return this.saveLocalization(addLocalizationTooltip(await this.readLocalization(), input));
+  }
+
+  public async updateTooltip(slug: string, input: CreateOrUpdateLocalizationTooltip): Promise<LocalizationDocument> {
+    return this.saveLocalization(updateLocalizationTooltip(await this.readLocalization(), slug, input));
+  }
+
+  public async removeTooltip(slug: string): Promise<LocalizationDocument> {
+    return this.saveLocalization(removeLocalizationTooltip(await this.readLocalization(), slug));
   }
 
   public validate(document: LocalizationDocument): LocalizationProblem[] {

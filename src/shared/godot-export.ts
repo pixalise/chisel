@@ -364,8 +364,8 @@ class LocalizedText:
 \t\tspans = next_spans
 \t\t_tooltips = next_tooltips
 
-\tfunc tooltip_for(term_slug: StringName) -> String:
-\t\treturn String(_tooltips.get(String(term_slug), ""))
+\tfunc tooltip_for(tooltip_slug: StringName) -> String:
+\t\treturn String(_tooltips.get(String(tooltip_slug), ""))
 
 enum Id ${localizationEnumBody(localization)}
 
@@ -377,7 +377,8 @@ const ICON_SLUGS := ${gdValue(iconSlugsByKey)}
 const ICONS := ${localizationIconsDictionary(assets)}
 const PLACEHOLDERS := ${gdValue(placeholdersByKey.map((placeholders) => placeholders.map((placeholder) => placeholder.name)))}
 const PLACEHOLDER_TYPES := ${gdValue(placeholdersByKey.map((placeholders) => placeholders.map((placeholder) => placeholderSyntaxType(placeholder.type))))}
-const TERMS := ${localizationTermsDictionary(localization)}
+const STYLES := ${localizationStylesDictionary(localization)}
+const TOOLTIPS := ${localizationTooltipsDictionary(localization)}
 const CSV_PATH := "res://game_data/localization/translations.csv"
 
 static func format(id: int, arguments: Dictionary = {}, locale: String = "") -> LocalizedText:
@@ -390,11 +391,12 @@ static func _format(id: int, arguments: Dictionary, locale: String, depth: int) 
 \tvar templates: Array = VALUES.get(locale_key, VALUES[DEFAULT_LOCALE])
 \tvar template := String(templates[id])
 \tvar regex := RegEx.new()
-\tregex.compile("\\\\[term:([A-Z][A-Z0-9_]*)\\\\]|\\\\[/term\\\\]|\\\\[icon:([A-Z][A-Z0-9_]*)\\\\]|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")
+\tregex.compile("<style:([A-Z][A-Z0-9_]*)>|</style>|<tooltip:([A-Z][A-Z0-9_]*)>|</tooltip>|<icon:([A-Z][A-Z0-9_]*)\\\\s*/>|\\\\[icon:([A-Z][A-Z0-9_]*)\\\\]|\\\\[term:([A-Z][A-Z0-9_]*)\\\\]|\\\\[/term\\\\]|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")
 \tvar cursor := 0
 \tvar plain := ""
 \tvar bbcode := ""
-\tvar active_terms: Array[Dictionary] = []
+\tvar active_styles: Array[Dictionary] = []
+\tvar active_tooltips: Array[Dictionary] = []
 \tvar spans: Array[Dictionary] = []
 \tvar tooltips := {}
 \tfor result in regex.search_all(template):
@@ -402,20 +404,27 @@ static func _format(id: int, arguments: Dictionary, locale: String, depth: int) 
 \t\tvar end := result.get_end(0)
 \t\tvar prefix := template.substr(cursor, start - cursor)
 \t\tplain += prefix
-\t\tbbcode += _bbcode_fragment(prefix, active_terms)
+\t\tbbcode += _bbcode_fragment(prefix, active_styles)
 \t\tvar token := result.get_string(0)
-\t\tif token.begins_with("[term:"):
-\t\t\tactive_terms.append({
-\t\t\t\t"term": result.get_string(1),
+\t\tif token.begins_with("<style:"):
+\t\t\tactive_styles.append({
+\t\t\t\t"style": result.get_string(1),
 \t\t\t\t"start": plain.length()
 \t\t\t})
-\t\telif token == "[/term]":
-\t\t\t_close_term(active_terms, spans, tooltips, plain.length(), arguments, locale_key, depth)
-\t\telif token.begins_with("[icon:"):
-\t\t\tvar icon_slug := result.get_string(2)
+\t\telif token == "</style>":
+\t\t\t_close_style(active_styles, spans, plain.length())
+\t\telif token.begins_with("<tooltip:"):
+\t\t\tactive_tooltips.append({
+\t\t\t\t"tooltip": result.get_string(2),
+\t\t\t\t"start": plain.length()
+\t\t\t})
+\t\telif token == "</tooltip>":
+\t\t\t_close_tooltip(active_tooltips, spans, tooltips, plain.length(), arguments, locale_key, depth)
+\t\telif token.begins_with("<icon:"):
+\t\t\tvar icon_slug := result.get_string(3)
 \t\t\tvar icon_start := plain.length()
 \t\t\tplain += _icon_plain(icon_slug)
-\t\t\tbbcode += _icon_fragment(icon_slug, active_terms)
+\t\t\tbbcode += _icon_fragment(icon_slug, active_styles)
 \t\t\tvar icon: Dictionary = ICONS.get(icon_slug, {})
 \t\t\tspans.append({
 \t\t\t\t"type": "icon",
@@ -424,66 +433,124 @@ static func _format(id: int, arguments: Dictionary, locale: String, depth: int) 
 \t\t\t\t"end": plain.length(),
 \t\t\t\t"path": String(icon.get("path", ""))
 \t\t\t})
+\t\telif token.begins_with("[icon:"):
+\t\t\tvar icon_slug := result.get_string(4)
+\t\t\tvar icon_start := plain.length()
+\t\t\tplain += _icon_plain(icon_slug)
+\t\t\tbbcode += _icon_fragment(icon_slug, active_styles)
+\t\t\tvar icon: Dictionary = ICONS.get(icon_slug, {})
+\t\t\tspans.append({
+\t\t\t\t"type": "icon",
+\t\t\t\t"icon": icon_slug,
+\t\t\t\t"start": icon_start,
+\t\t\t\t"end": plain.length(),
+\t\t\t\t"path": String(icon.get("path", ""))
+\t\t\t})
+\t\telif token.begins_with("[term:"):
+\t\t\tactive_styles.append({
+\t\t\t\t"style": result.get_string(5),
+\t\t\t\t"start": plain.length()
+\t\t\t})
+\t\telif token == "[/term]":
+\t\t\t_close_style(active_styles, spans, plain.length())
 \t\telse:
-\t\t\tvar placeholder_type := result.get_string(3)
-\t\t\tvar placeholder := result.get_string(4)
+\t\t\tvar placeholder_type := result.get_string(6)
+\t\t\tvar placeholder := result.get_string(7)
 \t\t\tvar replacement := str(arguments.get(placeholder, _placeholder_default(placeholder_type)))
 \t\t\tplain += replacement
-\t\t\tbbcode += _bbcode_fragment(replacement, active_terms)
+\t\t\tbbcode += _bbcode_fragment(replacement, active_styles)
 \t\tcursor = end
 
 \tvar suffix := template.substr(cursor)
 \tplain += suffix
-\tbbcode += _bbcode_fragment(suffix, active_terms)
-\twhile active_terms.size() > 0:
-\t\t_close_term(active_terms, spans, tooltips, plain.length(), arguments, locale_key, depth)
+\tbbcode += _bbcode_fragment(suffix, active_styles)
+\twhile active_tooltips.size() > 0:
+\t\t_close_tooltip(active_tooltips, spans, tooltips, plain.length(), arguments, locale_key, depth)
+\twhile active_styles.size() > 0:
+\t\t_close_style(active_styles, spans, plain.length())
 \treturn LocalizedText.new(plain, bbcode, spans, tooltips)
 
-static func _close_term(active_terms: Array[Dictionary], spans: Array[Dictionary], tooltips: Dictionary, plain_length: int, arguments: Dictionary, locale_key: String, depth: int) -> void:
-\tif active_terms.is_empty():
+static func _close_style(active_styles: Array[Dictionary], spans: Array[Dictionary], plain_length: int) -> void:
+\tif active_styles.is_empty():
 \t\treturn
-\tvar span: Dictionary = active_terms.pop_back()
-\tvar term_slug := String(span.get("term", ""))
-\tvar term: Dictionary = TERMS.get(term_slug, {})
-\tvar tooltip := ""
-\tvar tooltip_id: Variant = term.get("tooltip_id", null)
-\tif tooltip_id != null and depth < 4:
-\t\ttooltip = _format(int(tooltip_id), arguments, locale_key, depth + 1).plain_text
-\ttooltips[term_slug] = tooltip
+\tvar span: Dictionary = active_styles.pop_back()
+\tvar style_slug := String(span.get("style", ""))
 \tspans.append({
-\t\t"term": term_slug,
+\t\t"type": "style",
+\t\t"style": style_slug,
 \t\t"start": int(span.get("start", 0)),
 \t\t"end": plain_length,
-\t\t"color": _term_color(term_slug),
-\t\t"tooltip": tooltip
+\t\t"color": _style_color(style_slug),
+\t\t"bold": _style_bold(style_slug),
+\t\t"italic": _style_italic(style_slug),
+\t\t"underline": _style_underline(style_slug)
 \t})
 
-static func _bbcode_fragment(value: String, active_terms: Array[Dictionary]) -> String:
-\tvar escaped := _bbcode_escape(value)
-\tvar term_slug := _active_term_slug(active_terms)
-\tvar color := _term_color(term_slug)
-\tif color.is_empty():
-\t\treturn escaped
-\treturn "[color=%s]%s[/color]" % [color, escaped]
+static func _close_tooltip(active_tooltips: Array[Dictionary], spans: Array[Dictionary], tooltips: Dictionary, plain_length: int, arguments: Dictionary, locale_key: String, depth: int) -> void:
+\tif active_tooltips.is_empty():
+\t\treturn
+\tvar span: Dictionary = active_tooltips.pop_back()
+\tvar tooltip_slug := String(span.get("tooltip", ""))
+\tvar tooltip_data: Dictionary = TOOLTIPS.get(tooltip_slug, {})
+\tvar tooltip_text := LocalizedText.new()
+\tvar tooltip_id: Variant = tooltip_data.get("key_id", null)
+\tif tooltip_id != null and depth < 4:
+\t\ttooltip_text = _format(int(tooltip_id), arguments, locale_key, depth + 1)
+\tvar tooltip := tooltip_text.plain_text
+\ttooltips[tooltip_slug] = tooltip
+\tspans.append({
+\t\t"type": "tooltip",
+\t\t"tooltip": tooltip_slug,
+\t\t"start": int(span.get("start", 0)),
+\t\t"end": plain_length,
+\t\t"tooltip_text": tooltip,
+\t\t"tooltip_bbcode_text": tooltip_text.bbcode_text
+\t})
 
-static func _icon_fragment(icon_slug: String, active_terms: Array[Dictionary]) -> String:
+static func _bbcode_fragment(value: String, active_styles: Array[Dictionary]) -> String:
+\tvar fragment := _bbcode_escape(value)
+\tvar style_slug := _active_style_slug(active_styles)
+\tif _style_italic(style_slug):
+\t\tfragment = "[i]%s[/i]" % fragment
+\tif _style_bold(style_slug):
+\t\tfragment = "[b]%s[/b]" % fragment
+\tif _style_underline(style_slug):
+\t\tfragment = "[u]%s[/u]" % fragment
+\tvar color := _style_color(style_slug)
+\tif not color.is_empty():
+\t\tfragment = "[color=%s]%s[/color]" % [color, fragment]
+\treturn fragment
+
+static func _icon_fragment(icon_slug: String, active_styles: Array[Dictionary]) -> String:
 \tvar icon: Dictionary = ICONS.get(icon_slug, {})
 \tvar icon_path := String(icon.get("path", ""))
 \tif icon_path.is_empty():
-\t\treturn _bbcode_fragment(_icon_plain(icon_slug), active_terms)
+\t\treturn _bbcode_fragment(_icon_plain(icon_slug), active_styles)
 \treturn "[img]%s[/img]" % _bbcode_escape(icon_path)
 
 static func _icon_plain(icon_slug: String) -> String:
 \treturn "[%s]" % icon_slug
 
-static func _active_term_slug(active_terms: Array[Dictionary]) -> String:
-\tif active_terms.is_empty():
+static func _active_style_slug(active_styles: Array[Dictionary]) -> String:
+\tif active_styles.is_empty():
 \t\treturn ""
-\treturn String(active_terms[active_terms.size() - 1].get("term", ""))
+\treturn String(active_styles[active_styles.size() - 1].get("style", ""))
 
-static func _term_color(term_slug: String) -> String:
-\tvar term: Dictionary = TERMS.get(term_slug, {})
-\treturn String(term.get("color", ""))
+static func _style_color(style_slug: String) -> String:
+\tvar style: Dictionary = STYLES.get(style_slug, {})
+\treturn String(style.get("color", ""))
+
+static func _style_bold(style_slug: String) -> bool:
+\tvar style: Dictionary = STYLES.get(style_slug, {})
+\treturn bool(style.get("bold", false))
+
+static func _style_italic(style_slug: String) -> bool:
+\tvar style: Dictionary = STYLES.get(style_slug, {})
+\treturn bool(style.get("italic", false))
+
+static func _style_underline(style_slug: String) -> bool:
+\tvar style: Dictionary = STYLES.get(style_slug, {})
+\treturn bool(style.get("underline", false))
 
 static func _placeholder_default(placeholder_type: String) -> Variant:
 \tif placeholder_type == "int":
@@ -548,23 +615,37 @@ function localizationValuesByLocale(localization: LocalizationDocument): Record<
   return values;
 }
 
-function localizationTermsDictionary(localization: LocalizationDocument): string {
-  if (localization.terms.length === 0) {
+function localizationStylesDictionary(localization: LocalizationDocument): string {
+  if (localization.styles.length === 0) {
+    return "{}";
+  }
+  const lines = localization.styles.map((style) => {
+    const fields = [
+      `\t\t"color": ${gdString(style.color ?? "")}`,
+      `\t\t"bold": ${style.bold}`,
+      `\t\t"italic": ${style.italic}`,
+      `\t\t"underline": ${style.underline}`
+    ];
+    return `\t${gdString(style.slug)}: {\n${fields.join(",\n")}\n\t}`;
+  });
+  return `{\n${lines.join(",\n")}\n}`;
+}
+
+function localizationTooltipsDictionary(localization: LocalizationDocument): string {
+  if (localization.tooltips.length === 0) {
     return "{}";
   }
   const keyIndexByPath = new Map(localization.keys.map((key, index) => [key.path, index]));
-  const lines = localization.terms.map((term) => {
-    const fields = [`\t\t"color": ${gdString(term.color ?? "")}`];
-    if (term.tooltipKey) {
-      const tooltipIndex = keyIndexByPath.get(term.tooltipKey);
-      fields.push(`\t\t"tooltip_id": Id.${localizationKeyConstant(term.tooltipKey)}`);
-      if (typeof tooltipIndex === "undefined") {
-        fields.push(`\t\t"missing_tooltip_key": ${gdString(term.tooltipKey)}`);
-      }
+  const lines = localization.tooltips.map((tooltip) => {
+    const fields: string[] = [];
+    const keyIndex = keyIndexByPath.get(tooltip.key);
+    if (typeof keyIndex === "number") {
+      fields.push(`\t\t"key_id": Id.${localizationKeyConstant(tooltip.key)}`);
     } else {
-      fields.push(`\t\t"tooltip_id": null`);
+      fields.push(`\t\t"key_id": null`);
+      fields.push(`\t\t"missing_key": ${gdString(tooltip.key)}`);
     }
-    return `\t${gdString(term.slug)}: {\n${fields.join(",\n")}\n\t}`;
+    return `\t${gdString(tooltip.slug)}: {\n${fields.join(",\n")}\n\t}`;
   });
   return `{\n${lines.join(",\n")}\n}`;
 }
