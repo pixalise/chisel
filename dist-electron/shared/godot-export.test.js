@@ -362,30 +362,64 @@ const localization_1 = require("./localization");
             path: "/tmp/iron-bastion"
         };
         const localization = localization_1.localizationDocumentSchema.parse({
-            schemaVersion: 1,
-            activeLocales: ["en", "sl_SI"],
-            translations: [
+            schemaVersion: 2,
+            defaultLocale: "en",
+            locales: ["en", "sl_SI"],
+            terms: [
                 {
-                    namespace: "HUD",
-                    slug: "UNIT_COUNT",
-                    sourceText: "{count} units",
-                    placeholders: [{ name: "count", type: localization_1.TranslationPlaceholderType.integer }],
+                    slug: "AOE_RADIUS",
+                    color: "#65C7FF",
+                    tooltipKey: "TERM.AOE_RADIUS.TOOLTIP"
+                }
+            ],
+            keys: [
+                {
+                    path: "TERM.AOE_RADIUS.TOOLTIP",
                     values: {
-                        en: "{count} units",
-                        sl_SI: "{count} enot"
-                    }
+                        en: "Area radius.",
+                        sl_SI: "Polmer obmocja."
+                    },
+                    placeholders: []
+                },
+                {
+                    path: "UNIT.TOXIN_TRACTOR.DESCRIPTION",
+                    values: {
+                        en: "The unit does {damage_toxin_percentage} damage in a {aoe_radius} radius around it.",
+                        sl_SI: "Enota naredi {damage_toxin_percentage} skode v polmeru {aoe_radius}."
+                    },
+                    placeholders: [
+                        { name: "damage_toxin_percentage", type: localization_1.TranslationPlaceholderType.number },
+                        { name: "aoe_radius", type: localization_1.TranslationPlaceholderType.number, term: "AOE_RADIUS" }
+                    ]
                 }
             ]
         });
         const bundle = (0, godot_export_1.createGodotExportBundle)(project, [], "2026-01-01T00:00:00.000Z", [], localization);
         const manifestFile = bundle.files.find((file) => file.path === "game_data/manifest.gd");
         const localizationFile = bundle.files.find((file) => file.path === "game_data/localization.gd");
+        const translationsFile = bundle.files.find((file) => file.path === "game_data/translations.gd");
         const csvFile = bundle.files.find((file) => file.path === "game_data/localization/translations.csv");
         (0, vitest_1.expect)(manifestFile?.content).toContain("const LOCALIZATION := {");
         (0, vitest_1.expect)(manifestFile?.content).toContain('"csv_path": "res://game_data/localization/translations.csv"');
+        (0, vitest_1.expect)(manifestFile?.content).toContain('"typed_class_name": "ChiselTranslations"');
+        (0, vitest_1.expect)(manifestFile?.content).toContain('"typed_path": "res://game_data/translations.gd"');
         (0, vitest_1.expect)(localizationFile?.content).toContain("class_name ChiselLocalization");
-        (0, vitest_1.expect)(localizationFile?.content).toContain('HUD_UNIT_COUNT = "HUD.UNIT_COUNT"');
+        (0, vitest_1.expect)(localizationFile?.content).toContain("enum Id {");
+        (0, vitest_1.expect)(localizationFile?.content).toContain("UNIT_TOXIN_TRACTOR_DESCRIPTION = 1");
         (0, vitest_1.expect)(localizationFile?.content).toContain('const LOCALES := ["en", "sl_SI"]');
-        (0, vitest_1.expect)(csvFile?.content).toBe('"keys","en","sl_SI"\n"HUD.UNIT_COUNT","{count} units","{count} enot"');
+        (0, vitest_1.expect)(localizationFile?.content).toContain("const VALUES := {");
+        (0, vitest_1.expect)(localizationFile?.content).toContain('const PLACEHOLDERS := [[], ["damage_toxin_percentage", "aoe_radius"]]');
+        (0, vitest_1.expect)(localizationFile?.content).toContain('const PLACEHOLDER_TYPES := [[], ["number", "number"]]');
+        (0, vitest_1.expect)(localizationFile?.content).toContain('const PLACEHOLDER_TERMS := [[], ["", "AOE_RADIUS"]]');
+        (0, vitest_1.expect)(localizationFile?.content).toContain('"AOE_RADIUS": {');
+        (0, vitest_1.expect)(localizationFile?.content).toContain('"tooltip_id": Id.TERM_AOE_RADIUS_TOOLTIP');
+        (0, vitest_1.expect)(localizationFile?.content).toContain('static func format(id: int, arguments: Dictionary = {}, locale: String = "")');
+        (0, vitest_1.expect)(localizationFile?.content).toContain("class LocalizedText:");
+        (0, vitest_1.expect)(translationsFile?.content).toContain("class_name ChiselTranslations");
+        (0, vitest_1.expect)(translationsFile?.content).toContain("static var unit := UnitTranslations.new()");
+        (0, vitest_1.expect)(translationsFile?.content).toContain("var toxin_tractor := UnitToxinTractorTranslations.new()");
+        (0, vitest_1.expect)(translationsFile?.content).toContain("func description(damage_toxin_percentage: float, aoe_radius: float) -> ChiselLocalization.LocalizedText:");
+        (0, vitest_1.expect)(translationsFile?.content).toContain("ChiselLocalization.Id.UNIT_TOXIN_TRACTOR_DESCRIPTION");
+        (0, vitest_1.expect)(csvFile?.content).toBe('"keys","en","sl_SI"\n"TERM.AOE_RADIUS.TOOLTIP","Area radius.","Polmer obmocja."\n"UNIT.TOXIN_TRACTOR.DESCRIPTION","The unit does {damage_toxin_percentage} damage in a {aoe_radius} radius around it.","Enota naredi {damage_toxin_percentage} skode v polmeru {aoe_radius}."');
     });
 });

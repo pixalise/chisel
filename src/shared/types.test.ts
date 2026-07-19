@@ -5,6 +5,8 @@ describe("asset categories", () => {
   it("includes HDRI as a selectable asset category", () => {
     expect(assetCategoryLabelMap[AssetCategoryEnum.hdri]).toBe("HDRI");
     expect(assetCategoryOptionValues).toContainEqual({ label: "HDRI", value: AssetCategoryEnum.hdri });
+    expect(assetCategoryLabelMap[AssetCategoryEnum.uiIcon]).toBe("UI Icon");
+    expect(assetCategoryOptionValues).toContainEqual({ label: "UI Icon", value: AssetCategoryEnum.uiIcon });
   });
 
   it("recognizes HDRI file extensions without stealing terrain texture extensions", () => {

@@ -60,7 +60,7 @@ class FileService {
   }
 
   public async writeChiselGitignore(project: Project): Promise<void> {
-    await window.electron.ensureGitignoreEntry(this.fullPath(project.path, FilePathEnum.gitignore), ".tmp");
+    await window.electron.ensureGitignoreEntry(this.fullPath(project.path, FilePathEnum.gitignore), "/tmp");
   }
 
   public async tryReadChiselJson(path: string): Promise<Nullish<Project>> {
@@ -177,7 +177,7 @@ class FileService {
   }
 
   public async createTemporaryFile(dataUrl: string): Promise<{ cleanup: () => void; temporaryPath: string }> {
-    const temporaryPath = this.fullPath(useAppStore.getState().computed.project.path, `/.tmp/${nanoid()}.png`);
+    const temporaryPath = this.fullPath(useAppStore.getState().computed.project.path, `tmp/${nanoid()}.png`);
     console.log(`Temporary path: ${temporaryPath}`);
     await this.writePngFile(temporaryPath, dataUrl);
     return {

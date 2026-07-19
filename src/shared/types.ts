@@ -17,6 +17,7 @@ export interface FileMetadata {
 export enum AssetCategoryEnum {
   terrainTexture = "TERRAIN_TEXTURE",
   hdri = "HDRI",
+  uiIcon = "UI_ICON",
   image = "IMAGE",
   audio = "AUDIO",
   font = "FONT",
@@ -26,6 +27,7 @@ export enum AssetCategoryEnum {
 export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
   [AssetCategoryEnum.terrainTexture]: "Terrain Texture",
   [AssetCategoryEnum.hdri]: "HDRI",
+  [AssetCategoryEnum.uiIcon]: "UI Icon",
   [AssetCategoryEnum.image]: "Image",
   [AssetCategoryEnum.audio]: "Audio",
   [AssetCategoryEnum.font]: "Font",

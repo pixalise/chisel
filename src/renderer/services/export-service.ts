@@ -40,7 +40,7 @@ class ExportService {
         `Export blocked by ${validationErrors.length} content error(s): ${validationErrors[0]?.message ?? "Invalid content"}`
       );
     }
-    const localizationErrors = validateLocalizationDocument(commit.localization).filter(
+    const localizationErrors = validateLocalizationDocument(commit.localization, assets).filter(
       (issue) => issue.severity === LocalizationProblemSeverity.error
     );
     if (localizationErrors.length > 0) {

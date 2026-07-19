@@ -1,83 +1,198 @@
 import { describe, expect, it } from "vitest";
 import {
   LocalizationProblemSeverity,
-  TranslationPlaceholderType,
+  addLocaleToLocalization,
+  addLocalizationKey,
+  localizationIconSlugsForKey,
   localizationDocumentSchema,
+  localizationPlaceholdersForKey,
+  removeLocaleFromLocalization,
   validateLocalizationDocument
 } from "./localization";
+import { AssetCategoryEnum } from "./types";
 
 describe("localization schemas", () => {
-  it("accepts valid locales, placeholders, and values", () => {
+  it("accepts v2 key/value localization documents", () => {
     const document = localizationDocumentSchema.parse({
-      schemaVersion: 1,
-      activeLocales: ["en", "sl_SI"],
-      translations: [
+      schemaVersion: 2,
+      defaultLocale: "en",
+      locales: ["en", "sl_SI"],
+      terms: [
         {
-          namespace: "HUD",
-          slug: "UNIT_COUNT",
-          sourceText: "{count} units",
-          placeholders: [{ name: "count", type: TranslationPlaceholderType.integer }],
+          slug: "AOE_RADIUS",
+          color: "#65C7FF",
+          tooltipKey: "TERM.AOE_RADIUS.TOOLTIP"
+        }
+      ],
+      keys: [
+        {
+          path: "TERM.AOE_RADIUS.TOOLTIP",
           values: {
-            en: "{count} units",
-            sl_SI: "{count} enot"
+            en: "Area of effect radius.",
+            sl_SI: "Polmer obmocja ucinka."
+          },
+          placeholders: []
+        },
+        {
+          path: "UNIT.TOXIN_TRACTOR.DESCRIPTION",
+          values: {
+            en: "The unit does [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} damage in a [term:AOE_RADIUS]{float:aoe_radius} radius[/term] around it.",
+            sl_SI:
+              "Enota naredi [icon:PHYSICAL_DAMAGE] {float:damage_toxin_percentage} skode v [term:AOE_RADIUS]polmeru {float:aoe_radius}[/term]."
           }
         }
       ]
     });
 
-    expect(document.activeLocales).toEqual(["en", "sl_SI"]);
-    expect(validateLocalizationDocument(document)).toEqual([]);
+    expect(document.locales).toEqual(["en", "sl_SI"]);
+    expect(localizationPlaceholdersForKey(document.keys[1]!, document.defaultLocale).map((placeholder) => placeholder.name)).toEqual([
+      "damage_toxin_percentage",
+      "aoe_radius"
+    ]);
+    expect(localizationIconSlugsForKey(document.keys[1]!, document.defaultLocale)).toEqual(["PHYSICAL_DAMAGE"]);
+    expect(
+      validateLocalizationDocument(document, [
+        {
+          category: AssetCategoryEnum.uiIcon,
+          extension: "png",
+          formattedBytes: "1.0 KB",
+          height: 32,
+          id: "PHYSICAL_DAMAGE",
+          name: "PHYSICAL_DAMAGE",
+          relativePath: ".chisel/assets/UI_ICON/PHYSICAL_DAMAGE.png",
+          sizeBytes: 1024,
+          width: 32
+        }
+      ])
+    ).toEqual([]);
   });
 
-  it("defaults active locales and rejects duplicate translation keys", () => {
-    expect(localizationDocumentSchema.parse({ schemaVersion: 1, translations: [] }).activeLocales).toEqual(["en"]);
-
-    expect(
-      localizationDocumentSchema.safeParse({
-        schemaVersion: 1,
-        activeLocales: ["en"],
-        translations: [
-          { namespace: "HUD", slug: "START", sourceText: "Start" },
-          { namespace: "HUD", slug: "START", sourceText: "Begin" }
-        ]
-      }).success
-    ).toBe(false);
-  });
-
-  it("rejects invalid locale codes and non-constant translation slugs", () => {
-    expect(
-      localizationDocumentSchema.safeParse({
-        schemaVersion: 1,
-        activeLocales: ["english"],
-        translations: []
-      }).success
-    ).toBe(false);
-    expect(
-      localizationDocumentSchema.safeParse({
-        schemaVersion: 1,
-        activeLocales: ["en"],
-        translations: [{ namespace: "hud", slug: "start", sourceText: "Start" }]
-      }).success
-    ).toBe(false);
-  });
-
-  it("reports placeholder and locale problems", () => {
+  it("migrates v1 documents to v2 in memory", () => {
     const document = localizationDocumentSchema.parse({
       schemaVersion: 1,
       activeLocales: ["en", "sl_SI"],
       translations: [
         {
           namespace: "HUD",
-          slug: "GREETING",
-          sourceText: "Hello {name}",
-          placeholders: [
-            { name: "unused_value", type: TranslationPlaceholderType.string },
-            { name: "count", type: TranslationPlaceholderType.integer }
-          ],
+          slug: "START",
+          sourceText: "Start",
           values: {
-            en: "Hello {missing}",
-            fr_FR: "Bonjour"
+            en: "Start"
           }
+        }
+      ]
+    });
+
+    expect(document).toMatchObject({
+      schemaVersion: 2,
+      defaultLocale: "en",
+      locales: ["en", "sl_SI"],
+      keys: [
+        {
+          path: "HUD.START",
+          values: {
+            en: "Start",
+            sl_SI: "Start"
+          }
+        }
+      ]
+    });
+  });
+
+  it("adds locales by replicating all existing keys from the default locale", () => {
+    const document = localizationDocumentSchema.parse({
+      schemaVersion: 2,
+      defaultLocale: "en",
+      locales: ["en"],
+      terms: [],
+      keys: [{ path: "HUD.START", values: { en: "Start" }, placeholders: [] }]
+    });
+
+    expect(addLocaleToLocalization(document, "sl_SI").keys[0]?.values).toEqual({
+      en: "Start",
+      sl_SI: "Start"
+    });
+  });
+
+  it("adds keys with values for all locales and removes non-default locales", () => {
+    const document = localizationDocumentSchema.parse({
+      schemaVersion: 2,
+      defaultLocale: "en",
+      locales: ["en", "sl_SI"],
+      terms: [],
+      keys: []
+    });
+
+    const withKey = addLocalizationKey(document, {
+      path: "HUD.START",
+      values: {
+        en: "Start"
+      }
+    });
+    expect(withKey.keys[0]?.values).toEqual({ en: "Start", sl_SI: "Start" });
+    expect(removeLocaleFromLocalization(withKey, "sl_SI").locales).toEqual(["en"]);
+    expect(() => removeLocaleFromLocalization(withKey, "en")).toThrow("Default locale");
+  });
+
+  it("rejects malformed keys, duplicate keys, and missing default locale", () => {
+    expect(
+      localizationDocumentSchema.safeParse({
+        schemaVersion: 2,
+        defaultLocale: "en",
+        locales: ["en"],
+        terms: [],
+        keys: [{ path: "hud.start", values: { en: "Start" }, placeholders: [] }]
+      }).success
+    ).toBe(false);
+    expect(
+      localizationDocumentSchema.safeParse({
+        schemaVersion: 2,
+        defaultLocale: "en",
+        locales: ["en"],
+        terms: [],
+        keys: [
+          { path: "HUD.START", values: { en: "Start" }, placeholders: [] },
+          { path: "HUD.START", values: { en: "Begin" }, placeholders: [] }
+        ]
+      }).success
+    ).toBe(false);
+    expect(
+      localizationDocumentSchema.safeParse({
+        schemaVersion: 2,
+        defaultLocale: "sl_SI",
+        locales: ["en"],
+        terms: [],
+        keys: []
+      }).success
+    ).toBe(false);
+  });
+
+  it("reports placeholder, term, tooltip, and generated API problems", () => {
+    const document = localizationDocumentSchema.parse({
+      schemaVersion: 2,
+      defaultLocale: "en",
+      locales: ["en", "sl_SI"],
+      terms: [
+        {
+          slug: "AOE_RADIUS",
+          tooltipKey: "TERM.MISSING.TOOLTIP"
+        }
+      ],
+      keys: [
+        {
+          path: "UNIT.TOXIN_TRACTOR.DESCRIPTION",
+          values: {
+            en: "Damage {missing} in [term:MISSING_TERM]{float:aoe_radius}[/term] [term:AOE_RADIUS]open.",
+            sl_SI: "Skoda {int:aoe_radius}."
+          }
+        },
+        {
+          path: "UNIT.TOXIN_TRACTOR",
+          values: {
+            en: "Collision",
+            sl_SI: "Collision"
+          },
+          placeholders: []
         }
       ]
     });
@@ -87,25 +202,88 @@ describe("localization schemas", () => {
     expect(problems).toContainEqual(
       expect.objectContaining({
         severity: LocalizationProblemSeverity.error,
-        message: 'Placeholder "{name}" is not declared'
+        message: 'Placeholder "{missing}" must include a type like "{int:missing}", "{float:missing}", or "{string:missing}"'
       })
     );
     expect(problems).toContainEqual(
       expect.objectContaining({
         severity: LocalizationProblemSeverity.error,
-        message: 'Placeholder "{missing}" is not declared'
+        message: 'Placeholder "aoe_radius" must use type float'
       })
     );
     expect(problems).toContainEqual(
       expect.objectContaining({
-        severity: LocalizationProblemSeverity.warning,
-        message: "Translation HUD.GREETING is missing locale sl_SI"
+        severity: LocalizationProblemSeverity.error,
+        message: 'Translation UNIT.TOXIN_TRACTOR.DESCRIPTION references missing term "MISSING_TERM"'
       })
     );
     expect(problems).toContainEqual(
       expect.objectContaining({
-        severity: LocalizationProblemSeverity.warning,
-        message: "Translation HUD.GREETING has value for inactive locale fr_FR"
+        severity: LocalizationProblemSeverity.error,
+        message: 'Term "AOE_RADIUS" is not closed'
+      })
+    );
+    expect(problems).toContainEqual(
+      expect.objectContaining({
+        severity: LocalizationProblemSeverity.error,
+        message: "Term AOE_RADIUS references missing tooltip key TERM.MISSING.TOOLTIP"
+      })
+    );
+    expect(problems).toContainEqual(
+      expect.objectContaining({
+        severity: LocalizationProblemSeverity.error,
+        message: "Localization key UNIT.TOXIN_TRACTOR collides with generated namespace path"
+      })
+    );
+  });
+
+  it("reports localization icon asset problems", () => {
+    const document = localizationDocumentSchema.parse({
+      schemaVersion: 2,
+      defaultLocale: "en",
+      locales: ["en", "sl_SI"],
+      terms: [],
+      keys: [
+        {
+          path: "UNIT.RIFLEMAN.DESCRIPTION",
+          values: {
+            en: "Damage [icon:PHYSICAL_DAMAGE] {float:damage}.",
+            sl_SI: "Skoda [icon:WRONG_CATEGORY] {float:damage}."
+          }
+        }
+      ]
+    });
+
+    const problems = validateLocalizationDocument(document, [
+      {
+        category: AssetCategoryEnum.image,
+        extension: "png",
+        formattedBytes: "1.0 KB",
+        height: 32,
+        id: "WRONG_CATEGORY",
+        name: "WRONG_CATEGORY",
+        relativePath: ".chisel/assets/IMAGE/WRONG_CATEGORY.png",
+        sizeBytes: 1024,
+        width: 32
+      }
+    ]);
+
+    expect(problems).toContainEqual(
+      expect.objectContaining({
+        severity: LocalizationProblemSeverity.error,
+        message: 'Translation UNIT.RIFLEMAN.DESCRIPTION references missing UI icon asset "PHYSICAL_DAMAGE"'
+      })
+    );
+    expect(problems).toContainEqual(
+      expect.objectContaining({
+        severity: LocalizationProblemSeverity.error,
+        message: 'Translation UNIT.RIFLEMAN.DESCRIPTION has extra icon "[icon:WRONG_CATEGORY]"'
+      })
+    );
+    expect(problems).toContainEqual(
+      expect.objectContaining({
+        severity: LocalizationProblemSeverity.error,
+        message: 'Translation UNIT.RIFLEMAN.DESCRIPTION references asset "WRONG_CATEGORY" as an icon but it is IMAGE, not UI_ICON'
       })
     );
   });

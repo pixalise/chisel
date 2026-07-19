@@ -52,6 +52,9 @@ function legacyAssetCategory(value: string): AssetCategoryEnum {
   if (normalizedSlug === AssetCategoryEnum.hdri || normalizedSlug === "HDR") {
     return AssetCategoryEnum.hdri;
   }
+  if (normalizedSlug === AssetCategoryEnum.uiIcon) {
+    return AssetCategoryEnum.uiIcon;
+  }
   if (["IMAGE", "MATERIAL", "SHADER", "UI"].includes(normalizedSlug)) {
     return AssetCategoryEnum.image;
   }

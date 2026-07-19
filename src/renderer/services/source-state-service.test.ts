@@ -24,9 +24,11 @@ const mocks = vi.hoisted(() => {
       }
     ],
     localization: {
-      schemaVersion: 1,
-      activeLocales: ["en"],
-      translations: [{ namespace: "HUD", slug: "START", sourceText: "Start", placeholders: [], values: { en: "Start" } }]
+      schemaVersion: 2,
+      defaultLocale: "en",
+      locales: ["en"],
+      terms: [],
+      keys: [{ path: "HUD.START", placeholders: [], values: { en: "Start" } }]
     } as LocalizationDocument,
     project,
     setProject: vi.fn(),
