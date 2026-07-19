@@ -1,16 +1,5 @@
-import { type FC, type ReactNode, useState } from "react";
+import { type FC, useState } from "react";
 import { Archive, CalendarDays, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -34,14 +23,6 @@ export interface TodoItemProps {
   todo: ProjectTodo;
 }
 
-interface ConfirmRemoveButtonProps {
-  children: ReactNode;
-  description: string;
-  disabled?: boolean;
-  onConfirm: () => void | Promise<void>;
-  title: string;
-}
-
 function priorityClassName(priority: ProjectTodoPriority): string {
   if (priority === ProjectTodoPriority.urgent) {
     return "border-destructive/50 text-destructive";
@@ -54,37 +35,6 @@ function priorityClassName(priority: ProjectTodoPriority): string {
   }
   return "border-primary/40 text-primary";
 }
-
-const ConfirmRemoveButton: FC<ConfirmRemoveButtonProps> = (props) => {
-  const { children, description, disabled, onConfirm, title } = props;
-
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button disabled={disabled} size="sm" type="button" variant="ghost">
-          {children}
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            onClick={() => {
-              void onConfirm();
-            }}
-          >
-            Remove
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-};
 
 const TodoItem: FC<TodoItemProps> = (props) => {
   const { isArchived, mutations, todo } = props;
@@ -152,15 +102,16 @@ const TodoItem: FC<TodoItemProps> = (props) => {
             {isArchived ? <RotateCcw className="size-4" /> : <Archive className="size-4" />}
             {isArchived ? "Unarchive" : "Archive"}
           </Button>
-          <ConfirmRemoveButton
-            description={`This permanently removes "${todo.title}" and its subitems.`}
+          <Button
             disabled={isBusy}
-            title="Remove todo?"
-            onConfirm={() => mutations.removeTodo(todo.id)}
+            onClick={() => confirm(`Permanently remove "${todo.title}" and its subitems?`) && void mutations.removeTodo(todo.id)}
+            size="sm"
+            type="button"
+            variant="ghost"
           >
             <Trash2 className="size-4" />
             Delete
-          </ConfirmRemoveButton>
+          </Button>
         </div>
       </div>
 
@@ -232,15 +183,18 @@ const SubitemRow: FC<SubitemRowProps> = (props) => {
           <Pencil className="size-4" />
           Edit
         </Button>
-        <ConfirmRemoveButton
-          description={`This permanently removes "${subitem.title}".`}
+        <Button
           disabled={isBusy}
-          title="Remove subitem?"
-          onConfirm={() => mutations.removeSubitem({ todoId: todo.id, subitemId: subitem.id })}
+          onClick={() =>
+            confirm(`Permanently remove "${subitem.title}"?`) && void mutations.removeSubitem({ todoId: todo.id, subitemId: subitem.id })
+          }
+          size="sm"
+          type="button"
+          variant="ghost"
         >
           <Trash2 className="size-4" />
           Delete
-        </ConfirmRemoveButton>
+        </Button>
       </div>
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
