@@ -32,7 +32,6 @@ function duplicateValues(values) {
 }
 exports.rowSlugSchema = zod_1.default
     .string()
-    .trim()
     .min(1, "Slug is required")
     .max(96, "Slug must be at most 96 characters")
     .regex(/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/, "Slug must be CONSTANT_CASE");
@@ -41,6 +40,9 @@ function legacyAssetCategory(value) {
     const normalizedSlug = (0, asset_paths_1.assetSlug)(value);
     if (normalizedSlug === "TEXTURE" || normalizedSlug === types_1.AssetCategoryEnum.terrainTexture) {
         return types_1.AssetCategoryEnum.terrainTexture;
+    }
+    if (normalizedSlug === types_1.AssetCategoryEnum.hdri || normalizedSlug === "HDR") {
+        return types_1.AssetCategoryEnum.hdri;
     }
     if (["IMAGE", "MATERIAL", "SHADER", "UI"].includes(normalizedSlug)) {
         return types_1.AssetCategoryEnum.image;
@@ -72,6 +74,9 @@ function normalizeAssetCategoryObject(value) {
     return record;
 }
 function assetCategoryForExtension(extension, category) {
+    if ((0, types_1.isHdriExtension)(extension)) {
+        return types_1.AssetCategoryEnum.hdri;
+    }
     if ((0, types_1.isTerrainTextureExtension)(extension)) {
         return types_1.AssetCategoryEnum.terrainTexture;
     }
@@ -92,7 +97,7 @@ const assetDocumentSchema = zod_1.default
     ...assetInputFields,
     category: legacyAssetCategorySchema,
     id: zod_1.default.string(),
-    name: zod_1.default.string().trim().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
+    name: zod_1.default.string().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
     relativePath: zod_1.default.string(),
     tag: zod_1.default.string().optional(),
     tags: zod_1.default.array(zod_1.default.string()).optional()

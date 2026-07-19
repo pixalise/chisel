@@ -1,6 +1,6 @@
 import z from "zod";
 import { assetSlug } from "./asset-paths";
-import { AssetCategoryEnum, ColumnType, isTerrainTextureExtension } from "./types";
+import { AssetCategoryEnum, ColumnType, isHdriExtension, isTerrainTextureExtension } from "./types";
 
 export const projectSchema = z.object({
   id: z.nanoid(),
@@ -36,7 +36,6 @@ function duplicateValues(values: string[]): string[] {
 
 export const rowSlugSchema = z
   .string()
-  .trim()
   .min(1, "Slug is required")
   .max(96, "Slug must be at most 96 characters")
   .regex(/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/, "Slug must be CONSTANT_CASE");
@@ -49,6 +48,9 @@ function legacyAssetCategory(value: string): AssetCategoryEnum {
   const normalizedSlug = assetSlug(value);
   if (normalizedSlug === "TEXTURE" || normalizedSlug === AssetCategoryEnum.terrainTexture) {
     return AssetCategoryEnum.terrainTexture;
+  }
+  if (normalizedSlug === AssetCategoryEnum.hdri || normalizedSlug === "HDR") {
+    return AssetCategoryEnum.hdri;
   }
   if (["IMAGE", "MATERIAL", "SHADER", "UI"].includes(normalizedSlug)) {
     return AssetCategoryEnum.image;
@@ -87,6 +89,10 @@ function normalizeAssetCategoryObject(value: unknown): unknown {
 }
 
 function assetCategoryForExtension(extension: string, category: AssetCategoryEnum): AssetCategoryEnum {
+  if (isHdriExtension(extension)) {
+    return AssetCategoryEnum.hdri;
+  }
+
   if (isTerrainTextureExtension(extension)) {
     return AssetCategoryEnum.terrainTexture;
   }
@@ -113,7 +119,7 @@ const assetDocumentSchema = z
       ...assetInputFields,
       category: legacyAssetCategorySchema,
       id: z.string(),
-      name: z.string().trim().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
+      name: z.string().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
       relativePath: z.string(),
       tag: z.string().optional(),
       tags: z.array(z.string()).optional()

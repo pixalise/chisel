@@ -10,7 +10,17 @@ const types_1 = require("./types");
         (0, vitest_1.expect)(schemas_1.rowSlugSchema.parse("FLETCHING_BULLETS_2")).toBe("FLETCHING_BULLETS_2");
     });
     (0, vitest_1.it)("rejects non-canonical slug shapes", () => {
-        for (const slug of ["zombie_basic", "ZombieBasic", "ZOMBIE-BASIC", "ZOMBIE BASIC", "ZOMBIE__BASIC", "_ZOMBIE", "ZOMBIE_"]) {
+        for (const slug of [
+            "zombie_basic",
+            "ZombieBasic",
+            "ZOMBIE-BASIC",
+            "ZOMBIE BASIC",
+            "ZOMBIE__BASIC",
+            "_ZOMBIE",
+            "ZOMBIE_",
+            " ZOMBIE",
+            "ZOMBIE "
+        ]) {
             (0, vitest_1.expect)(schemas_1.rowSlugSchema.safeParse(slug).success).toBe(false);
         }
     });
@@ -51,5 +61,18 @@ const types_1 = require("./types");
             sizeBytes: 1,
             width: 1
         }).success).toBe(false);
+    });
+    (0, vitest_1.it)("keeps HDR files in the HDRI asset category", () => {
+        const asset = schemas_1.assetSchema.parse({
+            category: types_1.AssetCategoryEnum.image,
+            extension: "hdr",
+            height: 512,
+            id: "SKY_CLEAR",
+            name: "SKY_CLEAR",
+            relativePath: ".chisel/assets/HDRI/SKY_CLEAR.hdr",
+            sizeBytes: 1024,
+            width: 1024
+        });
+        (0, vitest_1.expect)(asset.category).toBe(types_1.AssetCategoryEnum.hdri);
     });
 });

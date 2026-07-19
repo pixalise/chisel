@@ -2,9 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ColumnType = exports.InputKeyEnum = exports.assetCategoryOptionValues = exports.assetCategoryLabelMap = exports.AssetCategoryEnum = void 0;
 exports.isTerrainTextureExtension = isTerrainTextureExtension;
+exports.isHdriExtension = isHdriExtension;
 var AssetCategoryEnum;
 (function (AssetCategoryEnum) {
     AssetCategoryEnum["terrainTexture"] = "TERRAIN_TEXTURE";
+    AssetCategoryEnum["hdri"] = "HDRI";
     AssetCategoryEnum["image"] = "IMAGE";
     AssetCategoryEnum["audio"] = "AUDIO";
     AssetCategoryEnum["font"] = "FONT";
@@ -13,6 +15,7 @@ var AssetCategoryEnum;
 })(AssetCategoryEnum || (exports.AssetCategoryEnum = AssetCategoryEnum = {}));
 exports.assetCategoryLabelMap = {
     [AssetCategoryEnum.terrainTexture]: "Terrain Texture",
+    [AssetCategoryEnum.hdri]: "HDRI",
     [AssetCategoryEnum.image]: "Image",
     [AssetCategoryEnum.audio]: "Audio",
     [AssetCategoryEnum.font]: "Font",
@@ -20,8 +23,12 @@ exports.assetCategoryLabelMap = {
     [AssetCategoryEnum.other]: "Other"
 };
 const terrainTextureExtensions = new Set(["exr", "gppt", "tga", "tif", "tiff"]);
+const hdriExtensions = new Set(["hdr"]);
 function isTerrainTextureExtension(extension) {
     return terrainTextureExtensions.has(extension.toLowerCase());
+}
+function isHdriExtension(extension) {
+    return hdriExtensions.has(extension.toLowerCase());
 }
 exports.assetCategoryOptionValues = Object.values(AssetCategoryEnum).map((category) => ({
     label: exports.assetCategoryLabelMap[category],

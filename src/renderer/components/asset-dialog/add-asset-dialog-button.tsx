@@ -7,13 +7,19 @@ import useCopyAssetFile from "@/hooks/use-copy-asset-file";
 import { Nullish } from "../../../shared/nullish";
 import { isNil } from "lodash";
 import useAddAssetMutation from "@/hooks/use-add-asset-mutation";
-import { AssetCategoryEnum, FileMetadata, isTerrainTextureExtension } from "../../../shared/types";
+import { AssetCategoryEnum, FileMetadata, isHdriExtension, isTerrainTextureExtension } from "../../../shared/types";
 import fileService from "@/services/file-service";
 import { CreateOrUpdateAsset } from "../../../shared/schemas";
 import { normalizeConstantCaseInput } from "../../../shared/asset-paths";
 
 function categoryForFile(metadata: FileMetadata): AssetCategoryEnum {
   const extension = metadata.extension.toLowerCase();
+  console.log(extension);
+
+  if (isHdriExtension(extension)) {
+    return AssetCategoryEnum.hdri;
+  }
+
   if (isTerrainTextureExtension(extension)) {
     return AssetCategoryEnum.terrainTexture;
   }

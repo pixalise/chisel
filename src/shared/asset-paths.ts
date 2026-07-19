@@ -7,12 +7,7 @@ function pathSegment(value: string, label: string): string {
 }
 
 export function snakeCase(value: string): string {
-  return value
-    .trim()
-    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .replace(/[^A-Za-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .toLowerCase();
+  return value.replace(/\s/g, "_").toLowerCase().trim();
 }
 
 export function constantCase(value: string): string {
@@ -21,10 +16,6 @@ export function constantCase(value: string): string {
 
 export function normalizeConstantCaseInput(value: string): string {
   return constantCase(value);
-}
-
-export function assetStem(name: string): string {
-  return snakeCase(name);
 }
 
 export function assetSlug(name: string): string {

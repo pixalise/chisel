@@ -190,9 +190,15 @@ const godot_export_1 = require("./godot-export");
         (0, vitest_1.expect)(tableFile?.content).not.toContain("const ACTION");
         (0, vitest_1.expect)(tableFile?.content).toContain('const BINDINGS := [\n\t["KEY_W", "KEY_UP"],\n\t["MOUSE_BUTTON_WHEEL_UP"]\n]');
         (0, vitest_1.expect)(inputFile?.content).toContain("class_name ChiselInput");
-        (0, vitest_1.expect)(inputFile?.content).toContain("String(ChiselInputBindings.SLUGS[index]).to_lower()");
+        (0, vitest_1.expect)(inputFile?.content).toContain('const ACTION_NAMES := [\n\t&"move_forward",\n\t&"increase_move_speed"\n]');
+        (0, vitest_1.expect)(inputFile?.content).toContain("static func action_name(action_id: int) -> StringName:");
+        (0, vitest_1.expect)(inputFile?.content).toContain("return ACTION_NAMES[action_id]");
+        (0, vitest_1.expect)(inputFile?.content).toContain("static func get_action_strength(action_id: int) -> float:");
+        (0, vitest_1.expect)(inputFile?.content).toContain("static func is_action_just_pressed(action_id: int) -> bool:");
+        (0, vitest_1.expect)(inputFile?.content).toContain("var input_action_name := action_name(index)");
+        (0, vitest_1.expect)(inputFile?.content).not.toContain("String(ChiselInputBindings.SLUGS[index]).to_lower()");
         (0, vitest_1.expect)(inputFile?.content).not.toContain("ChiselInputBindings.ACTION");
-        (0, vitest_1.expect)(inputFile?.content).toContain("InputMap.action_add_event(action_name, event)");
+        (0, vitest_1.expect)(inputFile?.content).toContain("InputMap.action_add_event(input_action_name, event)");
         (0, vitest_1.expect)(inputFile?.content).toContain('"KEY_W": KEY_W');
         (0, vitest_1.expect)(inputFile?.content).toContain('"MOUSE_BUTTON_WHEEL_UP": MOUSE_BUTTON_WHEEL_UP');
         (0, vitest_1.expect)(inputFile?.content).toContain("return _key(int(KEY_BINDINGS[binding]))");
@@ -227,5 +233,27 @@ const godot_export_1 = require("./godot-export");
         (0, vitest_1.expect)(assetsFile?.content).toContain('"path": "res://game_data/assets/terrain_texture/forest_soil_1"');
         (0, vitest_1.expect)(assetsFile?.content).toContain('"albedo_height": "res://game_data/assets/terrain_texture/forest_soil_1/albedo_height.png"');
         (0, vitest_1.expect)(assetsFile?.content).toContain('"normal_roughness": "res://game_data/assets/terrain_texture/forest_soil_1/normal_roughness.png"');
+    });
+    (0, vitest_1.it)("exports HDRI assets under snake case HDRI paths", () => {
+        const asset = schemas_1.assetSchema.parse({
+            category: types_1.AssetCategoryEnum.hdri,
+            extension: "hdr",
+            height: 512,
+            id: "SKY_CLEAR",
+            name: "SKY_CLEAR",
+            relativePath: ".chisel/assets/HDRI/SKY_CLEAR.hdr",
+            sizeBytes: 1024,
+            width: 1024
+        });
+        const project = {
+            id: (0, nanoid_1.nanoid)(),
+            name: "Iron Bastion",
+            path: "/tmp/iron-bastion"
+        };
+        const bundle = (0, godot_export_1.createGodotExportBundle)(project, [], "2026-01-01T00:00:00.000Z", [asset]);
+        const assetsFile = bundle.files.find((file) => file.path === "game_data/assets.gd");
+        (0, vitest_1.expect)(assetsFile?.content).toContain("SKY_CLEAR = 0");
+        (0, vitest_1.expect)(assetsFile?.content).toContain('"category": "hdri"');
+        (0, vitest_1.expect)(assetsFile?.content).toContain('"path": "res://game_data/assets/hdri/sky_clear.hdr"');
     });
 });

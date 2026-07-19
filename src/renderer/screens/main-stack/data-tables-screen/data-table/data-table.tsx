@@ -3,14 +3,13 @@ import { Info } from "lucide-react";
 import { nanoid } from "nanoid";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import SlugInput from "@/components/controls/slug-input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { INPUT_BINDINGS_TABLE_ID } from "@/constants/system-tables";
 import useSaveTableRowsMutation from "@/hooks/use-save-table-rows-mutation";
 import { cn } from "@/lib/utils";
-import { normalizeConstantCaseInput } from "../../../../../shared/asset-paths";
 import { dataTableRowSchema, rowSlugSchema, type DataColumnDefinition, type DataTableRow } from "../../../../../shared/schemas";
 import { ColumnType } from "../../../../../shared/types";
 import { CellEditor, CellValue } from "./data-table-cells";
@@ -70,10 +69,6 @@ function nextDefaultSlug(rows: EditorRow[]): string {
   return `NEW_ROW_${nanoid()
     .replace(/[^A-Za-z0-9]/g, "")
     .toUpperCase()}`;
-}
-
-function normalizeSlugInput(value: string): string {
-  return normalizeConstantCaseInput(value);
 }
 
 function createEditorRow(columns: DataColumnDefinition[], rows: EditorRow[]): EditorRow {
@@ -465,7 +460,7 @@ const DataTable: FC<DataTableProps> = (props) => {
       }
       return {
         ...row,
-        slug: normalizeSlugInput(value)
+        slug: value
       };
     });
     setRows(nextRows);
@@ -531,7 +526,7 @@ const DataTable: FC<DataTableProps> = (props) => {
                     </TableCell>
                     <TableCell className="min-w-44 whitespace-nowrap">
                       {editable ? (
-                        <Input
+                        <SlugInput
                           className="h-7 min-w-36 border border-border bg-background px-1.5 font-mono text-[0.7rem] shadow-sm"
                           value={row.slug}
                           onChange={(event) => updateSlug(row.id, event.target.value)}

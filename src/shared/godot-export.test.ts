@@ -246,4 +246,29 @@ describe("Godot export", () => {
       '"normal_roughness": "res://game_data/assets/terrain_texture/forest_soil_1/normal_roughness.png"'
     );
   });
+
+  it("exports HDRI assets under snake case HDRI paths", () => {
+    const asset = assetSchema.parse({
+      category: AssetCategoryEnum.hdri,
+      extension: "hdr",
+      height: 512,
+      id: "SKY_CLEAR",
+      name: "SKY_CLEAR",
+      relativePath: ".chisel/assets/HDRI/SKY_CLEAR.hdr",
+      sizeBytes: 1024,
+      width: 1024
+    });
+    const project: Project = {
+      id: nanoid(),
+      name: "Iron Bastion",
+      path: "/tmp/iron-bastion"
+    };
+
+    const bundle = createGodotExportBundle(project, [], "2026-01-01T00:00:00.000Z", [asset]);
+    const assetsFile = bundle.files.find((file) => file.path === "game_data/assets.gd");
+
+    expect(assetsFile?.content).toContain("SKY_CLEAR = 0");
+    expect(assetsFile?.content).toContain('"category": "hdri"');
+    expect(assetsFile?.content).toContain('"path": "res://game_data/assets/hdri/sky_clear.hdr"');
+  });
 });

@@ -16,6 +16,7 @@ export interface FileMetadata {
 
 export enum AssetCategoryEnum {
   terrainTexture = "TERRAIN_TEXTURE",
+  hdri = "HDRI",
   image = "IMAGE",
   audio = "AUDIO",
   font = "FONT",
@@ -24,6 +25,7 @@ export enum AssetCategoryEnum {
 }
 export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
   [AssetCategoryEnum.terrainTexture]: "Terrain Texture",
+  [AssetCategoryEnum.hdri]: "HDRI",
   [AssetCategoryEnum.image]: "Image",
   [AssetCategoryEnum.audio]: "Audio",
   [AssetCategoryEnum.font]: "Font",
@@ -32,9 +34,14 @@ export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
 };
 
 const terrainTextureExtensions = new Set(["exr", "gppt", "tga", "tif", "tiff"]);
+const hdriExtensions = new Set(["hdr"]);
 
 export function isTerrainTextureExtension(extension: string): boolean {
   return terrainTextureExtensions.has(extension.toLowerCase());
+}
+
+export function isHdriExtension(extension: string): boolean {
+  return hdriExtensions.has(extension.toLowerCase());
 }
 
 export const assetCategoryOptionValues = Object.values(AssetCategoryEnum).map((category) => ({

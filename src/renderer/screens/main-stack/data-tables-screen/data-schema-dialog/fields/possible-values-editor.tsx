@@ -2,7 +2,7 @@ import { type FC } from "react";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import SlugInput from "@/components/controls/slug-input";
 import { Label } from "@/components/ui/label";
 import type { PossibleValuesEditorProps } from "./data-schema-column-editor.types";
 
@@ -13,7 +13,7 @@ const PossibleValuesEditor: FC<PossibleValuesEditorProps> = (props) => {
     <div className="space-y-1.5">
       <Label>Possible values</Label>
       <div className="flex gap-2">
-        <Input
+        <SlugInput
           disabled={disabled}
           value={possibleValueInput}
           onChange={(event) => onPossibleValueInputChange(event.target.value)}
@@ -24,7 +24,7 @@ const PossibleValuesEditor: FC<PossibleValuesEditorProps> = (props) => {
             }
           }}
         />
-        <Button disabled={disabled || !possibleValueInput.trim()} onClick={onAddPossibleValue} type="button" variant="outline">
+        <Button disabled={disabled || !possibleValueInput} onClick={onAddPossibleValue} type="button" variant="outline">
           Add
         </Button>
       </div>
