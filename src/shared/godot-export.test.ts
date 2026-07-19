@@ -461,11 +461,12 @@ describe("Godot export", () => {
     expect(localizationFile?.content).toContain("const TOOLTIPS := {");
     expect(localizationFile?.content).toContain('"key_id": Id.TERM_AOE_RADIUS_TOOLTIP');
     expect(localizationFile?.content).toContain('"tooltip_bbcode_text": tooltip_text.bbcode_text');
+    expect(localizationFile?.content).toContain('return "[hint=%s]" % tooltip_slug');
     expect(localizationFile?.content).toContain('static func format(id: int, arguments: Dictionary = {}, locale: String = "")');
     expect(localizationFile?.content).toContain(
       'regex.compile("<style:([A-Z][A-Z0-9_]*)>|</style>|<tooltip:([A-Z][A-Z0-9_]*)>|</tooltip>|<icon:([A-Z][A-Z0-9_]*)\\\\s*/>|\\\\[icon:([A-Z][A-Z0-9_]*)\\\\]|\\\\[term:([A-Z][A-Z0-9_]*)\\\\]|\\\\[/term\\\\]|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")'
     );
-    expect(localizationFile?.content).toContain('return "[img]%s[/img]" % _bbcode_escape(icon_path)');
+    expect(localizationFile?.content).toContain('return "[img=16x16]%s[/img]" % _bbcode_escape(icon_path)');
     expect(localizationFile?.content).toContain("static func _placeholder_default(placeholder_type: String) -> Variant:");
     expect(localizationFile?.content).toContain("class LocalizedText:");
     expect(translationsFile?.content).toContain("class_name ChiselTranslations");

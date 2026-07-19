@@ -404,27 +404,34 @@ static func _format(id: int, arguments: Dictionary, locale: String, depth: int) 
 \t\tvar end := result.get_end(0)
 \t\tvar prefix := template.substr(cursor, start - cursor)
 \t\tplain += prefix
-\t\tbbcode += _bbcode_fragment(prefix, active_styles)
+\t\tbbcode += _bbcode_escape(prefix)
 \t\tvar token := result.get_string(0)
 \t\tif token.begins_with("<style:"):
+\t\t\tvar style_slug := result.get_string(1)
 \t\t\tactive_styles.append({
-\t\t\t\t"style": result.get_string(1),
+\t\t\t\t"style": style_slug,
 \t\t\t\t"start": plain.length()
 \t\t\t})
+\t\t\tbbcode += _style_open_bbcode(style_slug)
 \t\telif token == "</style>":
+\t\t\tbbcode += _style_close_bbcode(_active_style_slug(active_styles))
 \t\t\t_close_style(active_styles, spans, plain.length())
 \t\telif token.begins_with("<tooltip:"):
+\t\t\tvar tooltip_slug := result.get_string(2)
 \t\t\tactive_tooltips.append({
-\t\t\t\t"tooltip": result.get_string(2),
+\t\t\t\t"tooltip": tooltip_slug,
 \t\t\t\t"start": plain.length()
 \t\t\t})
+\t\t\tbbcode += _tooltip_open_bbcode(tooltip_slug)
 \t\telif token == "</tooltip>":
+\t\t\tif not active_tooltips.is_empty():
+\t\t\t\tbbcode += _tooltip_close_bbcode()
 \t\t\t_close_tooltip(active_tooltips, spans, tooltips, plain.length(), arguments, locale_key, depth)
 \t\telif token.begins_with("<icon:"):
 \t\t\tvar icon_slug := result.get_string(3)
 \t\t\tvar icon_start := plain.length()
 \t\t\tplain += _icon_plain(icon_slug)
-\t\t\tbbcode += _icon_fragment(icon_slug, active_styles)
+\t\t\tbbcode += _icon_fragment(icon_slug)
 \t\t\tvar icon: Dictionary = ICONS.get(icon_slug, {})
 \t\t\tspans.append({
 \t\t\t\t"type": "icon",
@@ -437,7 +444,7 @@ static func _format(id: int, arguments: Dictionary, locale: String, depth: int) 
 \t\t\tvar icon_slug := result.get_string(4)
 \t\t\tvar icon_start := plain.length()
 \t\t\tplain += _icon_plain(icon_slug)
-\t\t\tbbcode += _icon_fragment(icon_slug, active_styles)
+\t\t\tbbcode += _icon_fragment(icon_slug)
 \t\t\tvar icon: Dictionary = ICONS.get(icon_slug, {})
 \t\t\tspans.append({
 \t\t\t\t"type": "icon",
@@ -447,26 +454,31 @@ static func _format(id: int, arguments: Dictionary, locale: String, depth: int) 
 \t\t\t\t"path": String(icon.get("path", ""))
 \t\t\t})
 \t\telif token.begins_with("[term:"):
+\t\t\tvar style_slug := result.get_string(5)
 \t\t\tactive_styles.append({
-\t\t\t\t"style": result.get_string(5),
+\t\t\t\t"style": style_slug,
 \t\t\t\t"start": plain.length()
 \t\t\t})
+\t\t\tbbcode += _style_open_bbcode(style_slug)
 \t\telif token == "[/term]":
+\t\t\tbbcode += _style_close_bbcode(_active_style_slug(active_styles))
 \t\t\t_close_style(active_styles, spans, plain.length())
 \t\telse:
 \t\t\tvar placeholder_type := result.get_string(6)
 \t\t\tvar placeholder := result.get_string(7)
 \t\t\tvar replacement := str(arguments.get(placeholder, _placeholder_default(placeholder_type)))
 \t\t\tplain += replacement
-\t\t\tbbcode += _bbcode_fragment(replacement, active_styles)
+\t\t\tbbcode += _bbcode_escape(replacement)
 \t\tcursor = end
 
 \tvar suffix := template.substr(cursor)
 \tplain += suffix
-\tbbcode += _bbcode_fragment(suffix, active_styles)
+\tbbcode += _bbcode_escape(suffix)
 \twhile active_tooltips.size() > 0:
+\t\tbbcode += _tooltip_close_bbcode()
 \t\t_close_tooltip(active_tooltips, spans, tooltips, plain.length(), arguments, locale_key, depth)
 \twhile active_styles.size() > 0:
+\t\tbbcode += _style_close_bbcode(_active_style_slug(active_styles))
 \t\t_close_style(active_styles, spans, plain.length())
 \treturn LocalizedText.new(plain, bbcode, spans, tooltips)
 
@@ -507,26 +519,44 @@ static func _close_tooltip(active_tooltips: Array[Dictionary], spans: Array[Dict
 \t\t"tooltip_bbcode_text": tooltip_text.bbcode_text
 \t})
 
-static func _bbcode_fragment(value: String, active_styles: Array[Dictionary]) -> String:
-\tvar fragment := _bbcode_escape(value)
-\tvar style_slug := _active_style_slug(active_styles)
-\tif _style_italic(style_slug):
-\t\tfragment = "[i]%s[/i]" % fragment
-\tif _style_bold(style_slug):
-\t\tfragment = "[b]%s[/b]" % fragment
-\tif _style_underline(style_slug):
-\t\tfragment = "[u]%s[/u]" % fragment
+static func _style_open_bbcode(style_slug: String) -> String:
+\tvar tags := ""
 \tvar color := _style_color(style_slug)
 \tif not color.is_empty():
-\t\tfragment = "[color=%s]%s[/color]" % [color, fragment]
-\treturn fragment
+\t\ttags += "[color=%s]" % color
+\tif _style_bold(style_slug):
+\t\ttags += "[b]"
+\tif _style_italic(style_slug):
+\t\ttags += "[i]"
+\tif _style_underline(style_slug):
+\t\ttags += "[u]"
+\treturn tags
 
-static func _icon_fragment(icon_slug: String, active_styles: Array[Dictionary]) -> String:
+static func _style_close_bbcode(style_slug: String) -> String:
+\tvar tags := ""
+\tif _style_underline(style_slug):
+\t\ttags += "[/u]"
+\tif _style_italic(style_slug):
+\t\ttags += "[/i]"
+\tif _style_bold(style_slug):
+\t\ttags += "[/b]"
+\tvar color := _style_color(style_slug)
+\tif not color.is_empty():
+\t\ttags += "[/color]"
+\treturn tags
+
+static func _tooltip_open_bbcode(tooltip_slug: String) -> String:
+\treturn "[hint=%s]" % tooltip_slug
+
+static func _tooltip_close_bbcode() -> String:
+\treturn "[/hint]"
+
+static func _icon_fragment(icon_slug: String) -> String:
 \tvar icon: Dictionary = ICONS.get(icon_slug, {})
 \tvar icon_path := String(icon.get("path", ""))
 \tif icon_path.is_empty():
-\t\treturn _bbcode_fragment(_icon_plain(icon_slug), active_styles)
-\treturn "[img]%s[/img]" % _bbcode_escape(icon_path)
+\t\treturn _bbcode_escape(_icon_plain(icon_slug))
+\treturn "[img=16x16]%s[/img]" % _bbcode_escape(icon_path)
 
 static func _icon_plain(icon_slug: String) -> String:
 \treturn "[%s]" % icon_slug
