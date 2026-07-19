@@ -554,6 +554,13 @@ export function localizationPlaceholderDefault(type: TranslationPlaceholderType)
   return "UNKNOWN";
 }
 
+export function localizationPlaceholderDefaultText(type: TranslationPlaceholderType): string {
+  if (type === TranslationPlaceholderType.number) {
+    return "-1.0";
+  }
+  return String(localizationPlaceholderDefault(type));
+}
+
 export function placeholderToken(placeholder: LocalizationPlaceholder): string {
   return `${placeholderSyntaxType(placeholder.type)}:${placeholder.name}`;
 }

@@ -5,8 +5,10 @@ import {
   addLocalizationKey,
   localizationIconSlugsForKey,
   localizationDocumentSchema,
+  localizationPlaceholderDefaultText,
   localizationPlaceholdersForKey,
   removeLocaleFromLocalization,
+  TranslationPlaceholderType,
   validateLocalizationDocument
 } from "./localization";
 import { AssetCategoryEnum } from "./types";
@@ -132,6 +134,12 @@ describe("localization schemas", () => {
     expect(withKey.keys[0]?.values).toEqual({ en: "Start", sl_SI: "Start" });
     expect(removeLocaleFromLocalization(withKey, "sl_SI").locales).toEqual(["en"]);
     expect(() => removeLocaleFromLocalization(withKey, "en")).toThrow("Default locale");
+  });
+
+  it("keeps float placeholder defaults visibly float-shaped for preview text", () => {
+    expect(localizationPlaceholderDefaultText(TranslationPlaceholderType.number)).toBe("-1.0");
+    expect(localizationPlaceholderDefaultText(TranslationPlaceholderType.integer)).toBe("-1");
+    expect(localizationPlaceholderDefaultText(TranslationPlaceholderType.string)).toBe("UNKNOWN");
   });
 
   it("rejects malformed keys, duplicate keys, and missing default locale", () => {

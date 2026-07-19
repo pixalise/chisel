@@ -16,7 +16,7 @@ import {
   addLocalizationKey,
   addLocalizationTerm,
   analyzeLocalizationText,
-  localizationPlaceholderDefault,
+  localizationPlaceholderDefaultText,
   localizationPlaceholdersForKey,
   placeholderToken,
   removeLocaleFromLocalization,
@@ -323,7 +323,7 @@ const PlaceholderSummary: FC<{
       {placeholders.map((placeholder) => (
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border border-border p-2" key={placeholder.name}>
           <code className="truncate text-xs">{`{${placeholderToken(placeholder)}}`}</code>
-          <Badge variant="outline">{String(localizationPlaceholderDefault(placeholder.type))}</Badge>
+          <Badge variant="outline">{localizationPlaceholderDefaultText(placeholder.type)}</Badge>
         </div>
       ))}
       {analysis.iconSlugs.map((iconSlug) => {
@@ -506,7 +506,7 @@ function previewParts(document: LocalizationDocument, keyEntry: LocalizationKey,
     } else {
       appendPreviewPart(
         parts,
-        String(localizationPlaceholderDefault(match[3] as TranslationPlaceholderType)),
+        localizationPlaceholderDefaultText(match[3] as TranslationPlaceholderType),
         activeTerms,
         keysByPath,
         document.defaultLocale
