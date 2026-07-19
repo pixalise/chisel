@@ -80,8 +80,15 @@ const TodoList: FC<TodoListProps> = (props) => {
 
   return (
     <div className="space-y-2">
-      {todos.map((todo) => (
-        <TodoItem isArchived={isArchived} key={todo.id} mutations={mutations} todo={todo} />
+      {todos.map((todo, index) => (
+        <TodoItem
+          isArchived={isArchived}
+          isFirst={index === 0}
+          isLast={index === todos.length - 1}
+          key={todo.id}
+          mutations={mutations}
+          todo={todo}
+        />
       ))}
     </div>
   );

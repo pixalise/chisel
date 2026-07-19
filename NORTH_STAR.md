@@ -468,6 +468,46 @@ Chisel must not become:
 - an animation blend-tree editor
 - a replacement for Blender
 
+## First Game Phase Improvements
+
+The first Iron Bastion game phase should keep Chisel focused on making the extraction RTS loop authorable, validated, and exportable.
+
+The GDD implies a large game, but V1 should be a narrow playable expedition slice:
+
+- prepare one train and one cart
+- deploy a small squad roster
+- capture one finite resource zone
+- scavenge one ruin
+- build and salvage one temporary defense
+- survive zombie pressure
+- retreat home with extracted resources
+
+Chisel should support that slice before broadening into later systems.
+
+Required first-game Chisel improvements:
+
+- ordered project-management todos and subitems, so production work can be sequenced inside Chisel
+- `translationRef` table columns for typed references from game data into generated localization IDs
+- stronger removal impact for rows, fields, assets, and translation keys before deletion
+- asset usage references across data tables, localization icons, generated export paths, and Godot requirements
+- practical model, audio, video, and font asset metadata with previews or clear placeholders
+- a Godot requirements contract for tables, fields, translations, and asset kinds used by handwritten Godot code
+- clearer Problems output that explains whether export is blocked and which content item must be fixed
+- generated loader/helper APIs that make enum-indexed SOA tables easy to consume from Godot composers
+
+The first-game data model should prioritize:
+
+- resources and stockpiles
+- trains and carts
+- units, attacks, damage types, and resistances
+- enemies and horde pressure
+- temporary buildings and salvage
+- resource zones and ruins
+- artifacts as small persistent modifiers
+- expedition objectives and retreat results
+
+Commanders, research/blueprints, campaign structure, co-op, endless mode, advanced variants, and large map variety are not required for V1 unless the first playable loop proves them necessary.
+
 ## Second Game Phase
 
 The following systems are intentionally out of scope for the current game phase and should be revisited for the second game:

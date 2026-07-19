@@ -104,6 +104,23 @@ describe("project management service", () => {
     expect(completed.subitems[0]?.completed).toBe(false);
   });
 
+  it("moves root todos and subitems by array order", async () => {
+    const firstTodo = await projectManagementService.addTodo({ title: "First", priority: ProjectTodoPriority.medium });
+    const secondTodo = await projectManagementService.addTodo({ title: "Second", priority: ProjectTodoPriority.medium });
+    const thirdTodo = await projectManagementService.addTodo({ title: "Third", priority: ProjectTodoPriority.medium });
+    const firstSubitem = await projectManagementService.addSubitem(secondTodo.id, { title: "Subitem A" });
+    const secondSubitem = await projectManagementService.addSubitem(secondTodo.id, { title: "Subitem B" });
+
+    await projectManagementService.moveTodo(secondTodo.id, "up");
+    expect((await projectManagementService.listTodos()).map((todo) => todo.id)).toEqual([secondTodo.id, firstTodo.id, thirdTodo.id]);
+
+    await projectManagementService.moveSubitem(secondTodo.id, secondSubitem.id, "up");
+    expect(mocks.document?.todos.find((todo) => todo.id === secondTodo.id)?.subitems.map((subitem) => subitem.id)).toEqual([
+      secondSubitem.id,
+      firstSubitem.id
+    ]);
+  });
+
   it("adds, updates, toggles, and removes subitems under the correct todo", async () => {
     const firstTodo = await projectManagementService.addTodo({ title: "Parent A", priority: ProjectTodoPriority.medium });
     const secondTodo = await projectManagementService.addTodo({ title: "Parent B", priority: ProjectTodoPriority.medium });

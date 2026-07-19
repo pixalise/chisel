@@ -1,5 +1,5 @@
 import { type FC, useState } from "react";
-import { Archive, CalendarDays, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Archive, CalendarDays, ChevronDown, ChevronUp, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,6 +19,8 @@ import ProjectTodoForm from "./project-todo-form";
 
 export interface TodoItemProps {
   isArchived: boolean;
+  isFirst: boolean;
+  isLast: boolean;
   mutations: UseProjectTodoMutations;
   todo: ProjectTodo;
 }
@@ -37,7 +39,7 @@ function priorityClassName(priority: ProjectTodoPriority): string {
 }
 
 const TodoItem: FC<TodoItemProps> = (props) => {
-  const { isArchived, mutations, todo } = props;
+  const { isArchived, isFirst, isLast, mutations, todo } = props;
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAddSubitemOpen, setIsAddSubitemOpen] = useState(false);
   const completedSubitems = todo.subitems.filter((subitem) => subitem.completed).length;
@@ -82,6 +84,32 @@ const TodoItem: FC<TodoItemProps> = (props) => {
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-1">
+          <Button
+            aria-label={`Move ${todo.title} up`}
+            disabled={isBusy || isFirst}
+            onClick={() => {
+              void mutations.moveTodo({ todoId: todo.id, direction: "up" });
+            }}
+            size="icon"
+            title="Move up"
+            type="button"
+            variant="ghost"
+          >
+            <ChevronUp className="size-4" />
+          </Button>
+          <Button
+            aria-label={`Move ${todo.title} down`}
+            disabled={isBusy || isLast}
+            onClick={() => {
+              void mutations.moveTodo({ todoId: todo.id, direction: "down" });
+            }}
+            size="icon"
+            title="Move down"
+            type="button"
+            variant="ghost"
+          >
+            <ChevronDown className="size-4" />
+          </Button>
           <Button disabled={isBusy} onClick={() => setIsEditOpen(true)} size="sm" type="button" variant="ghost">
             <Pencil className="size-4" />
             Edit
@@ -117,8 +145,16 @@ const TodoItem: FC<TodoItemProps> = (props) => {
 
       {todo.subitems.length > 0 && (
         <div className="mt-3 space-y-1 border-t border-border pt-2">
-          {todo.subitems.map((subitem) => (
-            <SubitemRow isBusy={isBusy} key={subitem.id} mutations={mutations} subitem={subitem} todo={todo} />
+          {todo.subitems.map((subitem, index) => (
+            <SubitemRow
+              isBusy={isBusy}
+              isFirst={index === 0}
+              isLast={index === todo.subitems.length - 1}
+              key={subitem.id}
+              mutations={mutations}
+              subitem={subitem}
+              todo={todo}
+            />
           ))}
         </div>
       )}
@@ -153,13 +189,15 @@ const TodoItem: FC<TodoItemProps> = (props) => {
 
 interface SubitemRowProps {
   isBusy: boolean;
+  isFirst: boolean;
+  isLast: boolean;
   mutations: UseProjectTodoMutations;
   subitem: ProjectTodoSubitem;
   todo: ProjectTodo;
 }
 
 const SubitemRow: FC<SubitemRowProps> = (props) => {
-  const { isBusy, mutations, subitem, todo } = props;
+  const { isBusy, isFirst, isLast, mutations, subitem, todo } = props;
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   async function updateSubitem(input: CreateOrUpdateProjectSubitem): Promise<void> {
@@ -179,6 +217,32 @@ const SubitemRow: FC<SubitemRowProps> = (props) => {
       />
       <span className={cn("truncate text-sm", subitem.completed && "text-muted-foreground line-through")}>{subitem.title}</span>
       <div className="flex justify-end gap-1">
+        <Button
+          aria-label={`Move ${subitem.title} up`}
+          disabled={isBusy || isFirst}
+          onClick={() => {
+            void mutations.moveSubitem({ todoId: todo.id, subitemId: subitem.id, direction: "up" });
+          }}
+          size="icon"
+          title="Move up"
+          type="button"
+          variant="ghost"
+        >
+          <ChevronUp className="size-4" />
+        </Button>
+        <Button
+          aria-label={`Move ${subitem.title} down`}
+          disabled={isBusy || isLast}
+          onClick={() => {
+            void mutations.moveSubitem({ todoId: todo.id, subitemId: subitem.id, direction: "down" });
+          }}
+          size="icon"
+          title="Move down"
+          type="button"
+          variant="ghost"
+        >
+          <ChevronDown className="size-4" />
+        </Button>
         <Button disabled={isBusy} onClick={() => setIsEditOpen(true)} size="sm" type="button" variant="ghost">
           <Pencil className="size-4" />
           Edit

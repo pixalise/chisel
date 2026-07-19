@@ -6,6 +6,7 @@ import type {
   CreateOrUpdateProjectSubitem,
   CreateOrUpdateProjectTodo,
   ProjectTodo,
+  ProjectTodoMoveDirection,
   ProjectTodoSubitem
 } from "../../shared/project-management";
 
@@ -35,6 +36,17 @@ interface RemoveSubitemInput {
   todoId: string;
 }
 
+interface MoveTodoInput {
+  direction: ProjectTodoMoveDirection;
+  todoId: string;
+}
+
+interface MoveSubitemInput {
+  direction: ProjectTodoMoveDirection;
+  subitemId: string;
+  todoId: string;
+}
+
 interface ToggleSubitemCompletedInput {
   completed: boolean;
   subitemId: string;
@@ -46,6 +58,8 @@ export interface UseProjectTodoMutations {
   addTodo: (input: CreateOrUpdateProjectTodo) => Promise<ProjectTodo>;
   archiveTodo: (todoId: string) => Promise<ProjectTodo>;
   isProjectTodoMutating: boolean;
+  moveSubitem: (input: MoveSubitemInput) => Promise<ProjectTodoSubitem>;
+  moveTodo: (input: MoveTodoInput) => Promise<ProjectTodo>;
   removeSubitem: (input: RemoveSubitemInput) => Promise<void>;
   removeTodo: (todoId: string) => Promise<void>;
   toggleSubitemCompleted: (input: ToggleSubitemCompletedInput) => Promise<ProjectTodoSubitem>;
@@ -73,6 +87,11 @@ const useProjectTodoMutations = (): UseProjectTodoMutations => {
   const removeTodoMutation = useMutation({
     mutationKey: [HookKeysEnum.projectTodoMutation, "remove"],
     mutationFn: async (todoId: string) => projectManagementService.removeTodo(todoId),
+    onSuccess: invalidateTodos
+  });
+  const moveTodoMutation = useMutation({
+    mutationKey: [HookKeysEnum.projectTodoMutation, "move"],
+    mutationFn: async ({ todoId, direction }: MoveTodoInput) => projectManagementService.moveTodo(todoId, direction),
     onSuccess: invalidateTodos
   });
   const archiveTodoMutation = useMutation({
@@ -106,6 +125,12 @@ const useProjectTodoMutations = (): UseProjectTodoMutations => {
     mutationFn: async ({ todoId, subitemId }: RemoveSubitemInput) => projectManagementService.removeSubitem(todoId, subitemId),
     onSuccess: invalidateTodos
   });
+  const moveSubitemMutation = useMutation({
+    mutationKey: [HookKeysEnum.projectTodoMutation, "moveSubitem"],
+    mutationFn: async ({ todoId, subitemId, direction }: MoveSubitemInput) =>
+      projectManagementService.moveSubitem(todoId, subitemId, direction),
+    onSuccess: invalidateTodos
+  });
   const toggleSubitemMutation = useMutation({
     mutationKey: [HookKeysEnum.projectTodoMutation, "toggleSubitem"],
     mutationFn: async ({ todoId, subitemId, completed }: ToggleSubitemCompletedInput) =>
@@ -121,13 +146,17 @@ const useProjectTodoMutations = (): UseProjectTodoMutations => {
       addTodoMutation.isPending ||
       updateTodoMutation.isPending ||
       removeTodoMutation.isPending ||
+      moveTodoMutation.isPending ||
       archiveTodoMutation.isPending ||
       unarchiveTodoMutation.isPending ||
       toggleTodoMutation.isPending ||
       addSubitemMutation.isPending ||
       updateSubitemMutation.isPending ||
       removeSubitemMutation.isPending ||
+      moveSubitemMutation.isPending ||
       toggleSubitemMutation.isPending,
+    moveSubitem: moveSubitemMutation.mutateAsync,
+    moveTodo: moveTodoMutation.mutateAsync,
     removeSubitem: removeSubitemMutation.mutateAsync,
     removeTodo: removeTodoMutation.mutateAsync,
     toggleSubitemCompleted: toggleSubitemMutation.mutateAsync,

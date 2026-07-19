@@ -10,9 +10,11 @@ import {
   type CreateOrUpdateProjectTodo,
   projectManagementJsonSchema,
   type ProjectManagementJson,
+  projectTodoMoveDirectionSchema,
   projectTodoSchema,
   type ProjectTodo,
   projectTodoSubitemSchema,
+  type ProjectTodoMoveDirection,
   type ProjectTodoSubitem
 } from "../../shared/project-management";
 
@@ -75,6 +77,37 @@ class ProjectManagementService extends BaseService {
     }
 
     await this.writeTodos(todos);
+  }
+
+  public async moveTodo(id: string, direction: ProjectTodoMoveDirection): Promise<ProjectTodo> {
+    const parsedDirection = zodParse(projectTodoMoveDirectionSchema, direction);
+    const document = await this.readDocument();
+    const sourceIndex = document.todos.findIndex((todo) => todo.id === id);
+    if (sourceIndex < 0) {
+      throw new Error(`Todo ${id} does not exist`);
+    }
+
+    const sourceTodo = document.todos[sourceIndex]!;
+    const sameArchiveStateIndexes = document.todos
+      .map((todo, index) => ({ index, todo }))
+      .filter((entry) => Boolean(entry.todo.archivedAt) === Boolean(sourceTodo.archivedAt))
+      .map((entry) => entry.index);
+    const sourceGroupIndex = sameArchiveStateIndexes.indexOf(sourceIndex);
+    const targetGroupIndex = sourceGroupIndex + this.moveDelta(parsedDirection);
+    const targetIndex = sameArchiveStateIndexes[targetGroupIndex];
+    if (typeof targetIndex !== "number") {
+      return sourceTodo;
+    }
+
+    const movedTodo = zodParse(projectTodoSchema, {
+      ...sourceTodo,
+      updatedAt: this.timestamp()
+    });
+    const todos = [...document.todos];
+    todos[sourceIndex] = movedTodo;
+    [todos[sourceIndex], todos[targetIndex]] = [todos[targetIndex]!, todos[sourceIndex]!];
+    await this.writeTodos(todos);
+    return movedTodo;
   }
 
   public async archiveTodo(id: string): Promise<ProjectTodo> {
@@ -175,6 +208,41 @@ class ProjectManagementService extends BaseService {
     });
   }
 
+  public async moveSubitem(todoId: string, subitemId: string, direction: ProjectTodoMoveDirection): Promise<ProjectTodoSubitem> {
+    const parsedDirection = zodParse(projectTodoMoveDirectionSchema, direction);
+    let movedSubitem: ProjectTodoSubitem | undefined;
+    await this.updateTodoState(todoId, (todo) => {
+      const sourceIndex = todo.subitems.findIndex((subitem) => subitem.id === subitemId);
+      if (sourceIndex < 0) {
+        throw new Error(`Subitem ${subitemId} does not exist`);
+      }
+      const targetIndex = sourceIndex + this.moveDelta(parsedDirection);
+      movedSubitem = todo.subitems[sourceIndex];
+      if (targetIndex < 0 || targetIndex >= todo.subitems.length) {
+        return todo;
+      }
+
+      movedSubitem = zodParse(projectTodoSubitemSchema, {
+        ...todo.subitems[sourceIndex],
+        updatedAt: this.timestamp()
+      });
+      const subitems = [...todo.subitems];
+      subitems[sourceIndex] = movedSubitem;
+      [subitems[sourceIndex], subitems[targetIndex]] = [subitems[targetIndex]!, subitems[sourceIndex]!];
+      return {
+        ...todo,
+        subitems,
+        updatedAt: this.timestamp()
+      };
+    });
+
+    if (!movedSubitem) {
+      throw new Error(`Subitem ${subitemId} does not exist`);
+    }
+
+    return movedSubitem;
+  }
+
   public async toggleSubitemCompleted(todoId: string, subitemId: string, completed: boolean): Promise<ProjectTodoSubitem> {
     let updatedSubitem: ProjectTodoSubitem | undefined;
     await this.updateTodoState(todoId, (todo) => {
@@ -250,6 +318,10 @@ class ProjectManagementService extends BaseService {
 
   private timestamp(): string {
     return new Date().toISOString();
+  }
+
+  private moveDelta(direction: ProjectTodoMoveDirection): number {
+    return direction === "up" ? -1 : 1;
   }
 }
 
