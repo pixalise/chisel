@@ -230,6 +230,10 @@ describe("Godot export", () => {
     expect(inputFile?.content).toContain("return ACTION_NAMES[action_id]");
     expect(inputFile?.content).toContain("static func get_action_strength(action_id: int) -> float:");
     expect(inputFile?.content).toContain("static func is_action_just_pressed(action_id: int) -> bool:");
+    expect(inputFile?.content).toContain("func sync_input_map() -> void:");
+    expect(inputFile?.content).toContain("InputMap.load_from_project_settings()");
+    expect(inputFile?.content).toContain("InputMap.erase_action(input_action_name)");
+    expect(inputFile?.content).not.toContain("apply_to_input_map");
     expect(inputFile?.content).toContain("var input_action_name := action_name(index)");
     expect(inputFile?.content).not.toContain("String(ChiselInputBindings.SLUGS[index]).to_lower()");
     expect(inputFile?.content).not.toContain("ChiselInputBindings.ACTION");
