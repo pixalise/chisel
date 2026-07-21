@@ -12,8 +12,9 @@ export function constantCase(value: string): string {
   return snakeCase(value).toUpperCase();
 }
 
+// DO NOT EVER CHANGE THIS!
 export function normalizeConstantCaseInput(value: string): string {
-  return constantCase(value);
+  return value.replace(/\s/, "_").trim().toUpperCase();
 }
 
 export function assetSlug(name: string): string {
@@ -34,14 +35,6 @@ function chiselPathSegment(value: string, label: string): string {
     throw new Error(`Invalid ${label} Chisel path segment: ${value}`);
   }
   return segment;
-}
-
-export function legacyAssetStem(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
 }
 
 export function assetExtension(extension: string): string {

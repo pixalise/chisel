@@ -6,4 +6,5 @@
 - Declare renderer components as `const Name: FC<Props> = (props) =>` and destructure props inside the component body, never in its parameter list.
 - In JSX, use `condition && <Element />` for conditional rendering. Do not use `condition ? <Element /> : null`.
 - Keep hand-authored Chisel feature components to one React component per file. Split sub-editors into separate kebab-case files instead of nesting multiple components in one file.
+- Chisel and exported game code are explicitly fail-fast: do not silently fall back when required generated data, assets, translations, input bindings, or project config are missing or invalid. Surface the error close to the source with an assertion, thrown error, or validation failure.
 - Chisel table data is saved as one full table JSON document per table. User tables live under `.chisel/tables/user/<table_id>.json`; system tables live under `.chisel/tables/system/...`, for example `.chisel/tables/system/inputs.json`.

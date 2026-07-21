@@ -1,4 +1,4 @@
-import { type CSSProperties, type FC, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type FC, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Section from "@/components/layout/section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,11 +49,24 @@ const LocalizationScreen: FC = () => {
   const [newTooltipDescriptionKey, setNewTooltipDescriptionKey] = useState("");
   const [selectedKeyPath, setSelectedKeyPath] = useState<string | undefined>(undefined);
   const [filteredKeyPath, setFilteredKeyPath] = useState<string | undefined>(undefined);
+  const autosaveRef = useRef({
+    draft,
+    errorCount: 0,
+    isLocalizationLoading,
+    isSaveLocalizationLoading,
+    saveLocalization
+  });
+  const isAutosavingRef = useRef(false);
+  const lastAutosavedErrorRef = useRef<string | undefined>(undefined);
+  const lastSavedSignatureRef = useRef(JSON.stringify(localization));
 
   useEffect(() => {
     setDraft(localization);
-    setSelectedKeyPath(localization.keys[0]?.path);
-    setFilteredKeyPath(undefined);
+    setSelectedKeyPath((current) =>
+      current && localization.keys.some((key) => key.path === current) ? current : localization.keys[0]?.path
+    );
+    setFilteredKeyPath((current) => (current && localization.keys.some((key) => key.path === current) ? current : undefined));
+    lastSavedSignatureRef.current = JSON.stringify(localization);
   }, [localization]);
 
   const problems = useMemo(() => validateLocalizationDocument(draft, assets), [assets, draft]);
@@ -196,6 +209,57 @@ const LocalizationScreen: FC = () => {
       description: error instanceof Error ? error.message : String(error)
     });
   }
+
+  useEffect(() => {
+    autosaveRef.current = {
+      draft,
+      errorCount,
+      isLocalizationLoading,
+      isSaveLocalizationLoading,
+      saveLocalization
+    };
+  }, [draft, errorCount, isLocalizationLoading, isSaveLocalizationLoading, saveLocalization]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const current = autosaveRef.current;
+      if (current.errorCount > 0 || current.isLocalizationLoading || current.isSaveLocalizationLoading || isAutosavingRef.current) {
+        return;
+      }
+
+      const signature = JSON.stringify(current.draft);
+      if (signature === lastSavedSignatureRef.current) {
+        return;
+      }
+
+      isAutosavingRef.current = true;
+      void current
+        .saveLocalization(current.draft)
+        .then((saved) => {
+          lastSavedSignatureRef.current = JSON.stringify(saved);
+          lastAutosavedErrorRef.current = undefined;
+          setDraft((currentDraft) => (JSON.stringify(currentDraft) === signature ? saved : currentDraft));
+        })
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          if (lastAutosavedErrorRef.current === message) {
+            return;
+          }
+          lastAutosavedErrorRef.current = message;
+          toast({
+            variant: "destructive",
+            title: "Localization autosave failed",
+            description: message
+          });
+        })
+        .finally(() => {
+          isAutosavingRef.current = false;
+        });
+    }, 3000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [toast]);
 
   return (
     <Section
