@@ -39,7 +39,7 @@ export function previewParts(
   const activeStyles: LocalizationStyle[] = [];
   const activeTooltips: LocalizationTooltip[] = [];
   const regex =
-    /<style:([A-Z][A-Z0-9_]*)>|<\/style>|<tooltip:([A-Z][A-Z0-9_]*)>|<\/tooltip>|<icon:([A-Z][A-Z0-9_]*)\s*\/>|\{(int|float|string):([a-z][a-z0-9_]*)\}/g;
+    /<style:([A-Z][A-Z0-9_]*)>|<\/style>|<tooltip:([A-Z][A-Z0-9_]*)>|<\/tooltip>|<br\s*\/>|<icon:([A-Z][A-Z0-9_]*)\s*\/>|\{(int|float|string):([a-z][a-z0-9_]*)\}/g;
   let cursor = 0;
   for (const match of text.matchAll(regex)) {
     const index = match.index ?? 0;
@@ -61,6 +61,8 @@ export function previewParts(
       }
     } else if (token === "</tooltip>") {
       activeTooltips.pop();
+    } else if (token.startsWith("<br")) {
+      appendLineBreakPart(parts, activeStyles, activeTooltips);
     } else if (token.startsWith("<icon:")) {
       appendIconPreviewPart(parts, match[3] ?? "", activeStyles, activeTooltips, keysByPath, locale, assetsById);
     } else {
@@ -102,6 +104,20 @@ function appendIconPreviewPart(
     italic: style?.italic,
     label,
     color: style?.color,
+    tooltip,
+    underline: style?.underline
+  });
+}
+
+function appendLineBreakPart(parts: PreviewPart[], activeStyles: LocalizationStyle[], activeTooltips: LocalizationTooltip[]): void {
+  const style = activeStyles[activeStyles.length - 1];
+  const tooltip = activeTooltips[activeTooltips.length - 1];
+  parts.push({
+    bold: style?.bold,
+    label: "\n",
+    color: style?.color,
+    italic: style?.italic,
+    lineBreak: true,
     tooltip,
     underline: style?.underline
   });

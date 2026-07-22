@@ -9,6 +9,7 @@ export interface PreviewPart {
   iconSlug?: string;
   italic?: boolean;
   label: ReactNode;
+  lineBreak?: boolean;
   tooltip?: LocalizationTooltip;
   underline?: boolean;
 }

@@ -4,10 +4,10 @@ import type { Asset } from "../../../../../shared/schemas";
 import { AssetCategoryEnum } from "../../../../../shared/types";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalizationContext } from "@/screens/main-stack/localization-screen/localization-context";
+import SlugInput from "@/components/controls/slug-input";
 
 const emptySelectionValue = "__EMPTY__";
 
@@ -53,7 +53,7 @@ const TooltipCreateEditor: FC<TooltipCreateEditorProps> = (props) => {
     <FieldGroup className="mb-3 gap-3">
       <Field>
         <FieldLabel>Slug</FieldLabel>
-        <Input onChange={(event) => setSlug(event.target.value)} placeholder="PHYSICAL_DAMAGE_TYPE" value={slug} />
+        <SlugInput onChange={(event) => setSlug(event.target.value)} placeholder="PHYSICAL_DAMAGE_TYPE" value={slug} />
       </Field>
       <Field>
         <FieldLabel>Icon</FieldLabel>

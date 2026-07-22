@@ -424,7 +424,7 @@ static func _format(id: int, arguments: Dictionary, locale: String, depth: int) 
 \tvar templates: Array = VALUES.get(locale_key, VALUES[DEFAULT_LOCALE])
 \tvar template := String(templates[id])
 \tvar regex := RegEx.new()
-\tregex.compile("<style:([A-Z][A-Z0-9_]*)>|</style>|<tooltip:([A-Z][A-Z0-9_]*)>|</tooltip>|<icon:([A-Z][A-Z0-9_]*)\\\\s*/>|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")
+\tregex.compile("<style:([A-Z][A-Z0-9_]*)>|</style>|<tooltip:([A-Z][A-Z0-9_]*)>|</tooltip>|<br\\\\s*/>|<icon:([A-Z][A-Z0-9_]*)\\\\s*/>|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")
 \tvar cursor := 0
 \tvar plain := ""
 \tvar bbcode := ""
@@ -460,6 +460,9 @@ static func _format(id: int, arguments: Dictionary, locale: String, depth: int) 
 \t\t\tif not active_tooltips.is_empty():
 \t\t\t\tbbcode += _tooltip_close_bbcode()
 \t\t\t_close_tooltip(active_tooltips, spans, tooltips, plain.length(), arguments, locale_key, depth)
+\t\telif token.begins_with("<br"):
+\t\t\tplain += "\\n"
+\t\t\tbbcode += "\\n"
 \t\telif token.begins_with("<icon:"):
 \t\t\tvar icon_slug := result.get_string(3)
 \t\t\tvar icon_start := plain.length()

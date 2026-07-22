@@ -46,6 +46,10 @@ interface LocalizationPreviewPartProps {
 
 const LocalizationPreviewPart: FC<LocalizationPreviewPartProps> = (props) => {
   const { assets, document, enableTooltips, locale, part, projectPath } = props;
+  if (part.lineBreak) {
+    return <br />;
+  }
+
   const content = (
     <span style={previewPartStyle(part)}>
       {part.iconAsset && projectPath ? (

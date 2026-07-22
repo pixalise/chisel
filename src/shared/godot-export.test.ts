@@ -436,8 +436,8 @@ describe("Godot export", () => {
         {
           path: "TERM.AOE_RADIUS.TOOLTIP",
           values: {
-            en: "Area radius.",
-            sl_SI: "Polmer obmocja."
+            en: "Area radius.<br/>Around the target.",
+            sl_SI: "Polmer obmocja.<br/>Okoli tarce."
           },
           placeholders: []
         },
@@ -498,8 +498,9 @@ describe("Godot export", () => {
     expect(localizationFile?.content).toContain('return "[hint=%s]" % tooltip_slug');
     expect(localizationFile?.content).toContain('static func format(id: int, arguments: Dictionary = {}, locale: String = "")');
     expect(localizationFile?.content).toContain(
-      'regex.compile("<style:([A-Z][A-Z0-9_]*)>|</style>|<tooltip:([A-Z][A-Z0-9_]*)>|</tooltip>|<icon:([A-Z][A-Z0-9_]*)\\\\s*/>|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")'
+      'regex.compile("<style:([A-Z][A-Z0-9_]*)>|</style>|<tooltip:([A-Z][A-Z0-9_]*)>|</tooltip>|<br\\\\s*/>|<icon:([A-Z][A-Z0-9_]*)\\\\s*/>|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")'
     );
+    expect(localizationFile?.content).toContain('elif token.begins_with("<br"):');
     expect(localizationFile?.content).toContain('return "[img=16x16]%s[/img]" % _bbcode_escape(icon_path)');
     expect(localizationFile?.content).toContain("static func _placeholder_default(placeholder_type: String) -> Variant:");
     expect(localizationFile?.content).toContain("class LocalizedText:");
@@ -522,7 +523,7 @@ describe("Godot export", () => {
     expect(translationsFile?.content).toContain("parameters.to_arguments()");
     expect(translationsFile?.content).toContain("ChiselLocalization.Id.UNIT_TOXIN_TRACTOR_DESCRIPTION");
     expect(csvFile?.content).toBe(
-      '"keys","en","sl_SI"\n"TERM.AOE_RADIUS.TOOLTIP","Area radius.","Polmer obmocja."\n"UNIT.TOXIN_TRACTOR.DESCRIPTION","The unit does <icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage} damage in a <style:AOE_RADIUS><tooltip:AOE_RADIUS>{float:aoe_radius} radius</tooltip></style> around it.","Enota naredi <icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage} skode v <style:AOE_RADIUS><tooltip:AOE_RADIUS>polmeru {float:aoe_radius}</tooltip></style>."'
+      '"keys","en","sl_SI"\n"TERM.AOE_RADIUS.TOOLTIP","Area radius.<br/>Around the target.","Polmer obmocja.<br/>Okoli tarce."\n"UNIT.TOXIN_TRACTOR.DESCRIPTION","The unit does <icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage} damage in a <style:AOE_RADIUS><tooltip:AOE_RADIUS>{float:aoe_radius} radius</tooltip></style> around it.","Enota naredi <icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage} skode v <style:AOE_RADIUS><tooltip:AOE_RADIUS>polmeru {float:aoe_radius}</tooltip></style>."'
     );
   });
 });

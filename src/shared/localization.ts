@@ -663,6 +663,13 @@ export function analyzeLocalizationText(text: string, path: string): Localizatio
       message: "Icon tag must look like <icon:ICON_SLUG/>"
     });
   }
+  if (/<br(?::|\s|>)/.test(text.replace(/<br\s*\/>/g, ""))) {
+    problems.push({
+      severity: LocalizationProblemSeverity.error,
+      path,
+      message: "Line break tag must look like <br/>"
+    });
+  }
 
   return {
     iconSlugs: uniqueValues(iconSlugs),
@@ -680,6 +687,7 @@ const localizationRichTagRegex = new RegExp(
     "<\\/style>",
     `<tooltip:(${localizationSlugPattern})>`,
     "<\\/tooltip>",
+    "<br\\s*\\/>",
     `<icon:(${localizationSlugPattern})\\s*\\/>`
   ].join("|"),
   "g"

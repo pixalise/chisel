@@ -143,6 +143,43 @@ describe("localization schemas", () => {
     expect(localizationPlaceholderDefaultText(TranslationPlaceholderType.string)).toBe("UNKNOWN");
   });
 
+  it("validates line break rich markup", () => {
+    const document = localizationDocumentSchema.parse({
+      schemaVersion: 2,
+      defaultLocale: "en",
+      locales: ["en"],
+      styles: [],
+      tooltips: [],
+      keys: [
+        {
+          path: "ITEM.OLD_REVOLVER.DESCRIPTION",
+          values: {
+            en: "A weapon from the olden era<br/>An old revolver with a leather handle."
+          },
+          placeholders: []
+        }
+      ]
+    });
+
+    expect(validateLocalizationDocument(document)).toEqual([]);
+
+    const invalidDocument = localizationDocumentSchema.parse({
+      ...document,
+      keys: [
+        {
+          ...document.keys[0]!,
+          values: {
+            en: "A weapon from the olden era<br>An old revolver."
+          }
+        }
+      ]
+    });
+
+    expect(validateLocalizationDocument(invalidDocument)).toContainEqual(
+      expect.objectContaining({ message: "Line break tag must look like <br/>" })
+    );
+  });
+
   it("rejects malformed keys, duplicate keys, and missing default locale", () => {
     expect(
       localizationDocumentSchema.safeParse({
