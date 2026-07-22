@@ -2,7 +2,6 @@ import { type CSSProperties, type FC, type ReactNode, useEffect, useMemo, useRef
 import Section from "@/components/layout/section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import useListAssetsQuery from "@/hooks/use-list-assets-query";
 import useLocalizationQuery from "@/hooks/use-localization-query";
 import useSaveLocalizationMutation from "@/hooks/use-save-localization-mutation";
@@ -11,14 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import {
   LocalizationProblemSeverity,
   TranslationPlaceholderType,
-  addLocalizationStyle,
-  addLocalizationTooltip,
   analyzeLocalizationText,
   localizationPlaceholderDefaultText,
   localizationPlaceholdersForKey,
   placeholderToken,
-  removeLocalizationStyle,
-  removeLocalizationTooltip,
   validateLocalizationDocument,
   type LocalizationDocument,
   type LocalizationKey,
@@ -34,6 +29,9 @@ import LocalizationMatrix from "@/screens/main-stack/localization-screen/localiz
 import LanguagesSection from "@/screens/main-stack/localization-screen/languages-section/languages-section";
 import { LocalizationProvider, useLocalizationContext } from "@/screens/main-stack/localization-screen/localization-context";
 import TooltipEditor from "@/screens/main-stack/localization-screen/editors/tooltip-editor";
+import StyleEditor from "@/screens/main-stack/localization-screen/editors/style-editor";
+import TooltipCreateEditor from "@/screens/main-stack/localization-screen/editors/tooltip-create-editor";
+import StyleCreateEditor from "@/screens/main-stack/localization-screen/editors/style-create-editor";
 
 const LocalizationScreen: FC = () => {
   const { localization, isLocalizationLoading } = useLocalizationQuery();
@@ -56,11 +54,6 @@ const LocalizationScreenContent: FC<LocalizationScreenContentProps> = (props) =>
   const { document: draft, selectedKey, setDocument: setDraft } = useLocalizationContext();
   const { saveLocalization, isSaveLocalizationLoading } = useSaveLocalizationMutation();
   const { toast } = useToast();
-  const [newStyleSlug, setNewStyleSlug] = useState("");
-  const [newTooltipSlug, setNewTooltipSlug] = useState("");
-  const [newTooltipIconAssetId, setNewTooltipIconAssetId] = useState("");
-  const [newTooltipTitleKey, setNewTooltipTitleKey] = useState("");
-  const [newTooltipDescriptionKey, setNewTooltipDescriptionKey] = useState("");
   const autosaveRef = useRef({
     draft,
     errorCount: 0,
@@ -104,65 +97,6 @@ const LocalizationScreenContent: FC<LocalizationScreenContentProps> = (props) =>
         description: error instanceof Error ? error.message : String(error)
       });
     }
-  }
-
-  function onAddStyle(): void {
-    try {
-      setDraft(addLocalizationStyle(draft, { slug: newStyleSlug, bold: false, italic: false, underline: false }));
-      setNewStyleSlug("");
-    } catch (error) {
-      showDraftError(error);
-    }
-  }
-
-  function onRemoveStyle(slug: string): void {
-    if (!window.confirm(`Remove localization style ${slug}?`)) {
-      return;
-    }
-    try {
-      setDraft(removeLocalizationStyle(draft, slug));
-    } catch (error) {
-      showDraftError(error);
-    }
-  }
-
-  function onAddTooltip(): void {
-    try {
-      const fallbackKey = selectedKey?.path ?? draft.keys[0]?.path ?? "TOOLTIP.NEW_TOOLTIP.DESCRIPTION";
-      setDraft(
-        addLocalizationTooltip(draft, {
-          slug: newTooltipSlug,
-          iconAssetId: newTooltipIconAssetId || undefined,
-          titleKey: newTooltipTitleKey || fallbackKey,
-          descriptionKey: newTooltipDescriptionKey || fallbackKey
-        })
-      );
-      setNewTooltipSlug("");
-      setNewTooltipIconAssetId("");
-      setNewTooltipTitleKey("");
-      setNewTooltipDescriptionKey("");
-    } catch (error) {
-      showDraftError(error);
-    }
-  }
-
-  function onRemoveTooltip(slug: string): void {
-    if (!window.confirm(`Remove localization tooltip ${slug}?`)) {
-      return;
-    }
-    try {
-      setDraft(removeLocalizationTooltip(draft, slug));
-    } catch (error) {
-      showDraftError(error);
-    }
-  }
-
-  function showDraftError(error: unknown): void {
-    toast({
-      variant: "destructive",
-      title: "Localization edit failed",
-      description: error instanceof Error ? error.message : String(error)
-    });
   }
 
   useEffect(() => {
@@ -250,65 +184,13 @@ const LocalizationScreenContent: FC<LocalizationScreenContentProps> = (props) =>
           </Section>
 
           <Section title="Styles">
-            <div className="mb-3 flex gap-2">
-              <Input onChange={(event) => setNewStyleSlug(event.target.value)} placeholder="PHYSICAL_DAMAGE_STYLE" value={newStyleSlug} />
-              <Button onClick={onAddStyle} type="button" variant="secondary">
-                Add Style
-              </Button>
-            </div>
-            <StyleEditor document={draft} onChange={setDraft} onRemoveStyle={onRemoveStyle} />
+            <StyleCreateEditor />
+            <StyleEditor />
           </Section>
 
           <Section title="Tooltips">
-            <div className="mb-3 grid gap-2">
-              <Input
-                onChange={(event) => setNewTooltipSlug(event.target.value)}
-                placeholder="PHYSICAL_DAMAGE_TYPE"
-                value={newTooltipSlug}
-              />
-              <select
-                className="h-9 w-full border border-input bg-background px-2 text-sm"
-                onChange={(event) => setNewTooltipIconAssetId(event.target.value)}
-                value={newTooltipIconAssetId}
-              >
-                <option value="">No icon</option>
-                {assets
-                  .filter((asset) => asset.category === AssetCategoryEnum.uiIcon)
-                  .map((asset) => (
-                    <option key={asset.id} value={asset.id}>
-                      {asset.name}
-                    </option>
-                  ))}
-              </select>
-              <select
-                className="h-9 w-full border border-input bg-background px-2 text-sm"
-                onChange={(event) => setNewTooltipTitleKey(event.target.value)}
-                value={newTooltipTitleKey}
-              >
-                <option value="">Title key</option>
-                {draft.keys.map((key) => (
-                  <option key={key.path} value={key.path}>
-                    {key.path}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="h-9 w-full border border-input bg-background px-2 text-sm"
-                onChange={(event) => setNewTooltipDescriptionKey(event.target.value)}
-                value={newTooltipDescriptionKey}
-              >
-                <option value="">Description key</option>
-                {draft.keys.map((key) => (
-                  <option key={key.path} value={key.path}>
-                    {key.path}
-                  </option>
-                ))}
-              </select>
-              <Button onClick={onAddTooltip} type="button" variant="secondary">
-                Add Tooltip
-              </Button>
-            </div>
-            <TooltipEditor assets={assets} document={draft} onChange={setDraft} onRemoveTooltip={onRemoveTooltip} />
+            <TooltipCreateEditor assets={assets} />
+            <TooltipEditor assets={assets} />
           </Section>
 
           <Section title="Preview">
@@ -387,71 +269,6 @@ const PlaceholderSummary: FC<{
           ))}
         </div>
       )}
-    </div>
-  );
-};
-
-const StyleEditor: FC<{
-  document: LocalizationDocument;
-  onChange: (document: LocalizationDocument) => void;
-  onRemoveStyle: (slug: string) => void;
-}> = (props) => {
-  const { document, onChange, onRemoveStyle } = props;
-
-  function updateStyle(index: number, style: LocalizationStyle): void {
-    onChange({
-      ...document,
-      styles: document.styles.map((entry, entryIndex) => (entryIndex === index ? style : entry))
-    });
-  }
-
-  if (document.styles.length === 0) {
-    return <p className="m-0 text-sm text-muted-foreground">No rich styles.</p>;
-  }
-
-  return (
-    <div className="space-y-2">
-      {document.styles.map((style, index) => (
-        <div className="space-y-2 border border-border p-2" key={index}>
-          <Input
-            className="font-mono text-xs"
-            onChange={(event) => updateStyle(index, { ...style, slug: event.target.value })}
-            value={style.slug}
-          />
-          <Input
-            onChange={(event) => updateStyle(index, { ...style, color: event.target.value || undefined })}
-            placeholder="#65C7FF"
-            value={style.color ?? ""}
-          />
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              checked={style.bold}
-              onChange={(event) => updateStyle(index, { ...style, bold: event.target.checked })}
-              type="checkbox"
-            />
-            Bold
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              checked={style.italic}
-              onChange={(event) => updateStyle(index, { ...style, italic: event.target.checked })}
-              type="checkbox"
-            />
-            Italic
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              checked={style.underline}
-              onChange={(event) => updateStyle(index, { ...style, underline: event.target.checked })}
-              type="checkbox"
-            />
-            Underline
-          </label>
-          <Button onClick={() => onRemoveStyle(style.slug)} size="sm" type="button" variant="ghost">
-            Remove
-          </Button>
-        </div>
-      ))}
     </div>
   );
 };

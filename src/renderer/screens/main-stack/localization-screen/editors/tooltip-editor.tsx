@@ -1,30 +1,47 @@
 import { FC } from "react";
-import type { LocalizationDocument, LocalizationTooltip } from "../../../../../shared/localization";
+import { removeLocalizationTooltip, type LocalizationTooltip } from "../../../../../shared/localization";
 import type { Asset } from "../../../../../shared/schemas";
 import { AssetCategoryEnum } from "../../../../../shared/types";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { useLocalizationContext } from "@/screens/main-stack/localization-screen/localization-context";
 
 const noIconValue = "__NO_ICON__";
 
 export interface TooltipEditorProps {
   assets: Asset[];
-  document: LocalizationDocument;
-  onChange: (document: LocalizationDocument) => void;
-  onRemoveTooltip: (slug: string) => void;
 }
 
 const TooltipEditor: FC<TooltipEditorProps> = (props) => {
-  const { assets, document, onChange, onRemoveTooltip } = props;
+  const { assets } = props;
+  const { document, setDocument } = useLocalizationContext();
+  const { toast } = useToast();
   const uiIconAssets = assets.filter((asset) => asset.category === AssetCategoryEnum.uiIcon);
 
   function updateTooltip(index: number, tooltip: LocalizationTooltip): void {
-    onChange({
+    setDocument({
       ...document,
       tooltips: document.tooltips.map((entry, entryIndex) => (entryIndex === index ? tooltip : entry))
     });
+  }
+
+  function onRemoveTooltip(slug: string): void {
+    if (!window.confirm(`Remove localization tooltip ${slug}?`)) {
+      return;
+    }
+
+    try {
+      setDocument(removeLocalizationTooltip(document, slug));
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Localization edit failed",
+        description: error instanceof Error ? error.message : String(error)
+      });
+    }
   }
 
   if (document.tooltips.length === 0) {
