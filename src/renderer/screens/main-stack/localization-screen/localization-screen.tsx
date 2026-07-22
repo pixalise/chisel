@@ -32,7 +32,7 @@ import type { Asset } from "../../../../shared/schemas";
 import { AssetCategoryEnum } from "../../../../shared/types";
 import LocalizationKeyTree from "@/screens/main-stack/localization-screen/localization-key-tree/localization-key-tree";
 import LocalizationKeySection from "@/screens/main-stack/localization-screen/localization-key-section";
-import LocalizationMatrix from "@/screens/main-stack/localization-screen/localization-matrix";
+import LocalizationMatrix from "@/screens/main-stack/localization-screen/localization-matrix/localization-matrix";
 import LanguagesSection from "@/screens/main-stack/localization-screen/languages-section/languages-section";
 
 const LocalizationScreen: FC = () => {
