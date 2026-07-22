@@ -33,6 +33,7 @@ import LocalizationKeySection from "@/screens/main-stack/localization-screen/loc
 import LocalizationMatrix from "@/screens/main-stack/localization-screen/localization-matrix/localization-matrix";
 import LanguagesSection from "@/screens/main-stack/localization-screen/languages-section/languages-section";
 import { LocalizationProvider, useLocalizationContext } from "@/screens/main-stack/localization-screen/localization-context";
+import TooltipEditor from "@/screens/main-stack/localization-screen/editors/tooltip-editor";
 
 const LocalizationScreen: FC = () => {
   const { localization, isLocalizationLoading } = useLocalizationQuery();
@@ -447,78 +448,6 @@ const StyleEditor: FC<{
             Underline
           </label>
           <Button onClick={() => onRemoveStyle(style.slug)} size="sm" type="button" variant="ghost">
-            Remove
-          </Button>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const TooltipEditor: FC<{
-  assets: Asset[];
-  document: LocalizationDocument;
-  onChange: (document: LocalizationDocument) => void;
-  onRemoveTooltip: (slug: string) => void;
-}> = (props) => {
-  const { assets, document, onChange, onRemoveTooltip } = props;
-  const uiIconAssets = assets.filter((asset) => asset.category === AssetCategoryEnum.uiIcon);
-
-  function updateTooltip(index: number, tooltip: LocalizationTooltip): void {
-    onChange({
-      ...document,
-      tooltips: document.tooltips.map((entry, entryIndex) => (entryIndex === index ? tooltip : entry))
-    });
-  }
-
-  if (document.tooltips.length === 0) {
-    return <p className="m-0 text-sm text-muted-foreground">No rich tooltips.</p>;
-  }
-
-  return (
-    <div className="space-y-2">
-      {document.tooltips.map((tooltip, index) => (
-        <div className="space-y-2 border border-border p-2" key={index}>
-          <Input
-            className="font-mono text-xs"
-            onChange={(event) => updateTooltip(index, { ...tooltip, slug: event.target.value })}
-            value={tooltip.slug}
-          />
-          <select
-            className="h-9 w-full border border-input bg-background px-2 text-sm"
-            onChange={(event) => updateTooltip(index, { ...tooltip, iconAssetId: event.target.value || undefined })}
-            value={tooltip.iconAssetId ?? ""}
-          >
-            <option value="">No icon</option>
-            {uiIconAssets.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="h-9 w-full border border-input bg-background px-2 text-sm"
-            onChange={(event) => updateTooltip(index, { ...tooltip, titleKey: event.target.value })}
-            value={tooltip.titleKey}
-          >
-            {document.keys.map((key) => (
-              <option key={key.path} value={key.path}>
-                {key.path}
-              </option>
-            ))}
-          </select>
-          <select
-            className="h-9 w-full border border-input bg-background px-2 text-sm"
-            onChange={(event) => updateTooltip(index, { ...tooltip, descriptionKey: event.target.value })}
-            value={tooltip.descriptionKey}
-          >
-            {document.keys.map((key) => (
-              <option key={key.path} value={key.path}>
-                {key.path}
-              </option>
-            ))}
-          </select>
-          <Button onClick={() => onRemoveTooltip(tooltip.slug)} size="sm" type="button" variant="ghost">
             Remove
           </Button>
         </div>
