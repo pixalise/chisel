@@ -23,17 +23,9 @@ const LocalizationKeyTree: FC<LocalizationKeyTreeProps> = (props) => {
   }
 
   return (
-    <div className="max-h-[32rem] overflow-auto border border-border p-2">
-      <div className="mb-2 grid gap-2">
-        <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">Tree</div>
-        <Input
-          className="h-8 font-mono text-xs"
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search keys"
-          value={search}
-        />
-      </div>
-      <div className="space-y-1">
+    <div className="max-h-[48rem] border border-border p-2 overflow-hidden flex flex-col w-full items-start gap-2">
+      <Input className="font-mono" onChange={(event) => setSearch(event.target.value)} placeholder="Search keys" value={search} />
+      <div className="space-y-1 overflow-y-scroll h-full w-full">
         {!isEmpty(tree.children) &&
           tree.children.map((node) => (
             <LocalizationKeyTreeBranch

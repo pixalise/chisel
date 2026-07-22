@@ -3,7 +3,6 @@ import Section from "@/components/layout/section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import useListAssetsQuery from "@/hooks/use-list-assets-query";
 import useLocalizationQuery from "@/hooks/use-localization-query";
 import useSaveLocalizationMutation from "@/hooks/use-save-localization-mutation";
@@ -12,7 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import {
   LocalizationProblemSeverity,
   TranslationPlaceholderType,
-  addLocaleToLocalization,
   addLocalizationKey,
   addLocalizationStyle,
   addLocalizationTooltip,
@@ -20,7 +18,6 @@ import {
   localizationPlaceholderDefaultText,
   localizationPlaceholdersForKey,
   placeholderToken,
-  removeLocaleFromLocalization,
   removeLocalizationKey,
   removeLocalizationStyle,
   removeLocalizationTooltip,
@@ -35,6 +32,8 @@ import type { Asset } from "../../../../shared/schemas";
 import { AssetCategoryEnum } from "../../../../shared/types";
 import LocalizationKeyTree from "@/screens/main-stack/localization-screen/localization-key-tree/localization-key-tree";
 import LocalizationKeySection from "@/screens/main-stack/localization-screen/localization-key-section";
+import LocalizationMatrix from "@/screens/main-stack/localization-screen/localization-matrix";
+import LanguagesSection from "@/screens/main-stack/localization-screen/languages-section/languages-section";
 
 const LocalizationScreen: FC = () => {
   const { assets } = useListAssetsQuery();
@@ -42,7 +41,6 @@ const LocalizationScreen: FC = () => {
   const { saveLocalization, isSaveLocalizationLoading } = useSaveLocalizationMutation();
   const { toast } = useToast();
   const [draft, setDraft] = useState<LocalizationDocument>(localization);
-  const [newLocale, setNewLocale] = useState("");
   const [newStyleSlug, setNewStyleSlug] = useState("");
   const [newTooltipSlug, setNewTooltipSlug] = useState("");
   const [newTooltipIconAssetId, setNewTooltipIconAssetId] = useState("");
@@ -98,26 +96,6 @@ const LocalizationScreen: FC = () => {
         title: "Localization save failed",
         description: error instanceof Error ? error.message : String(error)
       });
-    }
-  }
-
-  function onAddLocale(): void {
-    try {
-      setDraft(addLocaleToLocalization(draft, newLocale));
-      setNewLocale("");
-    } catch (error) {
-      showDraftError(error);
-    }
-  }
-
-  function onRemoveLocale(locale: string): void {
-    if (!window.confirm(`Remove locale ${locale} from every localization key?`)) {
-      return;
-    }
-    try {
-      setDraft(removeLocaleFromLocalization(draft, locale));
-    } catch (error) {
-      showDraftError(error);
     }
   }
 
@@ -273,42 +251,26 @@ const LocalizationScreen: FC = () => {
     >
       <div className="grid grid-cols-[minmax(0,1fr)_24rem] gap-4 max-[1180px]:grid-cols-1">
         <div className="min-w-0 space-y-4">
-          <Section title="Languages">
-            <div className="flex flex-wrap items-center gap-2">
-              {draft.locales.map((locale) => (
-                <Badge className="gap-2" key={locale} variant={locale === draft.defaultLocale ? "default" : "secondary"}>
-                  {locale}
-                  {locale !== draft.defaultLocale && (
-                    <button className="text-xs" onClick={() => onRemoveLocale(locale)} type="button">
-                      Remove
-                    </button>
-                  )}
-                </Badge>
-              ))}
-              <Input className="h-8 w-28" onChange={(event) => setNewLocale(event.target.value)} placeholder="sl_SI" value={newLocale} />
-              <Button onClick={onAddLocale} size="sm" type="button" variant="secondary">
-                Add Language
-              </Button>
-            </div>
-          </Section>
-
+          <LanguagesSection document={draft} onUpdateDocument={setDraft} />
           <Section title="Keys">
-            <LocalizationKeySection onAddKey={onAddKey} />
-            <div className="grid grid-cols-[15rem_minmax(0,1fr)] gap-3 max-[860px]:grid-cols-1">
+            <div className="grid grid-cols-[20rem_minmax(0,1fr)] gap-3">
               <LocalizationKeyTree
                 document={draft}
                 filteredKeyPath={filteredKeyPath}
                 onToggleKeyFilter={onToggleKeyFilter}
                 selectedKeyPath={selectedKey?.path}
               />
-              <LocalizationMatrix
-                document={draft}
-                filteredKeyPath={filteredKeyPath}
-                onChange={setDraft}
-                onRemoveKey={onRemoveKey}
-                onSelectKey={setSelectedKeyPath}
-                selectedKeyPath={selectedKey?.path}
-              />
+              <div>
+                <LocalizationKeySection onAddKey={onAddKey} />
+                <LocalizationMatrix
+                  document={draft}
+                  filteredKeyPath={filteredKeyPath}
+                  onChange={setDraft}
+                  onRemoveKey={onRemoveKey}
+                  onSelectKey={setSelectedKeyPath}
+                  selectedKeyPath={selectedKey?.path}
+                />
+              </div>
             </div>
           </Section>
         </div>
@@ -402,75 +364,6 @@ const LocalizationScreen: FC = () => {
         </div>
       </div>
     </Section>
-  );
-};
-
-interface LocalizationMatrixProps {
-  document: LocalizationDocument;
-  filteredKeyPath?: string;
-  onChange: (document: LocalizationDocument) => void;
-  onRemoveKey: (path: string) => void;
-  onSelectKey: (path: string) => void;
-  selectedKeyPath?: string;
-}
-
-const LocalizationMatrix: FC<LocalizationMatrixProps> = (props) => {
-  const { document, filteredKeyPath, onChange, onRemoveKey, onSelectKey, selectedKeyPath } = props;
-  const filteredKeyExists = filteredKeyPath ? document.keys.some((key) => key.path === filteredKeyPath) : false;
-  const visibleKeys = document.keys
-    .map((key, index) => ({ index, key }))
-    .filter((entry) => !filteredKeyPath || !filteredKeyExists || entry.key.path === filteredKeyPath);
-
-  function updateKey(index: number, nextKey: LocalizationKey): void {
-    onChange({
-      ...document,
-      keys: document.keys.map((key, keyIndex) => (keyIndex === index ? nextKey : key))
-    });
-  }
-
-  if (document.keys.length === 0) {
-    return <p className="m-0 border border-dashed border-border p-6 text-sm text-muted-foreground">No localization keys.</p>;
-  }
-
-  return (
-    <div className="space-y-3">
-      {visibleKeys.map(({ key, index }) => (
-        <div className={key.path === selectedKeyPath ? "border border-primary bg-primary/10 p-3" : "border border-border p-3"} key={index}>
-          <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-            <Input
-              className="font-mono text-xs"
-              onChange={(event) => updateKey(index, { ...key, path: event.target.value })}
-              onFocus={() => onSelectKey(key.path)}
-              value={key.path}
-            />
-            <Button onClick={() => onRemoveKey(key.path)} size="sm" type="button" variant="ghost">
-              Remove
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 2xl:grid-cols-4">
-            {document.locales.map((locale) => (
-              <label className="grid gap-1" key={locale}>
-                <span className="font-mono text-xs uppercase text-muted-foreground">{locale}</span>
-                <Textarea
-                  className="min-h-20 resize-y text-sm"
-                  onChange={(event) =>
-                    updateKey(index, {
-                      ...key,
-                      values: {
-                        ...key.values,
-                        [locale]: event.target.value
-                      }
-                    })
-                  }
-                  onFocus={() => onSelectKey(key.path)}
-                  value={key.values[locale] ?? ""}
-                />
-              </label>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
   );
 };
 
