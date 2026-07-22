@@ -79,36 +79,25 @@ describe("localization schemas", () => {
     ).toEqual([]);
   });
 
-  it("migrates v1 documents to v2 in memory", () => {
-    const document = localizationDocumentSchema.parse({
-      schemaVersion: 1,
-      activeLocales: ["en", "sl_SI"],
-      translations: [
-        {
-          namespace: "HUD",
-          slug: "START",
-          sourceText: "Start",
-          values: {
-            en: "Start"
-          }
-        }
-      ]
-    });
-
-    expect(document).toMatchObject({
-      schemaVersion: 2,
-      defaultLocale: "en",
-      locales: ["en", "sl_SI"],
-      keys: [
-        {
-          path: "HUD.START",
-          values: {
-            en: "Start",
-            sl_SI: "Start"
-          }
-        }
-      ]
-    });
+  it("rejects legacy localization document shapes", () => {
+    expect(
+      localizationDocumentSchema.safeParse({
+        schemaVersion: 1,
+        activeLocales: ["en", "sl_SI"],
+        translations: [{ namespace: "HUD", slug: "START", sourceText: "Start", values: { en: "Start" } }]
+      }).success
+    ).toBe(false);
+    expect(
+      localizationDocumentSchema.safeParse({
+        schemaVersion: 2,
+        defaultLocale: "en",
+        locales: ["en"],
+        keys: [],
+        styles: [],
+        tooltips: [],
+        terms: [{ slug: "DAMAGE" }]
+      }).success
+    ).toBe(false);
   });
 
   it("adds locales by replicating all existing keys from the default locale", () => {

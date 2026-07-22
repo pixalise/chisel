@@ -424,7 +424,7 @@ static func _format(id: int, arguments: Dictionary, locale: String, depth: int) 
 \tvar templates: Array = VALUES.get(locale_key, VALUES[DEFAULT_LOCALE])
 \tvar template := String(templates[id])
 \tvar regex := RegEx.new()
-\tregex.compile("<style:([A-Z][A-Z0-9_]*)>|</style>|<tooltip:([A-Z][A-Z0-9_]*)>|</tooltip>|<icon:([A-Z][A-Z0-9_]*)\\\\s*/>|\\\\[icon:([A-Z][A-Z0-9_]*)\\\\]|\\\\[term:([A-Z][A-Z0-9_]*)\\\\]|\\\\[/term\\\\]|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")
+\tregex.compile("<style:([A-Z][A-Z0-9_]*)>|</style>|<tooltip:([A-Z][A-Z0-9_]*)>|</tooltip>|<icon:([A-Z][A-Z0-9_]*)\\\\s*/>|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")
 \tvar cursor := 0
 \tvar plain := ""
 \tvar bbcode := ""
@@ -473,32 +473,9 @@ static func _format(id: int, arguments: Dictionary, locale: String, depth: int) 
 \t\t\t\t"end": plain.length(),
 \t\t\t\t"path": String(icon.get("path", ""))
 \t\t\t})
-\t\telif token.begins_with("[icon:"):
-\t\t\tvar icon_slug := result.get_string(4)
-\t\t\tvar icon_start := plain.length()
-\t\t\tplain += _icon_plain(icon_slug)
-\t\t\tbbcode += _icon_fragment(icon_slug)
-\t\t\tvar icon: Dictionary = ICONS.get(icon_slug, {})
-\t\t\tspans.append({
-\t\t\t\t"type": "icon",
-\t\t\t\t"icon": icon_slug,
-\t\t\t\t"start": icon_start,
-\t\t\t\t"end": plain.length(),
-\t\t\t\t"path": String(icon.get("path", ""))
-\t\t\t})
-\t\telif token.begins_with("[term:"):
-\t\t\tvar style_slug := result.get_string(5)
-\t\t\tactive_styles.append({
-\t\t\t\t"style": style_slug,
-\t\t\t\t"start": plain.length()
-\t\t\t})
-\t\t\tbbcode += _style_open_bbcode(style_slug)
-\t\telif token == "[/term]":
-\t\t\tbbcode += _style_close_bbcode(_active_style_slug(active_styles))
-\t\t\t_close_style(active_styles, spans, plain.length())
 \t\telse:
-\t\t\tvar placeholder_type := result.get_string(6)
-\t\t\tvar placeholder := result.get_string(7)
+\t\t\tvar placeholder_type := result.get_string(4)
+\t\t\tvar placeholder := result.get_string(5)
 \t\t\tvar replacement := str(arguments.get(placeholder, _placeholder_default(placeholder_type)))
 \t\t\tplain += replacement
 \t\t\tbbcode += _bbcode_escape(replacement)

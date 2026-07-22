@@ -39,7 +39,7 @@ export function previewParts(
   const activeStyles: LocalizationStyle[] = [];
   const activeTooltips: LocalizationTooltip[] = [];
   const regex =
-    /<style:([A-Z][A-Z0-9_]*)>|<\/style>|<tooltip:([A-Z][A-Z0-9_]*)>|<\/tooltip>|<icon:([A-Z][A-Z0-9_]*)\s*\/>|\[icon:([A-Z][A-Z0-9_]*)\]|\[term:([A-Z][A-Z0-9_]*)\]|\[\/term\]|\{(int|float|string):([a-z][a-z0-9_]*)\}/g;
+    /<style:([A-Z][A-Z0-9_]*)>|<\/style>|<tooltip:([A-Z][A-Z0-9_]*)>|<\/tooltip>|<icon:([A-Z][A-Z0-9_]*)\s*\/>|\{(int|float|string):([a-z][a-z0-9_]*)\}/g;
   let cursor = 0;
   for (const match of text.matchAll(regex)) {
     const index = match.index ?? 0;
@@ -63,17 +63,8 @@ export function previewParts(
       activeTooltips.pop();
     } else if (token.startsWith("<icon:")) {
       appendIconPreviewPart(parts, match[3] ?? "", activeStyles, activeTooltips, keysByPath, locale, assetsById);
-    } else if (token.startsWith("[icon:")) {
-      appendIconPreviewPart(parts, match[4] ?? "", activeStyles, activeTooltips, keysByPath, locale, assetsById);
-    } else if (token.startsWith("[term:")) {
-      const style = stylesBySlug.get(match[5] ?? "");
-      if (style) {
-        activeStyles.push(style);
-      }
-    } else if (token === "[/term]") {
-      activeStyles.pop();
     } else {
-      appendPreviewPart(parts, localizationPlaceholderDefaultText(match[6] as TranslationPlaceholderType), activeStyles, activeTooltips);
+      appendPreviewPart(parts, localizationPlaceholderDefaultText(match[4] as TranslationPlaceholderType), activeStyles, activeTooltips);
     }
     cursor = index + match[0].length;
   }

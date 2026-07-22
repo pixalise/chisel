@@ -58,21 +58,6 @@ describe("localization service", () => {
     expect(mocks.writeLocalizationJson).not.toHaveBeenCalled();
   });
 
-  it("reads migrated v1 data without writing it back", async () => {
-    mocks.document = localizationDocumentSchema.parse({
-      schemaVersion: 1,
-      activeLocales: ["en", "sl_SI"],
-      translations: [{ namespace: "HUD", slug: "START", sourceText: "Start", values: { en: "Start" } }]
-    });
-
-    const document = await localizationService.readLocalization();
-
-    expect(document.schemaVersion).toBe(2);
-    expect(document.keys[0]?.path).toBe("HUD.START");
-    expect(document.keys[0]?.values).toEqual({ en: "Start", sl_SI: "Start" });
-    expect(mocks.writeLocalizationJson).not.toHaveBeenCalled();
-  });
-
   it("adds locales and replicates existing key values", async () => {
     mocks.document = localizationDocumentSchema.parse({
       schemaVersion: 2,
