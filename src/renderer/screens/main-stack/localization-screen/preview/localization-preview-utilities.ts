@@ -1,0 +1,155 @@
+import type { CSSProperties } from "react";
+import {
+  TranslationPlaceholderType,
+  localizationPlaceholderDefaultText,
+  type LocalizationDocument,
+  type LocalizationKey,
+  type LocalizationStyle,
+  type LocalizationTooltip
+} from "../../../../../shared/localization";
+import type { Asset } from "../../../../../shared/schemas";
+import { AssetCategoryEnum } from "../../../../../shared/types";
+import type { PreviewPart } from "@/screens/main-stack/localization-screen/preview/types";
+
+export function previewPartStyle(part: PreviewPart): CSSProperties | undefined {
+  if (!part.color && !part.bold && !part.italic && !part.underline) {
+    return undefined;
+  }
+  return {
+    color: part.color,
+    fontStyle: part.italic ? "italic" : undefined,
+    fontWeight: part.bold ? 700 : undefined,
+    textDecorationColor: part.color,
+    textDecorationLine: part.underline ? "underline" : undefined
+  };
+}
+
+export function previewParts(document: LocalizationDocument, keyEntry: LocalizationKey, assets: Asset[]): PreviewPart[] {
+  const text = keyEntry.values[document.defaultLocale] ?? "";
+  const parts: PreviewPart[] = [];
+  const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+  const stylesBySlug = new Map(document.styles.map((style) => [style.slug, style]));
+  const tooltipsBySlug = new Map(document.tooltips.map((tooltip) => [tooltip.slug, tooltip]));
+  const keysByPath = new Map(document.keys.map((key) => [key.path, key]));
+  const activeStyles: LocalizationStyle[] = [];
+  const activeTooltips: LocalizationTooltip[] = [];
+  const regex =
+    /<style:([A-Z][A-Z0-9_]*)>|<\/style>|<tooltip:([A-Z][A-Z0-9_]*)>|<\/tooltip>|<icon:([A-Z][A-Z0-9_]*)\s*\/>|\[icon:([A-Z][A-Z0-9_]*)\]|\[term:([A-Z][A-Z0-9_]*)\]|\[\/term\]|\{(int|float|string):([a-z][a-z0-9_]*)\}/g;
+  let cursor = 0;
+  for (const match of text.matchAll(regex)) {
+    const index = match.index ?? 0;
+    if (index > cursor) {
+      appendPreviewPart(parts, text.slice(cursor, index), activeStyles, activeTooltips, keysByPath, document.defaultLocale);
+    }
+    const token = match[0] ?? "";
+    if (token.startsWith("<style:")) {
+      const style = stylesBySlug.get(match[1] ?? "");
+      if (style) {
+        activeStyles.push(style);
+      }
+    } else if (token === "</style>") {
+      activeStyles.pop();
+    } else if (token.startsWith("<tooltip:")) {
+      const tooltip = tooltipsBySlug.get(match[2] ?? "");
+      if (tooltip) {
+        activeTooltips.push(tooltip);
+      }
+    } else if (token === "</tooltip>") {
+      activeTooltips.pop();
+    } else if (token.startsWith("<icon:")) {
+      appendIconPreviewPart(parts, match[3] ?? "", activeStyles, activeTooltips, keysByPath, document.defaultLocale, assetsById);
+    } else if (token.startsWith("[icon:")) {
+      appendIconPreviewPart(parts, match[4] ?? "", activeStyles, activeTooltips, keysByPath, document.defaultLocale, assetsById);
+    } else if (token.startsWith("[term:")) {
+      const style = stylesBySlug.get(match[5] ?? "");
+      if (style) {
+        activeStyles.push(style);
+      }
+    } else if (token === "[/term]") {
+      activeStyles.pop();
+    } else {
+      appendPreviewPart(
+        parts,
+        localizationPlaceholderDefaultText(match[6] as TranslationPlaceholderType),
+        activeStyles,
+        activeTooltips,
+        keysByPath,
+        document.defaultLocale
+      );
+    }
+    cursor = index + match[0].length;
+  }
+  if (cursor < text.length) {
+    appendPreviewPart(parts, text.slice(cursor), activeStyles, activeTooltips, keysByPath, document.defaultLocale);
+  }
+  return parts;
+}
+
+export function assetPreviewPath(asset: Asset, projectPath: string): string {
+  return asset.relativePath.startsWith("/") ? asset.relativePath : `${projectPath}/${asset.relativePath}`;
+}
+
+function appendIconPreviewPart(
+  parts: PreviewPart[],
+  iconSlug: string,
+  activeStyles: LocalizationStyle[],
+  activeTooltips: LocalizationTooltip[],
+  keysByPath: Map<string, LocalizationKey>,
+  defaultLocale: string,
+  assetsById: Map<string, Asset>
+): void {
+  if (iconSlug.length === 0) {
+    return;
+  }
+  const asset = assetsById.get(iconSlug);
+  const iconAsset = asset?.category === AssetCategoryEnum.uiIcon ? asset : undefined;
+  const label = iconAsset?.name ?? iconSlug;
+  const style = activeStyles[activeStyles.length - 1];
+  const tooltip = activeTooltips[activeTooltips.length - 1];
+  parts.push({
+    bold: style?.bold,
+    iconAsset,
+    iconSlug: label,
+    italic: style?.italic,
+    label,
+    color: style?.color,
+    tooltip: tooltip ? previewTooltipText(tooltip, keysByPath, defaultLocale) : undefined,
+    underline: style?.underline
+  });
+}
+
+function appendPreviewPart(
+  parts: PreviewPart[],
+  label: string,
+  activeStyles: LocalizationStyle[],
+  activeTooltips: LocalizationTooltip[],
+  keysByPath: Map<string, LocalizationKey>,
+  defaultLocale: string
+): void {
+  if (label.length === 0) {
+    return;
+  }
+  const style = activeStyles[activeStyles.length - 1];
+  const tooltip = activeTooltips[activeTooltips.length - 1];
+  parts.push({
+    bold: style?.bold,
+    label,
+    color: style?.color,
+    italic: style?.italic,
+    tooltip: tooltip ? previewTooltipText(tooltip, keysByPath, defaultLocale) : undefined,
+    underline: style?.underline
+  });
+}
+
+function previewTooltipText(
+  tooltip: LocalizationTooltip,
+  keysByPath: Map<string, LocalizationKey>,
+  defaultLocale: string
+): string | undefined {
+  const title = keysByPath.get(tooltip.titleKey)?.values[defaultLocale] ?? "";
+  const description = keysByPath.get(tooltip.descriptionKey)?.values[defaultLocale] ?? "";
+  if (title && description && title !== description) {
+    return `${title}\n${description}`;
+  }
+  return title || description || undefined;
+}

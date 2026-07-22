@@ -1,15 +1,13 @@
-import { type CSSProperties, type FC, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type FC, useEffect, useMemo, useRef } from "react";
 import Section from "@/components/layout/section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import useListAssetsQuery from "@/hooks/use-list-assets-query";
 import useLocalizationQuery from "@/hooks/use-localization-query";
 import useSaveLocalizationMutation from "@/hooks/use-save-localization-mutation";
-import useAppStore from "@/stores/app-store";
 import { useToast } from "@/hooks/use-toast";
 import {
   LocalizationProblemSeverity,
-  TranslationPlaceholderType,
   analyzeLocalizationText,
   localizationPlaceholderDefaultText,
   localizationPlaceholdersForKey,
@@ -17,9 +15,7 @@ import {
   validateLocalizationDocument,
   type LocalizationDocument,
   type LocalizationKey,
-  type LocalizationProblem,
-  type LocalizationStyle,
-  type LocalizationTooltip
+  type LocalizationProblem
 } from "../../../../shared/localization";
 import type { Asset } from "../../../../shared/schemas";
 import { AssetCategoryEnum } from "../../../../shared/types";
@@ -32,6 +28,7 @@ import TooltipEditor from "@/screens/main-stack/localization-screen/editors/tool
 import StyleEditor from "@/screens/main-stack/localization-screen/editors/style-editor";
 import TooltipCreateEditor from "@/screens/main-stack/localization-screen/editors/tooltip-create-editor";
 import StyleCreateEditor from "@/screens/main-stack/localization-screen/editors/style-create-editor";
+import LocalizationPreview from "@/screens/main-stack/localization-screen/preview/localization-preview";
 
 const LocalizationScreen: FC = () => {
   const { localization, isLocalizationLoading } = useLocalizationQuery();
@@ -195,7 +192,7 @@ const LocalizationScreenContent: FC<LocalizationScreenContentProps> = (props) =>
 
           <Section title="Preview">
             {selectedKey ? (
-              <Preview assets={assets} document={draft} keyEntry={selectedKey} />
+              <LocalizationPreview assets={assets} document={draft} keyEntry={selectedKey} />
             ) : (
               <p className="m-0 text-sm text-muted-foreground">No key selected.</p>
             )}
@@ -272,229 +269,6 @@ const PlaceholderSummary: FC<{
     </div>
   );
 };
-
-const Preview: FC<{ assets: Asset[]; document: LocalizationDocument; keyEntry: LocalizationKey }> = (props) => {
-  const { assets, document, keyEntry } = props;
-  const project = useAppStore((state) => state._project);
-  return (
-    <div className="space-y-2">
-      <code className="block truncate text-xs">{keyEntry.path}</code>
-      <div className="border border-border p-3 text-sm leading-relaxed">
-        {previewParts(document, keyEntry, assets).map((part, index) => (
-          <span key={`${part.label}-${index}`} style={previewPartStyle(part)} title={part.tooltip}>
-            {part.iconAsset && project ? (
-              <InlineIconPreview asset={part.iconAsset} projectPath={project.path} title={part.tooltip ?? part.iconSlug} />
-            ) : part.iconSlug ? (
-              <span
-                className="mx-1 inline-flex items-center border border-border px-1 font-mono text-[0.7rem] leading-5"
-                title={part.tooltip ?? part.iconSlug}
-              >
-                {part.iconSlug}
-              </span>
-            ) : (
-              part.label
-            )}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const InlineIconPreview: FC<{ asset: Asset; projectPath: string; title?: string }> = (props) => {
-  const { asset, projectPath, title } = props;
-  const path = assetPreviewPath(asset, projectPath);
-  const [source, setSource] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setSource(null);
-    window.electron
-      .createImageConversionPreview(path)
-      .then((nextSource) => {
-        if (!cancelled) {
-          setSource(nextSource);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setSource("");
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [path]);
-
-  if (!source) {
-    return (
-      <span
-        className="mx-1 inline-flex items-center border border-border px-1 font-mono text-[0.7rem] leading-5"
-        title={title ?? asset.name}
-      >
-        {asset.name}
-      </span>
-    );
-  }
-
-  return (
-    <img alt={asset.name} className="mx-1 inline-block size-5 align-[-0.25rem] object-contain" src={source} title={title ?? asset.name} />
-  );
-};
-
-interface PreviewPart {
-  bold?: boolean;
-  color?: string;
-  iconAsset?: Asset;
-  iconSlug?: string;
-  italic?: boolean;
-  label: ReactNode;
-  tooltip?: string;
-  underline?: boolean;
-}
-
-function previewPartStyle(part: PreviewPart): CSSProperties | undefined {
-  if (!part.color && !part.bold && !part.italic && !part.underline) {
-    return undefined;
-  }
-  return {
-    color: part.color,
-    fontStyle: part.italic ? "italic" : undefined,
-    fontWeight: part.bold ? 700 : undefined,
-    textDecorationColor: part.color,
-    textDecorationLine: part.underline ? "underline" : undefined
-  };
-}
-
-function previewParts(document: LocalizationDocument, keyEntry: LocalizationKey, assets: Asset[]): PreviewPart[] {
-  const text = keyEntry.values[document.defaultLocale] ?? "";
-  const parts: PreviewPart[] = [];
-  const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
-  const stylesBySlug = new Map(document.styles.map((style) => [style.slug, style]));
-  const tooltipsBySlug = new Map(document.tooltips.map((tooltip) => [tooltip.slug, tooltip]));
-  const keysByPath = new Map(document.keys.map((key) => [key.path, key]));
-  const activeStyles: LocalizationStyle[] = [];
-  const activeTooltips: LocalizationTooltip[] = [];
-  const regex =
-    /<style:([A-Z][A-Z0-9_]*)>|<\/style>|<tooltip:([A-Z][A-Z0-9_]*)>|<\/tooltip>|<icon:([A-Z][A-Z0-9_]*)\s*\/>|\[icon:([A-Z][A-Z0-9_]*)\]|\[term:([A-Z][A-Z0-9_]*)\]|\[\/term\]|\{(int|float|string):([a-z][a-z0-9_]*)\}/g;
-  let cursor = 0;
-  for (const match of text.matchAll(regex)) {
-    const index = match.index ?? 0;
-    if (index > cursor) {
-      appendPreviewPart(parts, text.slice(cursor, index), activeStyles, activeTooltips, keysByPath, document.defaultLocale);
-    }
-    const token = match[0] ?? "";
-    if (token.startsWith("<style:")) {
-      const style = stylesBySlug.get(match[1] ?? "");
-      if (style) {
-        activeStyles.push(style);
-      }
-    } else if (token === "</style>") {
-      activeStyles.pop();
-    } else if (token.startsWith("<tooltip:")) {
-      const tooltip = tooltipsBySlug.get(match[2] ?? "");
-      if (tooltip) {
-        activeTooltips.push(tooltip);
-      }
-    } else if (token === "</tooltip>") {
-      activeTooltips.pop();
-    } else if (token.startsWith("<icon:")) {
-      appendIconPreviewPart(parts, match[3] ?? "", activeStyles, activeTooltips, keysByPath, document.defaultLocale, assetsById);
-    } else if (token.startsWith("[icon:")) {
-      appendIconPreviewPart(parts, match[4] ?? "", activeStyles, activeTooltips, keysByPath, document.defaultLocale, assetsById);
-    } else if (token.startsWith("[term:")) {
-      const style = stylesBySlug.get(match[5] ?? "");
-      if (style) {
-        activeStyles.push(style);
-      }
-    } else if (token === "[/term]") {
-      activeStyles.pop();
-    } else {
-      appendPreviewPart(
-        parts,
-        localizationPlaceholderDefaultText(match[6] as TranslationPlaceholderType),
-        activeStyles,
-        activeTooltips,
-        keysByPath,
-        document.defaultLocale
-      );
-    }
-    cursor = index + match[0].length;
-  }
-  if (cursor < text.length) {
-    appendPreviewPart(parts, text.slice(cursor), activeStyles, activeTooltips, keysByPath, document.defaultLocale);
-  }
-  return parts;
-}
-
-function appendIconPreviewPart(
-  parts: PreviewPart[],
-  iconSlug: string,
-  activeStyles: LocalizationStyle[],
-  activeTooltips: LocalizationTooltip[],
-  keysByPath: Map<string, LocalizationKey>,
-  defaultLocale: string,
-  assetsById: Map<string, Asset>
-): void {
-  if (iconSlug.length === 0) {
-    return;
-  }
-  const asset = assetsById.get(iconSlug);
-  const iconAsset = asset?.category === AssetCategoryEnum.uiIcon ? asset : undefined;
-  const label = iconAsset?.name ?? iconSlug;
-  const style = activeStyles[activeStyles.length - 1];
-  const tooltip = activeTooltips[activeTooltips.length - 1];
-  parts.push({
-    bold: style?.bold,
-    iconAsset,
-    iconSlug: label,
-    italic: style?.italic,
-    label,
-    color: style?.color,
-    tooltip: tooltip ? previewTooltipText(tooltip, keysByPath, defaultLocale) : undefined,
-    underline: style?.underline
-  });
-}
-
-function assetPreviewPath(asset: Asset, projectPath: string): string {
-  return asset.relativePath.startsWith("/") ? asset.relativePath : `${projectPath}/${asset.relativePath}`;
-}
-
-function appendPreviewPart(
-  parts: PreviewPart[],
-  label: string,
-  activeStyles: LocalizationStyle[],
-  activeTooltips: LocalizationTooltip[],
-  keysByPath: Map<string, LocalizationKey>,
-  defaultLocale: string
-): void {
-  if (label.length === 0) {
-    return;
-  }
-  const style = activeStyles[activeStyles.length - 1];
-  const tooltip = activeTooltips[activeTooltips.length - 1];
-  parts.push({
-    bold: style?.bold,
-    label,
-    color: style?.color,
-    italic: style?.italic,
-    tooltip: tooltip ? previewTooltipText(tooltip, keysByPath, defaultLocale) : undefined,
-    underline: style?.underline
-  });
-}
-
-function previewTooltipText(
-  tooltip: LocalizationTooltip,
-  keysByPath: Map<string, LocalizationKey>,
-  defaultLocale: string
-): string | undefined {
-  const title = keysByPath.get(tooltip.titleKey)?.values[defaultLocale] ?? "";
-  const description = keysByPath.get(tooltip.descriptionKey)?.values[defaultLocale] ?? "";
-  if (title && description && title !== description) {
-    return `${title}\n${description}`;
-  }
-  return title || description || undefined;
-}
 
 const ProblemList: FC<{ problems: LocalizationProblem[] }> = (props) => {
   const { problems } = props;
