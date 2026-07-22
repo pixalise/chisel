@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { AssetCategoryEnum, assetCategoryLabelMap, assetCategoryOptionValues, isHdriExtension, isTerrainTextureExtension } from "./types";
+import {
+  AssetCategoryEnum,
+  assetCategoryLabelMap,
+  assetCategoryOptionValues,
+  isHdriExtension,
+  isMeshExtension,
+  isTerrainTextureExtension
+} from "./types";
 
 describe("asset categories", () => {
   it("includes HDRI as a selectable asset category", () => {
@@ -7,6 +14,8 @@ describe("asset categories", () => {
     expect(assetCategoryOptionValues).toContainEqual({ label: "HDRI", value: AssetCategoryEnum.hdri });
     expect(assetCategoryLabelMap[AssetCategoryEnum.uiIcon]).toBe("UI Icon");
     expect(assetCategoryOptionValues).toContainEqual({ label: "UI Icon", value: AssetCategoryEnum.uiIcon });
+    expect(assetCategoryLabelMap[AssetCategoryEnum.mesh]).toBe("Mesh");
+    expect(assetCategoryOptionValues).toContainEqual({ label: "Mesh", value: AssetCategoryEnum.mesh });
   });
 
   it("recognizes HDRI file extensions without stealing terrain texture extensions", () => {
@@ -14,5 +23,12 @@ describe("asset categories", () => {
     expect(isHdriExtension("HDR")).toBe(true);
     expect(isHdriExtension("exr")).toBe(true);
     expect(isTerrainTextureExtension("exr")).toBe(true);
+  });
+
+  it("recognizes mesh file extensions", () => {
+    expect(isMeshExtension("glb")).toBe(true);
+    expect(isMeshExtension("GLTF")).toBe(true);
+    expect(isMeshExtension("obj")).toBe(true);
+    expect(isMeshExtension("png")).toBe(false);
   });
 });

@@ -307,6 +307,31 @@ describe("Godot export", () => {
     expect(assetsFile?.content).toContain('"path": "res://game_data/assets/hdri/sky_clear.hdr"');
   });
 
+  it("exports mesh assets under snake case mesh paths", () => {
+    const asset = assetSchema.parse({
+      category: AssetCategoryEnum.mesh,
+      extension: "glb",
+      height: 0,
+      id: "WATCH_TOWER",
+      name: "WATCH_TOWER",
+      relativePath: ".chisel/assets/MESH/WATCH_TOWER.glb",
+      sizeBytes: 1024,
+      width: 0
+    });
+    const project: Project = {
+      id: nanoid(),
+      name: "Iron Bastion",
+      path: "/tmp/iron-bastion"
+    };
+
+    const bundle = createGodotExportBundle(project, [], "2026-01-01T00:00:00.000Z", [asset]);
+    const assetsFile = bundle.files.find((file) => file.path === "game_data/assets.gd");
+
+    expect(assetsFile?.content).toContain("WATCH_TOWER = 0");
+    expect(assetsFile?.content).toContain('"category": "mesh"');
+    expect(assetsFile?.content).toContain('"path": "res://game_data/assets/mesh/watch_tower.glb"');
+  });
+
   it("exports typed refs, asset refs, and translation refs as enum values", () => {
     const factionColumnId = nanoid();
     const portraitColumnId = nanoid();
