@@ -24,8 +24,13 @@ export function previewPartStyle(part: PreviewPart): CSSProperties | undefined {
   };
 }
 
-export function previewParts(document: LocalizationDocument, keyEntry: LocalizationKey, assets: Asset[]): PreviewPart[] {
-  const text = keyEntry.values[document.defaultLocale] ?? "";
+export function previewParts(
+  document: LocalizationDocument,
+  keyEntry: LocalizationKey,
+  assets: Asset[],
+  locale = document.defaultLocale
+): PreviewPart[] {
+  const text = keyEntry.values[locale] ?? "";
   const parts: PreviewPart[] = [];
   const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
   const stylesBySlug = new Map(document.styles.map((style) => [style.slug, style]));
@@ -39,7 +44,7 @@ export function previewParts(document: LocalizationDocument, keyEntry: Localizat
   for (const match of text.matchAll(regex)) {
     const index = match.index ?? 0;
     if (index > cursor) {
-      appendPreviewPart(parts, text.slice(cursor, index), activeStyles, activeTooltips, keysByPath, document.defaultLocale);
+      appendPreviewPart(parts, text.slice(cursor, index), activeStyles, activeTooltips, keysByPath, locale);
     }
     const token = match[0] ?? "";
     if (token.startsWith("<style:")) {
@@ -57,9 +62,9 @@ export function previewParts(document: LocalizationDocument, keyEntry: Localizat
     } else if (token === "</tooltip>") {
       activeTooltips.pop();
     } else if (token.startsWith("<icon:")) {
-      appendIconPreviewPart(parts, match[3] ?? "", activeStyles, activeTooltips, keysByPath, document.defaultLocale, assetsById);
+      appendIconPreviewPart(parts, match[3] ?? "", activeStyles, activeTooltips, keysByPath, locale, assetsById);
     } else if (token.startsWith("[icon:")) {
-      appendIconPreviewPart(parts, match[4] ?? "", activeStyles, activeTooltips, keysByPath, document.defaultLocale, assetsById);
+      appendIconPreviewPart(parts, match[4] ?? "", activeStyles, activeTooltips, keysByPath, locale, assetsById);
     } else if (token.startsWith("[term:")) {
       const style = stylesBySlug.get(match[5] ?? "");
       if (style) {
@@ -74,13 +79,13 @@ export function previewParts(document: LocalizationDocument, keyEntry: Localizat
         activeStyles,
         activeTooltips,
         keysByPath,
-        document.defaultLocale
+        locale
       );
     }
     cursor = index + match[0].length;
   }
   if (cursor < text.length) {
-    appendPreviewPart(parts, text.slice(cursor), activeStyles, activeTooltips, keysByPath, document.defaultLocale);
+    appendPreviewPart(parts, text.slice(cursor), activeStyles, activeTooltips, keysByPath, locale);
   }
   return parts;
 }

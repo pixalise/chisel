@@ -1,10 +1,24 @@
 import { FC } from "react";
-import type { LocalizationKey } from "../../../../../shared/localization";
+import {
+  analyzeLocalizationText,
+  validateLocalizationDocument,
+  type LocalizationDocument,
+  type LocalizationKey,
+  type LocalizationProblem
+} from "../../../../../shared/localization";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Eye, RectangleEllipsis, TriangleAlert } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { previewParts, previewPartStyle } from "@/screens/main-stack/localization-screen/preview/localization-preview-utilities";
+import InlineIconPreview from "@/screens/main-stack/localization-screen/preview/inline-icon-preview";
+import type { Asset } from "../../../../../shared/schemas";
+import useAppStore from "@/stores/app-store";
+import { useLocalizationContext } from "@/screens/main-stack/localization-screen/localization-context";
+import useListAssetsQuery from "@/hooks/use-list-assets-query";
+import { isEmpty } from "lodash";
 
 export interface LocalizationCardProps {
   index: number;
@@ -18,6 +32,10 @@ export interface LocalizationCardProps {
 
 const LocalizationCard: FC<LocalizationCardProps> = (props) => {
   const { index, isSelected, keyEntry, locales, onRemoveKey, onSelectKey, onUpdateKey } = props;
+  const { document } = useLocalizationContext();
+  const { assets } = useListAssetsQuery();
+  const project = useAppStore((state) => state._project);
+  const problems = validateLocalizationDocument(document, assets);
 
   return (
     <div className={isSelected ? "border border-primary bg-primary/10 p-3" : "border border-border p-3"}>
@@ -37,17 +55,15 @@ const LocalizationCard: FC<LocalizationCardProps> = (props) => {
           <div className="grid gap-2" key={locale}>
             <div className="flex flex-row items-center justify-between">
               <Badge variant="outline">{locale}</Badge>
-              <div className="flex flex-row items-center space-x-2">
-                <div className="p-1.5 rounded-full bg-muted">
-                  <Eye className="w-5 h-5" />
-                </div>
-                <div className="p-1.5 rounded-full bg-muted">
-                  <RectangleEllipsis className="w-5 h-5" />
-                </div>
-                <div className="p-1.5 rounded-full bg-muted">
-                  <TriangleAlert className="w-5 h-5" />
-                </div>
-              </div>
+              <LocalizationValueTools
+                assets={assets}
+                document={document}
+                keyEntry={keyEntry}
+                keyIndex={index}
+                locale={locale}
+                problems={problems}
+                projectPath={project?.path}
+              />
             </div>
             <Textarea
               className="min-h-32 resize-y text-xs"
@@ -67,6 +83,107 @@ const LocalizationCard: FC<LocalizationCardProps> = (props) => {
         ))}
       </div>
     </div>
+  );
+};
+
+interface LocalizationValueToolsProps {
+  assets: Asset[];
+  document: LocalizationDocument;
+  keyEntry: LocalizationKey;
+  keyIndex: number;
+  locale: string;
+  problems: LocalizationProblem[];
+  projectPath?: string;
+}
+
+const LocalizationValueTools: FC<LocalizationValueToolsProps> = (props) => {
+  const { assets, document, keyEntry, keyIndex, locale, problems, projectPath } = props;
+  const value = keyEntry.values[locale] ?? "";
+  const analysis = analyzeLocalizationText(value, `keys.${keyIndex}.values.${locale}`);
+  const tokenLabels = [
+    ...analysis.placeholders.map((placeholder) => `{${placeholder.type}:${placeholder.name}}`),
+    ...analysis.iconSlugs.map((slug) => `<icon:${slug}/>`),
+    ...analysis.styleSlugs.map((slug) => `<style:${slug}>`),
+    ...analysis.tooltipSlugs.map((slug) => `<tooltip:${slug}>`)
+  ];
+  const localeProblems = problems.filter((problem) => problem.path === `keys.${keyIndex}.values.${locale}`);
+
+  return (
+    <TooltipProvider delayDuration={120}>
+      <div className="flex flex-row items-center space-x-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="rounded-full bg-muted p-1.5">
+              <Eye className="h-5 w-5" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-96 bg-popover text-popover-foreground">
+            <div className="space-y-2">
+              <code className="block truncate text-xs">{keyEntry.path}</code>
+              <div className="text-sm leading-relaxed">
+                {previewParts(document, keyEntry, assets, locale).map((part, index) => (
+                  <span key={`${part.label}-${index}`} style={previewPartStyle(part)} title={part.tooltip}>
+                    {part.iconAsset && projectPath ? (
+                      <InlineIconPreview asset={part.iconAsset} projectPath={projectPath} title={part.tooltip ?? part.iconSlug} />
+                    ) : part.iconSlug ? (
+                      <span
+                        className="mx-1 inline-flex items-center border border-border px-1 font-mono text-[0.7rem] leading-5"
+                        title={part.tooltip ?? part.iconSlug}
+                      >
+                        {part.iconSlug}
+                      </span>
+                    ) : (
+                      part.label
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+
+        {!isEmpty(tokenLabels) && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="relative rounded-full bg-muted p-1.5">
+                <RectangleEllipsis className="h-5 w-5" />
+                <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-background px-1 text-[0.625rem] leading-none text-muted-foreground">
+                  {tokenLabels.length}
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-80 bg-popover text-popover-foreground">
+              <div className="space-y-1">
+                {tokenLabels.map((token, index) => (
+                  <code className="block text-xs" key={`${token}-${index}`}>
+                    {token}
+                  </code>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {!isEmpty(localeProblems) && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="rounded-full bg-destructive p-1.5 text-destructive-foreground">
+                <TriangleAlert className="h-5 w-5" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-96 bg-destructive text-destructive-foreground">
+              <div className="space-y-1">
+                {localeProblems.map((problem) => (
+                  <p className="m-0 text-xs" key={problem.message}>
+                    {problem.message}
+                  </p>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    </TooltipProvider>
   );
 };
 export default LocalizationCard;
