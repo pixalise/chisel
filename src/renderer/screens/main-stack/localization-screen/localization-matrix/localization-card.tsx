@@ -29,7 +29,7 @@ const LocalizationCard: FC<LocalizationCardProps> = (props) => {
   const { assets } = useListAssetsQuery();
   const project = useAppStore((state) => state._project);
   const problems = validateLocalizationDocument(document, assets);
-  const { debounce } = useDebounce(SAFE_FREQUENCY);
+  const { debounce } = useDebounce(SAFE_FREQUENCY * 2);
   const [isLoadingByLocale, setIsLoadingByLocale] = useState<string[]>([]);
 
   const onChangeText = (locale: string, updatedText: string) => {
