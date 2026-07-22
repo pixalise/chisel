@@ -33,6 +33,8 @@ import {
 } from "../../../../shared/localization";
 import type { Asset } from "../../../../shared/schemas";
 import { AssetCategoryEnum } from "../../../../shared/types";
+import LocalizationKeyTree from "@/screens/main-stack/localization-screen/localization-key-tree/localization-key-tree";
+import LocalizationKeySection from "@/screens/main-stack/localization-screen/localization-key-section";
 
 const LocalizationScreen: FC = () => {
   const { assets } = useListAssetsQuery();
@@ -41,7 +43,6 @@ const LocalizationScreen: FC = () => {
   const { toast } = useToast();
   const [draft, setDraft] = useState<LocalizationDocument>(localization);
   const [newLocale, setNewLocale] = useState("");
-  const [newKeyPath, setNewKeyPath] = useState("");
   const [newStyleSlug, setNewStyleSlug] = useState("");
   const [newTooltipSlug, setNewTooltipSlug] = useState("");
   const [newTooltipIconAssetId, setNewTooltipIconAssetId] = useState("");
@@ -120,13 +121,12 @@ const LocalizationScreen: FC = () => {
     }
   }
 
-  function onAddKey(): void {
+  function onAddKey(newKeyPath: string): void {
     try {
       const nextDraft = addLocalizationKey(draft, { path: newKeyPath });
       setDraft(nextDraft);
       setSelectedKeyPath(newKeyPath);
       setFilteredKeyPath(newKeyPath);
-      setNewKeyPath("");
     } catch (error) {
       showDraftError(error);
     }
@@ -293,12 +293,7 @@ const LocalizationScreen: FC = () => {
           </Section>
 
           <Section title="Keys">
-            <div className="mb-3 flex gap-2 max-[760px]:flex-col">
-              <Input onChange={(event) => setNewKeyPath(event.target.value)} placeholder="UNIT.NEW_ENTRY.DESCRIPTION" value={newKeyPath} />
-              <Button className="shrink-0" onClick={onAddKey} type="button" variant="secondary">
-                Add Key
-              </Button>
-            </div>
+            <LocalizationKeySection onAddKey={onAddKey} />
             <div className="grid grid-cols-[15rem_minmax(0,1fr)] gap-3 max-[860px]:grid-cols-1">
               <LocalizationKeyTree
                 document={draft}
@@ -418,119 +413,6 @@ interface LocalizationMatrixProps {
   onSelectKey: (path: string) => void;
   selectedKeyPath?: string;
 }
-
-interface LocalizationKeyTreeNode {
-  children: LocalizationKeyTreeNode[];
-  key?: LocalizationKey;
-  path: string;
-  segment: string;
-}
-
-const LocalizationKeyTree: FC<{
-  document: LocalizationDocument;
-  filteredKeyPath?: string;
-  onToggleKeyFilter: (path: string) => void;
-  selectedKeyPath?: string;
-}> = (props) => {
-  const { document, filteredKeyPath, onToggleKeyFilter, selectedKeyPath } = props;
-  const [search, setSearch] = useState("");
-  const visibleKeys = useMemo(() => filterLocalizationKeys(document.keys, search), [document.keys, search]);
-  const tree = useMemo(() => buildLocalizationKeyTree(visibleKeys), [visibleKeys]);
-
-  if (document.keys.length === 0) {
-    return <p className="m-0 border border-dashed border-border p-3 text-sm text-muted-foreground">No key tree.</p>;
-  }
-
-  return (
-    <div className="max-h-[32rem] overflow-auto border border-border p-2">
-      <div className="mb-2 grid gap-2">
-        <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">Tree</div>
-        <Input
-          className="h-8 font-mono text-xs"
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search keys"
-          value={search}
-        />
-      </div>
-      <div className="space-y-1">
-        {tree.children.length > 0 ? (
-          tree.children.map((node) => (
-            <LocalizationKeyTreeBranch
-              filteredKeyPath={filteredKeyPath}
-              key={node.path}
-              node={node}
-              onToggleKeyFilter={onToggleKeyFilter}
-              selectedKeyPath={selectedKeyPath}
-            />
-          ))
-        ) : (
-          <p className="m-0 p-2 text-xs text-muted-foreground">No matching keys.</p>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const LocalizationKeyTreeBranch: FC<{
-  filteredKeyPath?: string;
-  node: LocalizationKeyTreeNode;
-  onToggleKeyFilter: (path: string) => void;
-  selectedKeyPath?: string;
-}> = (props) => {
-  const { filteredKeyPath, node, onToggleKeyFilter, selectedKeyPath } = props;
-  const isSelected = node.key?.path === selectedKeyPath;
-  const isFiltered = node.key?.path === filteredKeyPath;
-
-  if (node.children.length === 0) {
-    return (
-      <button
-        className={
-          isFiltered
-            ? "block w-full border border-primary bg-primary/10 px-2 py-1 text-left font-mono text-xs"
-            : isSelected
-              ? "block w-full border border-border bg-muted px-2 py-1 text-left font-mono text-xs"
-              : "block w-full px-2 py-1 text-left font-mono text-xs hover:bg-muted"
-        }
-        onClick={() => node.key && onToggleKeyFilter(node.key.path)}
-        type="button"
-      >
-        {node.segment}
-      </button>
-    );
-  }
-
-  return (
-    <details className="group" open>
-      <summary className="cursor-pointer select-none px-2 py-1 font-mono text-xs text-muted-foreground">{node.segment}</summary>
-      {node.key && (
-        <button
-          className={
-            isFiltered
-              ? "ml-3 block w-[calc(100%-0.75rem)] border border-primary bg-primary/10 px-2 py-1 text-left font-mono text-xs"
-              : isSelected
-                ? "ml-3 block w-[calc(100%-0.75rem)] border border-border bg-muted px-2 py-1 text-left font-mono text-xs"
-                : "ml-3 block w-[calc(100%-0.75rem)] px-2 py-1 text-left font-mono text-xs hover:bg-muted"
-          }
-          onClick={() => onToggleKeyFilter(node.key!.path)}
-          type="button"
-        >
-          {node.segment}
-        </button>
-      )}
-      <div className="ml-3 border-l border-border pl-2">
-        {node.children.map((child) => (
-          <LocalizationKeyTreeBranch
-            filteredKeyPath={filteredKeyPath}
-            key={child.path}
-            node={child}
-            onToggleKeyFilter={onToggleKeyFilter}
-            selectedKeyPath={selectedKeyPath}
-          />
-        ))}
-      </div>
-    </details>
-  );
-};
 
 const LocalizationMatrix: FC<LocalizationMatrixProps> = (props) => {
   const { document, filteredKeyPath, onChange, onRemoveKey, onSelectKey, selectedKeyPath } = props;
@@ -1009,56 +891,6 @@ function previewTooltipText(
     return `${title}\n${description}`;
   }
   return title || description || undefined;
-}
-
-function filterLocalizationKeys(keys: LocalizationKey[], search: string): LocalizationKey[] {
-  if (search.length === 0) {
-    return keys;
-  }
-  const normalizedSearch = search.toUpperCase();
-  return keys.filter((key) => key.path.includes(normalizedSearch));
-}
-
-function buildLocalizationKeyTree(keys: LocalizationKey[]): LocalizationKeyTreeNode {
-  const root: LocalizationKeyTreeNode = { children: [], path: "", segment: "root" };
-  const childrenByPath = new Map<string, Map<string, LocalizationKeyTreeNode>>();
-
-  function childrenFor(path: string, node: LocalizationKeyTreeNode): Map<string, LocalizationKeyTreeNode> {
-    let children = childrenByPath.get(path);
-    if (!children) {
-      children = new Map(node.children.map((child) => [child.segment, child]));
-      childrenByPath.set(path, children);
-    }
-    return children;
-  }
-
-  for (const key of keys) {
-    let node = root;
-    let path = "";
-    for (const segment of key.path.split(".")) {
-      const nextPath = path ? `${path}.${segment}` : segment;
-      const children = childrenFor(path, node);
-      let child = children.get(segment);
-      if (!child) {
-        child = { children: [], path: nextPath, segment };
-        children.set(segment, child);
-        node.children.push(child);
-      }
-      node = child;
-      path = nextPath;
-    }
-    node.key = key;
-  }
-
-  sortLocalizationKeyTree(root);
-  return root;
-}
-
-function sortLocalizationKeyTree(node: LocalizationKeyTreeNode): void {
-  node.children.sort((left, right) => left.segment.localeCompare(right.segment));
-  for (const child of node.children) {
-    sortLocalizationKeyTree(child);
-  }
 }
 
 const ProblemList: FC<{ problems: LocalizationProblem[] }> = (props) => {
