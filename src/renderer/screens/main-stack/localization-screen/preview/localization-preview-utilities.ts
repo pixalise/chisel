@@ -44,7 +44,7 @@ export function previewParts(
   for (const match of text.matchAll(regex)) {
     const index = match.index ?? 0;
     if (index > cursor) {
-      appendPreviewPart(parts, text.slice(cursor, index), activeStyles, activeTooltips, keysByPath, locale);
+      appendPreviewPart(parts, text.slice(cursor, index), activeStyles, activeTooltips);
     }
     const token = match[0] ?? "";
     if (token.startsWith("<style:")) {
