@@ -31,6 +31,8 @@ interface LocalizationScreenContentProps {
   sourceLocalization: LocalizationDocument;
 }
 
+export const SAFE_FREQUENCY = 1500;
+
 const LocalizationScreenContent: FC<LocalizationScreenContentProps> = (props) => {
   const { isLocalizationLoading, sourceLocalization } = props;
   const { assets } = useListAssetsQuery();
@@ -126,7 +128,7 @@ const LocalizationScreenContent: FC<LocalizationScreenContentProps> = (props) =>
         .finally(() => {
           isAutosavingRef.current = false;
         });
-    }, 3000);
+    }, SAFE_FREQUENCY);
     return () => {
       window.clearInterval(interval);
     };
