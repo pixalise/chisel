@@ -3,6 +3,8 @@ import type { LocalizationKey } from "../../../../../shared/localization";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Eye, RectangleEllipsis, TriangleAlert } from "lucide-react";
 
 export interface LocalizationCardProps {
   index: number;
@@ -32,8 +34,21 @@ const LocalizationCard: FC<LocalizationCardProps> = (props) => {
       </div>
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2 2xl:grid-cols-4">
         {locales.map((locale) => (
-          <label className="grid gap-1" key={locale}>
-            <span className="font-mono text-xs uppercase text-muted-foreground">{locale}</span>
+          <div className="grid gap-2" key={locale}>
+            <div className="flex flex-row items-center justify-between">
+              <Badge variant="outline">{locale}</Badge>
+              <div className="flex flex-row items-center space-x-2">
+                <div className="p-1.5 rounded-full bg-muted">
+                  <Eye className="w-5 h-5" />
+                </div>
+                <div className="p-1.5 rounded-full bg-muted">
+                  <RectangleEllipsis className="w-5 h-5" />
+                </div>
+                <div className="p-1.5 rounded-full bg-muted">
+                  <TriangleAlert className="w-5 h-5" />
+                </div>
+              </div>
+            </div>
             <Textarea
               className="min-h-32 resize-y text-xs"
               onChange={(event) =>
@@ -48,7 +63,7 @@ const LocalizationCard: FC<LocalizationCardProps> = (props) => {
               onFocus={() => onSelectKey(keyEntry.path)}
               value={keyEntry.values[locale] ?? ""}
             />
-          </label>
+          </div>
         ))}
       </div>
     </div>

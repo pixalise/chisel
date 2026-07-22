@@ -7,14 +7,14 @@ module.exports = {
   theme: {
     borderRadius: {
       none: "0",
-      sm: "0",
-      DEFAULT: "0",
-      md: "0",
-      lg: "0",
-      xl: "0",
-      "2xl": "0",
-      "3xl": "0",
-      full: "0"
+      sm: "var(--radius)",
+      DEFAULT: "var(--radius)",
+      md: "var(--radius)",
+      lg: "var(--radius)",
+      xl: "var(--radius)",
+      "2xl": "var(--radius)",
+      "3xl": "var(--radius)",
+      full: "9999px"
     },
     extend: {
       colors: {

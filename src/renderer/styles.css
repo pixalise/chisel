@@ -41,7 +41,6 @@
 
 * {
   box-sizing: border-box;
-  border-radius: 0 !important;
   scrollbar-color: var(--border) transparent;
   scrollbar-width: thin;
 }
