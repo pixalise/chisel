@@ -11,14 +11,12 @@ import { useToast } from "@/hooks/use-toast";
 import {
   LocalizationProblemSeverity,
   TranslationPlaceholderType,
-  addLocalizationKey,
   addLocalizationStyle,
   addLocalizationTooltip,
   analyzeLocalizationText,
   localizationPlaceholderDefaultText,
   localizationPlaceholdersForKey,
   placeholderToken,
-  removeLocalizationKey,
   removeLocalizationStyle,
   removeLocalizationTooltip,
   validateLocalizationDocument,
@@ -34,20 +32,34 @@ import LocalizationKeyTree from "@/screens/main-stack/localization-screen/locali
 import LocalizationKeySection from "@/screens/main-stack/localization-screen/localization-key-section";
 import LocalizationMatrix from "@/screens/main-stack/localization-screen/localization-matrix/localization-matrix";
 import LanguagesSection from "@/screens/main-stack/localization-screen/languages-section/languages-section";
+import { LocalizationProvider, useLocalizationContext } from "@/screens/main-stack/localization-screen/localization-context";
 
 const LocalizationScreen: FC = () => {
-  const { assets } = useListAssetsQuery();
   const { localization, isLocalizationLoading } = useLocalizationQuery();
+
+  return (
+    <LocalizationProvider sourceDocument={localization}>
+      <LocalizationScreenContent isLocalizationLoading={isLocalizationLoading} sourceLocalization={localization} />
+    </LocalizationProvider>
+  );
+};
+
+interface LocalizationScreenContentProps {
+  isLocalizationLoading: boolean;
+  sourceLocalization: LocalizationDocument;
+}
+
+const LocalizationScreenContent: FC<LocalizationScreenContentProps> = (props) => {
+  const { isLocalizationLoading, sourceLocalization } = props;
+  const { assets } = useListAssetsQuery();
+  const { document: draft, selectedKey, setDocument: setDraft } = useLocalizationContext();
   const { saveLocalization, isSaveLocalizationLoading } = useSaveLocalizationMutation();
   const { toast } = useToast();
-  const [draft, setDraft] = useState<LocalizationDocument>(localization);
   const [newStyleSlug, setNewStyleSlug] = useState("");
   const [newTooltipSlug, setNewTooltipSlug] = useState("");
   const [newTooltipIconAssetId, setNewTooltipIconAssetId] = useState("");
   const [newTooltipTitleKey, setNewTooltipTitleKey] = useState("");
   const [newTooltipDescriptionKey, setNewTooltipDescriptionKey] = useState("");
-  const [selectedKeyPath, setSelectedKeyPath] = useState<string | undefined>(undefined);
-  const [filteredKeyPath, setFilteredKeyPath] = useState<string | undefined>(undefined);
   const autosaveRef = useRef({
     draft,
     errorCount: 0,
@@ -57,21 +69,15 @@ const LocalizationScreen: FC = () => {
   });
   const isAutosavingRef = useRef(false);
   const lastAutosavedErrorRef = useRef<string | undefined>(undefined);
-  const lastSavedSignatureRef = useRef(JSON.stringify(localization));
+  const lastSavedSignatureRef = useRef(JSON.stringify(sourceLocalization));
 
   useEffect(() => {
-    setDraft(localization);
-    setSelectedKeyPath((current) =>
-      current && localization.keys.some((key) => key.path === current) ? current : localization.keys[0]?.path
-    );
-    setFilteredKeyPath((current) => (current && localization.keys.some((key) => key.path === current) ? current : undefined));
-    lastSavedSignatureRef.current = JSON.stringify(localization);
-  }, [localization]);
+    lastSavedSignatureRef.current = JSON.stringify(sourceLocalization);
+  }, [sourceLocalization]);
 
   const problems = useMemo(() => validateLocalizationDocument(draft, assets), [assets, draft]);
   const errorCount = problems.filter((problem) => problem.severity === LocalizationProblemSeverity.error).length;
   const warningCount = problems.filter((problem) => problem.severity === LocalizationProblemSeverity.warning).length;
-  const selectedKey = draft.keys.find((key) => key.path === selectedKeyPath) ?? draft.keys[0];
 
   async function onSave(): Promise<void> {
     if (errorCount > 0) {
@@ -96,31 +102,6 @@ const LocalizationScreen: FC = () => {
         title: "Localization save failed",
         description: error instanceof Error ? error.message : String(error)
       });
-    }
-  }
-
-  function onAddKey(newKeyPath: string): void {
-    try {
-      const nextDraft = addLocalizationKey(draft, { path: newKeyPath });
-      setDraft(nextDraft);
-      setSelectedKeyPath(newKeyPath);
-      setFilteredKeyPath(newKeyPath);
-    } catch (error) {
-      showDraftError(error);
-    }
-  }
-
-  function onRemoveKey(path: string): void {
-    if (!window.confirm(`Remove localization key ${path}?`)) {
-      return;
-    }
-    try {
-      const nextDraft = removeLocalizationKey(draft, path);
-      setDraft(nextDraft);
-      setSelectedKeyPath(nextDraft.keys[0]?.path);
-      setFilteredKeyPath((current) => (current === path ? undefined : current));
-    } catch (error) {
-      showDraftError(error);
     }
   }
 
@@ -173,11 +154,6 @@ const LocalizationScreen: FC = () => {
     } catch (error) {
       showDraftError(error);
     }
-  }
-
-  function onToggleKeyFilter(path: string): void {
-    setSelectedKeyPath(path);
-    setFilteredKeyPath((current) => (current === path ? undefined : path));
   }
 
   function showDraftError(error: unknown): void {
@@ -237,7 +213,7 @@ const LocalizationScreen: FC = () => {
     return () => {
       window.clearInterval(interval);
     };
-  }, [toast]);
+  }, [toast, setDraft]);
 
   return (
     <Section
@@ -254,22 +230,10 @@ const LocalizationScreen: FC = () => {
           <LanguagesSection document={draft} onUpdateDocument={setDraft} />
           <Section title="Keys">
             <div className="grid grid-cols-[20rem_minmax(0,1fr)] gap-3">
-              <LocalizationKeyTree
-                document={draft}
-                filteredKeyPath={filteredKeyPath}
-                onToggleKeyFilter={onToggleKeyFilter}
-                selectedKeyPath={selectedKey?.path}
-              />
+              <LocalizationKeyTree />
               <div>
-                <LocalizationKeySection onAddKey={onAddKey} />
-                <LocalizationMatrix
-                  document={draft}
-                  filteredKeyPath={filteredKeyPath}
-                  onChange={setDraft}
-                  onRemoveKey={onRemoveKey}
-                  onSelectKey={setSelectedKeyPath}
-                  selectedKeyPath={selectedKey?.path}
-                />
+                <LocalizationKeySection />
+                <LocalizationMatrix />
               </div>
             </div>
           </Section>

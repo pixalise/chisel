@@ -1,19 +1,12 @@
 import { FC, useMemo, useState } from "react";
-import type { LocalizationDocument } from "../../../../../shared/localization";
 import { Input } from "@/components/ui/input";
 import LocalizationKeyTreeBranch from "@/screens/main-stack/localization-screen/localization-key-tree/localization-key-tree-branch";
 import localizationTreeUtilities from "@/screens/main-stack/localization-screen/localization-key-tree/localization-tree-utilities";
 import { isEmpty } from "lodash";
+import { useLocalizationContext } from "@/screens/main-stack/localization-screen/localization-context";
 
-export interface LocalizationKeyTreeProps {
-  document: LocalizationDocument;
-  filteredKeyPath?: string;
-  onToggleKeyFilter: (path: string) => void;
-  selectedKeyPath?: string;
-}
-
-const LocalizationKeyTree: FC<LocalizationKeyTreeProps> = (props) => {
-  const { document, filteredKeyPath, onToggleKeyFilter, selectedKeyPath } = props;
+const LocalizationKeyTree: FC = () => {
+  const { document, filteredKeyPath, selectedKeyPath, toggleKeyFilter } = useLocalizationContext();
   const [search, setSearch] = useState("");
   const visibleKeys = useMemo(() => localizationTreeUtilities.filterLocalizationKeys(document.keys, search), [document.keys, search]);
   const tree = useMemo(() => localizationTreeUtilities.buildLocalizationKeyTree(visibleKeys), [visibleKeys]);
@@ -32,7 +25,7 @@ const LocalizationKeyTree: FC<LocalizationKeyTreeProps> = (props) => {
               filteredKeyPath={filteredKeyPath}
               key={node.path}
               node={node}
-              onToggleKeyFilter={onToggleKeyFilter}
+              onToggleKeyFilter={toggleKeyFilter}
               selectedKeyPath={selectedKeyPath}
             />
           ))}

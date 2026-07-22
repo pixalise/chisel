@@ -3,13 +3,11 @@ import { Input } from "@/components/ui/input";
 import { normalizeConstantCaseInput } from "../../../../shared/asset-paths";
 import { Button } from "@/components/ui/button";
 import { isEmpty, isNil } from "lodash";
+import { addLocalizationKey } from "../../../../shared/localization";
+import { useLocalizationContext } from "@/screens/main-stack/localization-screen/localization-context";
 
-export interface LocalizationKeyInputProps {
-  onAddKey: (key: string) => void;
-}
-
-const LocalizationKeySection: FC<LocalizationKeyInputProps> = (props) => {
-  const { onAddKey } = props;
+const LocalizationKeySection: FC = () => {
+  const { document, setDocument, setFilteredKeyPath, setSelectedKeyPath } = useLocalizationContext();
   const [localizationKey, setLocalizationKey] = useState<string>();
 
   const onSubmitKey = () => {
@@ -17,7 +15,16 @@ const LocalizationKeySection: FC<LocalizationKeyInputProps> = (props) => {
       return;
     }
 
-    onAddKey(localizationKey);
+    const nextDocument = addLocalizationKey(document, {
+      path: localizationKey,
+      values: {
+        [document.defaultLocale]: ""
+      }
+    });
+    setDocument(nextDocument);
+    setSelectedKeyPath(localizationKey);
+    setFilteredKeyPath(localizationKey);
+    setLocalizationKey(undefined);
   };
 
   return (
