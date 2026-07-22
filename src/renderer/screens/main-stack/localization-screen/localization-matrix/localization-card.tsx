@@ -11,14 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Eye, RectangleEllipsis, TriangleAlert } from "lucide-react";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { previewParts, previewPartStyle } from "@/screens/main-stack/localization-screen/preview/localization-preview-utilities";
-import InlineIconPreview from "@/screens/main-stack/localization-screen/preview/inline-icon-preview";
 import type { Asset } from "../../../../../shared/schemas";
 import useAppStore from "@/stores/app-store";
 import { useLocalizationContext } from "@/screens/main-stack/localization-screen/localization-context";
 import useListAssetsQuery from "@/hooks/use-list-assets-query";
 import { isEmpty } from "lodash";
+import LocalizationPreviewContent from "@/screens/main-stack/localization-screen/preview/localization-preview-content";
 
 export interface LocalizationCardProps {
   index: number;
@@ -111,36 +111,27 @@ const LocalizationValueTools: FC<LocalizationValueToolsProps> = (props) => {
   return (
     <TooltipProvider delayDuration={120}>
       <div className="flex flex-row items-center space-x-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
+        <HoverCard closeDelay={180} openDelay={120}>
+          <HoverCardTrigger asChild>
             <div className="rounded-full bg-muted p-1.5">
               <Eye className="h-5 w-5" />
             </div>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-96 bg-popover text-popover-foreground">
+          </HoverCardTrigger>
+          <HoverCardContent className="w-auto max-w-96 bg-popover text-popover-foreground">
             <div className="space-y-2">
               <code className="block truncate text-xs">{keyEntry.path}</code>
               <div className="text-sm leading-relaxed">
-                {previewParts(document, keyEntry, assets, locale).map((part, index) => (
-                  <span key={`${part.label}-${index}`} style={previewPartStyle(part)} title={part.tooltip}>
-                    {part.iconAsset && projectPath ? (
-                      <InlineIconPreview asset={part.iconAsset} projectPath={projectPath} title={part.tooltip ?? part.iconSlug} />
-                    ) : part.iconSlug ? (
-                      <span
-                        className="mx-1 inline-flex items-center border border-border px-1 font-mono text-[0.7rem] leading-5"
-                        title={part.tooltip ?? part.iconSlug}
-                      >
-                        {part.iconSlug}
-                      </span>
-                    ) : (
-                      part.label
-                    )}
-                  </span>
-                ))}
+                <LocalizationPreviewContent
+                  assets={assets}
+                  document={document}
+                  keyEntry={keyEntry}
+                  locale={locale}
+                  projectPath={projectPath}
+                />
               </div>
             </div>
-          </TooltipContent>
-        </Tooltip>
+          </HoverCardContent>
+        </HoverCard>
 
         {!isEmpty(tokenLabels) && (
           <Tooltip>

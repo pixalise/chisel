@@ -73,19 +73,12 @@ export function previewParts(
     } else if (token === "[/term]") {
       activeStyles.pop();
     } else {
-      appendPreviewPart(
-        parts,
-        localizationPlaceholderDefaultText(match[6] as TranslationPlaceholderType),
-        activeStyles,
-        activeTooltips,
-        keysByPath,
-        locale
-      );
+      appendPreviewPart(parts, localizationPlaceholderDefaultText(match[6] as TranslationPlaceholderType), activeStyles, activeTooltips);
     }
     cursor = index + match[0].length;
   }
   if (cursor < text.length) {
-    appendPreviewPart(parts, text.slice(cursor), activeStyles, activeTooltips, keysByPath, locale);
+    appendPreviewPart(parts, text.slice(cursor), activeStyles, activeTooltips);
   }
   return parts;
 }
@@ -118,7 +111,7 @@ function appendIconPreviewPart(
     italic: style?.italic,
     label,
     color: style?.color,
-    tooltip: tooltip ? previewTooltipText(tooltip, keysByPath, defaultLocale) : undefined,
+    tooltip,
     underline: style?.underline
   });
 }
@@ -127,9 +120,7 @@ function appendPreviewPart(
   parts: PreviewPart[],
   label: string,
   activeStyles: LocalizationStyle[],
-  activeTooltips: LocalizationTooltip[],
-  keysByPath: Map<string, LocalizationKey>,
-  defaultLocale: string
+  activeTooltips: LocalizationTooltip[]
 ): void {
   if (label.length === 0) {
     return;
@@ -141,20 +132,7 @@ function appendPreviewPart(
     label,
     color: style?.color,
     italic: style?.italic,
-    tooltip: tooltip ? previewTooltipText(tooltip, keysByPath, defaultLocale) : undefined,
+    tooltip,
     underline: style?.underline
   });
-}
-
-function previewTooltipText(
-  tooltip: LocalizationTooltip,
-  keysByPath: Map<string, LocalizationKey>,
-  defaultLocale: string
-): string | undefined {
-  const title = keysByPath.get(tooltip.titleKey)?.values[defaultLocale] ?? "";
-  const description = keysByPath.get(tooltip.descriptionKey)?.values[defaultLocale] ?? "";
-  if (title && description && title !== description) {
-    return `${title}\n${description}`;
-  }
-  return title || description || undefined;
 }

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { LocalizationTooltip } from "../../../../../shared/localization";
 import type { Asset } from "../../../../../shared/schemas";
 
 export interface PreviewPart {
@@ -8,6 +9,6 @@ export interface PreviewPart {
   iconSlug?: string;
   italic?: boolean;
   label: ReactNode;
-  tooltip?: string;
+  tooltip?: LocalizationTooltip;
   underline?: boolean;
 }
