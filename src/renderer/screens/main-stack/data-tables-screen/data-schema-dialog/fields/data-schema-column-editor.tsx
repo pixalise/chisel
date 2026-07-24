@@ -32,6 +32,7 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
     isVectorColumnType(columnType);
   const supportsMaxChars = columnType === ColumnType.string || columnType === ColumnType.text;
   const supportsStep = columnType === ColumnType.range || isVectorColumnType(columnType);
+  const usesIntegerNumericMetadata = columnType === ColumnType.integer;
 
   useEffect(() => {
     if (!Object.values(ColumnType).includes(columnType)) {
@@ -146,8 +147,22 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
 
       {supportsNumericBounds && (
         <div className="grid grid-cols-2 gap-2 max-[640px]:grid-cols-1">
-          <NumericMetadataInput control={control} disabled={disabled} fieldPrefix={fieldPrefix} label="Min" name="min" />
-          <NumericMetadataInput control={control} disabled={disabled} fieldPrefix={fieldPrefix} label="Max" name="max" />
+          <NumericMetadataInput
+            control={control}
+            disabled={disabled}
+            fieldPrefix={fieldPrefix}
+            integer={usesIntegerNumericMetadata}
+            label="Min"
+            name="min"
+          />
+          <NumericMetadataInput
+            control={control}
+            disabled={disabled}
+            fieldPrefix={fieldPrefix}
+            integer={usesIntegerNumericMetadata}
+            label="Max"
+            name="max"
+          />
         </div>
       )}
 

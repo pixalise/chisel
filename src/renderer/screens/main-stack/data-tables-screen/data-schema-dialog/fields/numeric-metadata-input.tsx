@@ -17,6 +17,7 @@ const NumericMetadataInput: FC<NumericMetadataInputProps> = (props) => {
           <Input
             disabled={disabled}
             min={name === "step" ? Number.MIN_VALUE : undefined}
+            step={integer ? 1 : "any"}
             type="number"
             value={typeof field.value === "number" ? field.value : ""}
             onBlur={field.onBlur}
