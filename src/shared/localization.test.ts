@@ -79,36 +79,25 @@ describe("localization schemas", () => {
     ).toEqual([]);
   });
 
-  it("migrates v1 documents to v2 in memory", () => {
-    const document = localizationDocumentSchema.parse({
-      schemaVersion: 1,
-      activeLocales: ["en", "sl_SI"],
-      translations: [
-        {
-          namespace: "HUD",
-          slug: "START",
-          sourceText: "Start",
-          values: {
-            en: "Start"
-          }
-        }
-      ]
-    });
-
-    expect(document).toMatchObject({
-      schemaVersion: 2,
-      defaultLocale: "en",
-      locales: ["en", "sl_SI"],
-      keys: [
-        {
-          path: "HUD.START",
-          values: {
-            en: "Start",
-            sl_SI: "Start"
-          }
-        }
-      ]
-    });
+  it("rejects legacy localization document shapes", () => {
+    expect(
+      localizationDocumentSchema.safeParse({
+        schemaVersion: 1,
+        activeLocales: ["en", "sl_SI"],
+        translations: [{ namespace: "HUD", slug: "START", sourceText: "Start", values: { en: "Start" } }]
+      }).success
+    ).toBe(false);
+    expect(
+      localizationDocumentSchema.safeParse({
+        schemaVersion: 2,
+        defaultLocale: "en",
+        locales: ["en"],
+        keys: [],
+        styles: [],
+        tooltips: [],
+        terms: [{ slug: "DAMAGE" }]
+      }).success
+    ).toBe(false);
   });
 
   it("adds locales by replicating all existing keys from the default locale", () => {
@@ -152,6 +141,43 @@ describe("localization schemas", () => {
     expect(localizationPlaceholderDefaultText(TranslationPlaceholderType.number)).toBe("-1.0");
     expect(localizationPlaceholderDefaultText(TranslationPlaceholderType.integer)).toBe("-1");
     expect(localizationPlaceholderDefaultText(TranslationPlaceholderType.string)).toBe("UNKNOWN");
+  });
+
+  it("validates line break rich markup", () => {
+    const document = localizationDocumentSchema.parse({
+      schemaVersion: 2,
+      defaultLocale: "en",
+      locales: ["en"],
+      styles: [],
+      tooltips: [],
+      keys: [
+        {
+          path: "ITEM.OLD_REVOLVER.DESCRIPTION",
+          values: {
+            en: "A weapon from the olden era<br/>An old revolver with a leather handle."
+          },
+          placeholders: []
+        }
+      ]
+    });
+
+    expect(validateLocalizationDocument(document)).toEqual([]);
+
+    const invalidDocument = localizationDocumentSchema.parse({
+      ...document,
+      keys: [
+        {
+          ...document.keys[0]!,
+          values: {
+            en: "A weapon from the olden era<br>An old revolver."
+          }
+        }
+      ]
+    });
+
+    expect(validateLocalizationDocument(invalidDocument)).toContainEqual(
+      expect.objectContaining({ message: "Line break tag must look like <br/>" })
+    );
   });
 
   it("rejects malformed keys, duplicate keys, and missing default locale", () => {

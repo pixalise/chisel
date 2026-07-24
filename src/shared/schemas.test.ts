@@ -85,4 +85,19 @@ describe("asset slugs", () => {
 
     expect(asset.category).toBe(AssetCategoryEnum.hdri);
   });
+
+  it("keeps mesh files in the mesh asset category", () => {
+    const asset = assetSchema.parse({
+      category: AssetCategoryEnum.other,
+      extension: "glb",
+      height: 0,
+      id: "WATCH_TOWER",
+      name: "WATCH_TOWER",
+      relativePath: ".chisel/assets/MESH/WATCH_TOWER.glb",
+      sizeBytes: 1024,
+      width: 0
+    });
+
+    expect(asset.category).toBe(AssetCategoryEnum.mesh);
+  });
 });

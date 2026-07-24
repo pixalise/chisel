@@ -1,6 +1,6 @@
 import z from "zod";
 import { assetSlug } from "./asset-paths";
-import { AssetCategoryEnum, ColumnType, isHdriExtension, isTerrainTextureExtension } from "./types";
+import { AssetCategoryEnum, ColumnType, isHdriExtension, isMeshExtension, isTerrainTextureExtension } from "./types";
 
 export const projectSchema = z.object({
   id: z.nanoid(),
@@ -44,52 +44,7 @@ export type RowSlug = z.infer<typeof rowSlugSchema>;
 export const assetSlugSchema = rowSlugSchema;
 export type AssetSlug = z.infer<typeof assetSlugSchema>;
 
-function legacyAssetCategory(value: string): AssetCategoryEnum {
-  const normalizedSlug = assetSlug(value);
-  if (normalizedSlug === "TEXTURE" || normalizedSlug === AssetCategoryEnum.terrainTexture) {
-    return AssetCategoryEnum.terrainTexture;
-  }
-  if (normalizedSlug === AssetCategoryEnum.hdri || normalizedSlug === "HDR") {
-    return AssetCategoryEnum.hdri;
-  }
-  if (normalizedSlug === AssetCategoryEnum.uiIcon) {
-    return AssetCategoryEnum.uiIcon;
-  }
-  if (["IMAGE", "MATERIAL", "SHADER", "UI"].includes(normalizedSlug)) {
-    return AssetCategoryEnum.image;
-  }
-  if (normalizedSlug === AssetCategoryEnum.audio) {
-    return AssetCategoryEnum.audio;
-  }
-  if (normalizedSlug === AssetCategoryEnum.font) {
-    return AssetCategoryEnum.font;
-  }
-  if (["DATA", "CONFIG"].includes(normalizedSlug)) {
-    return AssetCategoryEnum.data;
-  }
-  if (normalizedSlug === AssetCategoryEnum.other) {
-    return AssetCategoryEnum.other;
-  }
-  return AssetCategoryEnum.other;
-}
-
 const assetCategorySchema = z.enum(AssetCategoryEnum);
-
-const legacyAssetCategorySchema = z.preprocess(
-  (value) => (typeof value === "string" ? legacyAssetCategory(value) : value),
-  assetCategorySchema
-);
-
-function normalizeAssetCategoryObject(value: unknown): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return value;
-  }
-  const record = { ...(value as Record<string, unknown>) };
-  if (typeof record.category !== "string" && typeof record.type === "string") {
-    record.category = legacyAssetCategory(record.type);
-  }
-  return record;
-}
 
 function assetCategoryForExtension(extension: string, category: AssetCategoryEnum): AssetCategoryEnum {
   if (isHdriExtension(extension)) {
@@ -98,6 +53,10 @@ function assetCategoryForExtension(extension: string, category: AssetCategoryEnu
 
   if (isTerrainTextureExtension(extension)) {
     return AssetCategoryEnum.terrainTexture;
+  }
+
+  if (isMeshExtension(extension)) {
+    return AssetCategoryEnum.mesh;
   }
 
   return category;
@@ -116,28 +75,19 @@ const assetInputFields = {
 const assetInputSchema = z.object(assetInputFields);
 
 const assetDocumentSchema = z
-  .preprocess(
-    normalizeAssetCategoryObject,
-    z.object({
-      ...assetInputFields,
-      category: legacyAssetCategorySchema,
-      id: z.string(),
-      name: z.string().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
-      relativePath: z.string(),
-      tag: z.string().optional(),
-      tags: z.array(z.string()).optional()
-    })
-  )
+  .object({
+    ...assetInputFields,
+    id: z.string(),
+    name: z.string().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
+    relativePath: z.string()
+  })
   .transform((asset) => {
-    const { tag, tags, ...rest } = asset;
-    void tag;
-    void tags;
-    const slug = assetSlugSchema.parse(assetSlug(rest.name));
+    const slug = assetSlugSchema.parse(assetSlug(asset.name));
     return {
-      ...rest,
+      ...asset,
       id: slug,
       name: slug,
-      category: assetCategoryForExtension(rest.extension, rest.category)
+      category: assetCategoryForExtension(asset.extension, asset.category)
     };
   });
 
@@ -242,33 +192,21 @@ export interface ConvertedImage {
   outputPath: string;
 }
 
-export const dataColumnDefinitionSchema = z.preprocess(
-  (value) => {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-      return value;
-    }
-    const record = { ...(value as Record<string, unknown>) };
-    if (typeof record.assetCategory !== "string" && typeof record.assetType === "string") {
-      record.assetCategory = legacyAssetCategory(record.assetType);
-    }
-    return record;
-  },
-  z.object({
-    id: z.nanoid(),
-    type: z.enum(ColumnType),
-    name: z.string().transform((name) => name.toLowerCase()),
-    defaultValue: z.json().refine((value) => value !== null, "Default value is required"),
-    assetCategory: legacyAssetCategorySchema.optional(),
-    max: z.number().optional(),
-    maxChars: z.int().positive().optional(),
-    min: z.number().optional(),
-    possibleValues: z.array(z.string()).optional(),
-    refTableId: dataTableIdSchema.optional(),
-    required: z.boolean().default(true),
-    step: z.number().positive().optional(),
-    unique: z.boolean().default(false)
-  })
-);
+export const dataColumnDefinitionSchema = z.object({
+  id: z.nanoid(),
+  type: z.enum(ColumnType),
+  name: z.string().transform((name) => name.toLowerCase()),
+  defaultValue: z.json().refine((value) => value !== null, "Default value is required"),
+  assetCategory: assetCategorySchema.optional(),
+  max: z.number().optional(),
+  maxChars: z.int().positive().optional(),
+  min: z.number().optional(),
+  possibleValues: z.array(z.string()).optional(),
+  refTableId: dataTableIdSchema.optional(),
+  required: z.boolean().default(true),
+  step: z.number().positive().optional(),
+  unique: z.boolean().default(false)
+});
 export type DataColumnDefinition = z.infer<typeof dataColumnDefinitionSchema>;
 
 export const dataColumnValueSchema = z.object({

@@ -18,6 +18,7 @@ export enum AssetCategoryEnum {
   terrainTexture = "TERRAIN_TEXTURE",
   hdri = "HDRI",
   uiIcon = "UI_ICON",
+  mesh = "MESH",
   image = "IMAGE",
   audio = "AUDIO",
   font = "FONT",
@@ -28,6 +29,7 @@ export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
   [AssetCategoryEnum.terrainTexture]: "Terrain Texture",
   [AssetCategoryEnum.hdri]: "HDRI",
   [AssetCategoryEnum.uiIcon]: "UI Icon",
+  [AssetCategoryEnum.mesh]: "Mesh",
   [AssetCategoryEnum.image]: "Image",
   [AssetCategoryEnum.audio]: "Audio",
   [AssetCategoryEnum.font]: "Font",
@@ -37,6 +39,7 @@ export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
 
 const terrainTextureExtensions = new Set(["exr", "gppt", "tga", "tif", "tiff"]);
 const hdriExtensions = new Set(["exr", "hdr"]);
+const meshExtensions = new Set(["blend", "dae", "fbx", "glb", "gltf", "obj"]);
 
 export function isTerrainTextureExtension(extension: string): boolean {
   return terrainTextureExtensions.has(extension.toLowerCase());
@@ -44,6 +47,10 @@ export function isTerrainTextureExtension(extension: string): boolean {
 
 export function isHdriExtension(extension: string): boolean {
   return hdriExtensions.has(extension.toLowerCase());
+}
+
+export function isMeshExtension(extension: string): boolean {
+  return meshExtensions.has(extension.toLowerCase());
 }
 
 export const assetCategoryOptionValues = Object.values(AssetCategoryEnum).map((category) => ({

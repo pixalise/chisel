@@ -307,6 +307,31 @@ describe("Godot export", () => {
     expect(assetsFile?.content).toContain('"path": "res://game_data/assets/hdri/sky_clear.hdr"');
   });
 
+  it("exports mesh assets under snake case mesh paths", () => {
+    const asset = assetSchema.parse({
+      category: AssetCategoryEnum.mesh,
+      extension: "glb",
+      height: 0,
+      id: "WATCH_TOWER",
+      name: "WATCH_TOWER",
+      relativePath: ".chisel/assets/MESH/WATCH_TOWER.glb",
+      sizeBytes: 1024,
+      width: 0
+    });
+    const project: Project = {
+      id: nanoid(),
+      name: "Iron Bastion",
+      path: "/tmp/iron-bastion"
+    };
+
+    const bundle = createGodotExportBundle(project, [], "2026-01-01T00:00:00.000Z", [asset]);
+    const assetsFile = bundle.files.find((file) => file.path === "game_data/assets.gd");
+
+    expect(assetsFile?.content).toContain("WATCH_TOWER = 0");
+    expect(assetsFile?.content).toContain('"category": "mesh"');
+    expect(assetsFile?.content).toContain('"path": "res://game_data/assets/mesh/watch_tower.glb"');
+  });
+
   it("exports typed refs, asset refs, and translation refs as enum values", () => {
     const factionColumnId = nanoid();
     const portraitColumnId = nanoid();
@@ -436,8 +461,8 @@ describe("Godot export", () => {
         {
           path: "TERM.AOE_RADIUS.TOOLTIP",
           values: {
-            en: "Area radius.",
-            sl_SI: "Polmer obmocja."
+            en: "Area radius.<br/>Around the target.",
+            sl_SI: "Polmer obmocja.<br/>Okoli tarce."
           },
           placeholders: []
         },
@@ -498,8 +523,9 @@ describe("Godot export", () => {
     expect(localizationFile?.content).toContain('return "[hint=%s]" % tooltip_slug');
     expect(localizationFile?.content).toContain('static func format(id: int, arguments: Dictionary = {}, locale: String = "")');
     expect(localizationFile?.content).toContain(
-      'regex.compile("<style:([A-Z][A-Z0-9_]*)>|</style>|<tooltip:([A-Z][A-Z0-9_]*)>|</tooltip>|<icon:([A-Z][A-Z0-9_]*)\\\\s*/>|\\\\[icon:([A-Z][A-Z0-9_]*)\\\\]|\\\\[term:([A-Z][A-Z0-9_]*)\\\\]|\\\\[/term\\\\]|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")'
+      'regex.compile("<style:([A-Z][A-Z0-9_]*)>|</style>|<tooltip:([A-Z][A-Z0-9_]*)>|</tooltip>|<br\\\\s*/>|<icon:([A-Z][A-Z0-9_]*)\\\\s*/>|\\\\{(int|float|string):([a-z][a-z0-9_]*)\\\\}")'
     );
+    expect(localizationFile?.content).toContain('elif token.begins_with("<br"):');
     expect(localizationFile?.content).toContain('return "[img=16x16]%s[/img]" % _bbcode_escape(icon_path)');
     expect(localizationFile?.content).toContain("static func _placeholder_default(placeholder_type: String) -> Variant:");
     expect(localizationFile?.content).toContain("class LocalizedText:");
@@ -522,7 +548,7 @@ describe("Godot export", () => {
     expect(translationsFile?.content).toContain("parameters.to_arguments()");
     expect(translationsFile?.content).toContain("ChiselLocalization.Id.UNIT_TOXIN_TRACTOR_DESCRIPTION");
     expect(csvFile?.content).toBe(
-      '"keys","en","sl_SI"\n"TERM.AOE_RADIUS.TOOLTIP","Area radius.","Polmer obmocja."\n"UNIT.TOXIN_TRACTOR.DESCRIPTION","The unit does <icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage} damage in a <style:AOE_RADIUS><tooltip:AOE_RADIUS>{float:aoe_radius} radius</tooltip></style> around it.","Enota naredi <icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage} skode v <style:AOE_RADIUS><tooltip:AOE_RADIUS>polmeru {float:aoe_radius}</tooltip></style>."'
+      '"keys","en","sl_SI"\n"TERM.AOE_RADIUS.TOOLTIP","Area radius.<br/>Around the target.","Polmer obmocja.<br/>Okoli tarce."\n"UNIT.TOXIN_TRACTOR.DESCRIPTION","The unit does <icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage} damage in a <style:AOE_RADIUS><tooltip:AOE_RADIUS>{float:aoe_radius} radius</tooltip></style> around it.","Enota naredi <icon:PHYSICAL_DAMAGE/> {float:damage_toxin_percentage} skode v <style:AOE_RADIUS><tooltip:AOE_RADIUS>polmeru {float:aoe_radius}</tooltip></style>."'
     );
   });
 });
