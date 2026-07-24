@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { INPUT_BINDINGS_TABLE_ID } from "@/constants/system-tables";
+import useListTablesQuery from "@/hooks/use-list-tables-query";
 import useSaveTableRowsMutation from "@/hooks/use-save-table-rows-mutation";
 import { cn } from "@/lib/utils";
 import { dataTableRowSchema, rowSlugSchema, type DataColumnDefinition, type DataTableRow } from "../../../../../shared/schemas";
@@ -23,6 +24,17 @@ interface EditorRow {
   id: string;
   slug: string;
   values: Record<string, unknown>;
+}
+
+interface RefLookupRow {
+  id: string;
+  slug: string;
+}
+
+interface RefLookupTable {
+  id: string;
+  name: string;
+  rows: RefLookupRow[];
 }
 
 function cloneValue(value: unknown): unknown {
@@ -45,6 +57,14 @@ function tableRows(table: TableTabEntry): DataTableRow[] {
     return table.rows;
   }
   return [];
+}
+
+function refRowsFromTable(table: TableTabEntry): RefLookupRow[] {
+  return tableRows(table).map((row) => ({ id: row.id, slug: row.slug }));
+}
+
+function rowsForTable(table: RefLookupTable | undefined): RefLookupRow[] {
+  return table?.rows ?? [];
 }
 
 function isSystemTable(table: TableTabEntry): boolean {
@@ -144,7 +164,33 @@ function isReferenceStringColumnType(type: ColumnType): boolean {
   return type === ColumnType.ref || type === ColumnType.translationRef;
 }
 
-function validateCell(column: DataColumnDefinition, value: unknown, rows: EditorRow[], rowId: string): string[] {
+function refTargetSlugs(
+  column: DataColumnDefinition,
+  tables: RefLookupTable[],
+  currentTable: RefLookupTable,
+  rows: EditorRow[]
+): { slugs: Set<string>; table: RefLookupTable | undefined } {
+  const table = tables.find((entry) => entry.id === column.refTableId);
+  if (column.refTableId === currentTable.id) {
+    return {
+      slugs: new Set(rows.map((row) => row.slug)),
+      table: table ?? currentTable
+    };
+  }
+  return {
+    slugs: new Set(rowsForTable(table).map((row) => row.slug)),
+    table
+  };
+}
+
+function validateCell(
+  column: DataColumnDefinition,
+  value: unknown,
+  rows: EditorRow[],
+  rowId: string,
+  tables: RefLookupTable[],
+  currentTable: RefLookupTable
+): string[] {
   const errors: string[] = [];
 
   if (column.required && isEmptyValue(value)) {
@@ -177,6 +223,19 @@ function validateCell(column: DataColumnDefinition, value: unknown, rows: Editor
 
   if (isReferenceStringColumnType(column.type) && typeof value !== "string") {
     errors.push(`${column.name} must be a reference string`);
+  }
+
+  if (column.type === ColumnType.ref && !isEmptyValue(value) && typeof value === "string") {
+    if (!column.refTableId) {
+      errors.push(`${column.name} must target a table`);
+    } else {
+      const target = refTargetSlugs(column, tables, currentTable, rows);
+      if (!target.table) {
+        errors.push(`${column.name} targets a missing table`);
+      } else if (!target.slugs.has(value)) {
+        errors.push(`${column.name} must reference a row in ${target.table.name}`);
+      }
+    }
   }
 
   if (column.type === ColumnType.enumArray) {
@@ -223,7 +282,13 @@ function validateCell(column: DataColumnDefinition, value: unknown, rows: Editor
   return errors;
 }
 
-function validateRow(row: EditorRow, columns: DataColumnDefinition[], rows: EditorRow[]): string[] {
+function validateRow(
+  row: EditorRow,
+  columns: DataColumnDefinition[],
+  rows: EditorRow[],
+  tables: RefLookupTable[],
+  currentTable: RefLookupTable
+): string[] {
   const errors: string[] = [];
   const slugParse = rowSlugSchema.safeParse(row.slug);
   if (!slugParse.success) {
@@ -233,7 +298,7 @@ function validateRow(row: EditorRow, columns: DataColumnDefinition[], rows: Edit
   if (duplicateSlug) {
     errors.push("Slug must be unique");
   }
-  return [...errors, ...columns.flatMap((column) => validateCell(column, cellValue(row, column), rows, row.id))];
+  return [...errors, ...columns.flatMap((column) => validateCell(column, cellValue(row, column), rows, row.id, tables, currentTable))];
 }
 
 function tableStoragePath(table: TableTabEntry): string {
@@ -359,9 +424,27 @@ const DataTable: FC<DataTableProps> = (props) => {
   const columnSignature = useMemo(() => JSON.stringify(columns), [columns]);
   const tableRef = useRef<TableTabEntry | null>(table);
   const columnsRef = useRef<DataColumnDefinition[]>(columns);
+  const { tables } = useListTablesQuery();
   const { isSaveTableRowsLoading, saveTableRows } = useSaveTableRowsMutation();
   const tableKey = table ? tableTabKey(table) : "";
   const canMutateTableRows = table ? canMutateRows(table) : false;
+  const refTables = useMemo<RefLookupTable[]>(() => {
+    const lookupTables = tables.map((entry) => ({ id: entry.id, name: entry.name, rows: refRowsFromTable(entry) }));
+
+    if (!table) {
+      return lookupTables;
+    }
+
+    const currentTable: RefLookupTable = {
+      id: table.id,
+      name: table.name,
+      rows: rows.map((row) => ({ id: row.id, slug: row.slug }))
+    };
+    if (lookupTables.some((entry) => entry.id === table.id)) {
+      return lookupTables.map((entry) => (entry.id === table.id ? currentTable : entry));
+    }
+    return [currentTable, ...lookupTables];
+  }, [rows, table, tables]);
 
   useEffect(() => {
     tableRef.current = table;
@@ -386,7 +469,7 @@ const DataTable: FC<DataTableProps> = (props) => {
     if (!table || !canMutateTableRows) {
       return;
     }
-    if (nextRows.some((row) => validateRow(row, columns, nextRows).length > 0)) {
+    if (nextRows.some((row) => validateRow(row, columns, nextRows, refTables, table).length > 0)) {
       return;
     }
 
@@ -508,7 +591,7 @@ const DataTable: FC<DataTableProps> = (props) => {
             <TableBody>
               {rows.map((row) => {
                 const editable = canMutateTableRows && unlockedRows.has(row.id);
-                const errors = validateRow(row, columns, rows);
+                const errors = validateRow(row, columns, rows, refTables, table);
 
                 return (
                   <TableRow className={cn(editable && "bg-accent/25 hover:bg-accent/35")} key={row.id}>
@@ -543,11 +626,12 @@ const DataTable: FC<DataTableProps> = (props) => {
                         {editable ? (
                           <CellEditor
                             column={column}
+                            tables={refTables}
                             value={cellValue(row, column)}
                             onCommit={(value) => updateCell(row.id, column.id, value)}
                           />
                         ) : (
-                          <CellValue column={column} value={cellValue(row, column)} />
+                          <CellValue column={column} tables={refTables} value={cellValue(row, column)} />
                         )}
                       </TableCell>
                     ))}

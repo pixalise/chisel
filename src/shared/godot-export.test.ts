@@ -63,8 +63,10 @@ describe("Godot export", () => {
     const tableFile = bundle.files.find((file) => file.path === "game_data/tables/enemies.gd");
 
     expect(tableFile?.content).toContain("enum Id {");
+    expect(tableFile?.content).toContain("INVALID = -1");
     expect(tableFile?.content).toContain("ZOMBIE_BASIC = 0");
     expect(tableFile?.content).toContain("ZOMBIE_RUNNER = 1");
+    expect(tableFile?.content).toContain("const COUNT := 2");
     expect(tableFile?.content).toContain('const SLUGS := [\n\t"ZOMBIE_BASIC",\n\t"ZOMBIE_RUNNER"\n]');
     expect(tableFile?.content).toContain('const DISPLAY_NAME := [\n\t"Zombie",\n\t"Runner"\n]');
     expect(tableFile?.content).toContain("const MAX_HEALTH := [\n\t100,\n\t80\n]");
@@ -158,6 +160,7 @@ describe("Godot export", () => {
 
     expect(tableFile?.content).toContain("class_name ChiselEnemyTypes");
     expect(tableFile?.content).toContain(`const TABLE_ID := "${table.id}"`);
+    expect(tableFile?.content).toContain("const COUNT := 0");
     expect(manifestFile?.content).toContain(`"${table.id}": {`);
     expect(manifestFile?.content).toContain('"path": "res://game_data/tables/enemy_types.gd"');
   });
@@ -232,6 +235,7 @@ describe("Godot export", () => {
     expect(inputFile?.content).toContain("static func is_action_just_pressed(action_id: int) -> bool:");
     expect(inputFile?.content).toContain("func sync_input_map() -> void:");
     expect(inputFile?.content).toContain("InputMap.load_from_project_settings()");
+    expect(inputFile?.content).toContain("for index in range(ACTION_NAMES.size()):");
     expect(inputFile?.content).toContain("InputMap.erase_action(input_action_name)");
     expect(inputFile?.content).not.toContain("apply_to_input_map");
     expect(inputFile?.content).toContain("var input_action_name := action_name(index)");
@@ -272,6 +276,7 @@ describe("Godot export", () => {
     expect(manifestFile?.content).toContain('"bytes":');
     expect(assetsFile?.content).toContain("class_name ChiselAssets");
     expect(assetsFile?.content).toContain(`"${asset.id}": {`);
+    expect(assetsFile?.content).toContain("INVALID = -1");
     expect(assetsFile?.content).toContain("FOREST_SOIL_1 = 0");
     expect(assetsFile?.content).toContain('"category": "terrain_texture"');
     expect(assetsFile?.content).toContain('"name": "forest_soil_1"');
@@ -302,6 +307,7 @@ describe("Godot export", () => {
     const bundle = createGodotExportBundle(project, [], "2026-01-01T00:00:00.000Z", [asset]);
     const assetsFile = bundle.files.find((file) => file.path === "game_data/assets.gd");
 
+    expect(assetsFile?.content).toContain("INVALID = -1");
     expect(assetsFile?.content).toContain("SKY_CLEAR = 0");
     expect(assetsFile?.content).toContain('"category": "hdri"');
     expect(assetsFile?.content).toContain('"path": "res://game_data/assets/hdri/sky_clear.hdr"');
@@ -327,6 +333,7 @@ describe("Godot export", () => {
     const bundle = createGodotExportBundle(project, [], "2026-01-01T00:00:00.000Z", [asset]);
     const assetsFile = bundle.files.find((file) => file.path === "game_data/assets.gd");
 
+    expect(assetsFile?.content).toContain("INVALID = -1");
     expect(assetsFile?.content).toContain("WATCH_TOWER = 0");
     expect(assetsFile?.content).toContain('"category": "mesh"');
     expect(assetsFile?.content).toContain('"path": "res://game_data/assets/mesh/watch_tower.glb"');
@@ -428,6 +435,70 @@ describe("Godot export", () => {
     expect(unitFile?.content).toContain("const FACTION := [\n\tChiselFactions.Id.IRON_LEGION\n]");
     expect(unitFile?.content).toContain("const PORTRAIT := [\n\tChiselAssets.Id.RIFLEMAN_PORTRAIT\n]");
     expect(unitFile?.content).toContain("const DESCRIPTION := [\n\tChiselLocalization.Id.UNIT_RIFLEMAN_DESCRIPTION\n]");
+  });
+
+  it("exports empty and missing typed refs as invalid enum values", () => {
+    const abilityColumnId = nanoid();
+    const abilityTable = dataTableSchema.parse({
+      columns: [],
+      description: "Abilities",
+      id: "abilities",
+      kind: "user",
+      lastChangeAt: "2026-01-01T00:00:00.000Z",
+      name: "Ability",
+      rows: [{ id: nanoid(), slug: "FIREBALL", values: [] }],
+      version: 1
+    });
+    const recipeStepTable = dataTableSchema.parse({
+      columns: [
+        {
+          defaultValue: "",
+          id: abilityColumnId,
+          name: "ability",
+          refTableId: "abilities",
+          required: false,
+          type: ColumnType.ref,
+          unique: false
+        }
+      ],
+      description: "Recipe steps",
+      id: "recipe_steps",
+      kind: "user",
+      lastChangeAt: "2026-01-01T00:00:00.000Z",
+      name: "Recipe Step",
+      rows: [
+        {
+          id: nanoid(),
+          slug: "EMPTY_STEP",
+          values: [{ columnId: abilityColumnId, type: ColumnType.ref, value: "" }]
+        },
+        {
+          id: nanoid(),
+          slug: "MISSING_STEP",
+          values: [{ columnId: abilityColumnId, type: ColumnType.ref, value: "MISSING_ABILITY" }]
+        },
+        {
+          id: nanoid(),
+          slug: "FIREBALL_STEP",
+          values: [{ columnId: abilityColumnId, type: ColumnType.ref, value: "FIREBALL" }]
+        }
+      ],
+      version: 1
+    });
+    const project: Project = {
+      id: nanoid(),
+      name: "Iron Bastion",
+      path: "/tmp/iron-bastion"
+    };
+
+    const bundle = createGodotExportBundle(project, [abilityTable, recipeStepTable], "2026-01-01T00:00:00.000Z");
+    const recipeStepFile = bundle.files.find((file) => file.path === "game_data/tables/recipe_step.gd");
+
+    expect(recipeStepFile?.content).toContain(
+      "const ABILITY := [\n\tChiselAbility.Id.INVALID,\n\tChiselAbility.Id.INVALID,\n\tChiselAbility.Id.FIREBALL\n]"
+    );
+    expect(recipeStepFile?.content).not.toContain("COLUMN_VALUE");
+    expect(recipeStepFile?.content).not.toContain("MISSING_ABILITY");
   });
 
   it("exports localization module and Godot translation CSV", () => {

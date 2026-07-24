@@ -22,6 +22,8 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
   const maxValue = useWatch({ control, name: `${fieldPrefix}.max` });
   const minValue = useWatch({ control, name: `${fieldPrefix}.min` });
   const possibleValues = useWatch({ control, name: `${fieldPrefix}.possibleValues` });
+  const refTableId = useWatch({ control, name: `${fieldPrefix}.refTableId` });
+  const requiredValue = useWatch({ control, name: `${fieldPrefix}.required` });
   const stepValue = useWatch({ control, name: `${fieldPrefix}.step` });
   const [possibleValueInput, setPossibleValueInput] = useState("");
   const enumValues = Array.isArray(possibleValues) ? possibleValues.map(String) : [];
@@ -142,6 +144,8 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
         minValue={minValue}
         onAddEnumArrayDefaultValue={addEnumArrayDefaultValue}
         onRemoveEnumArrayDefaultValue={removeEnumArrayDefaultValue}
+        refTableId={refTableId}
+        requiredValue={requiredValue}
         stepValue={stepValue}
       />
 
