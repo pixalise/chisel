@@ -38,6 +38,7 @@ const LanguagesSection: FC<LanguagesSectionProps> = (props) => {
       <div className="flex flex-wrap items-center gap-2">
         {document.locales.map((locale) => (
           <LanguageBadge
+            key={locale}
             isDefaultLanguage={locale === document.defaultLocale}
             language={locale}
             onRemoveLanguage={() => onRemoveLanguage(locale)}
