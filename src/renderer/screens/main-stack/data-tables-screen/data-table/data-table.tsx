@@ -217,7 +217,12 @@ function validateCell(
     }
   }
 
-  if (column.type === ColumnType.enum && column.possibleValues?.length && !column.possibleValues.includes(String(value))) {
+  if (
+    column.type === ColumnType.enum &&
+    column.possibleValues?.length &&
+    !isEmptyValue(value) &&
+    !column.possibleValues.includes(String(value))
+  ) {
     errors.push(`${column.name} must match an allowed value`);
   }
 

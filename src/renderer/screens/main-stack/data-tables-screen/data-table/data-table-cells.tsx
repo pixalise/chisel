@@ -17,6 +17,7 @@ import AssetRefCellEditor from "./asset-ref-cell-editor/asset-ref-cell-editor";
 import AssetRefCellValue from "./asset-ref-cell-value";
 
 const cellEditorClassName = "h-7 min-w-24 border border-border bg-background px-1.5 font-mono text-[0.7rem] shadow-sm";
+const emptyEnumValue = "__empty_enum_value__";
 const emptyRefValue = "__empty_ref_value__";
 const chooseRefValue = "__choose_ref_value__";
 const vectorComponentLabels = ["x", "y", "z", "w"];
@@ -203,12 +204,16 @@ export const CellEditor: FC<CellEditorProps> = (props) => {
   }
 
   if (column.type === ColumnType.enum && column.possibleValues?.length) {
+    const enumValue = textValue(value);
+    const selectValue = !column.required && enumValue === "" ? emptyEnumValue : enumValue;
+
     return (
-      <Select value={textValue(value)} onValueChange={(nextValue) => onCommit(nextValue)}>
+      <Select value={selectValue} onValueChange={(nextValue) => onCommit(nextValue === emptyEnumValue ? "" : nextValue)}>
         <SelectTrigger className={cellEditorClassName}>
-          <SelectValue />
+          <SelectValue placeholder={column.required ? undefined : "None"} />
         </SelectTrigger>
         <SelectContent>
+          {!column.required && <SelectItem value={emptyEnumValue}>None</SelectItem>}
           {column.possibleValues.map((option) => (
             <SelectItem key={option} value={option}>
               {option}

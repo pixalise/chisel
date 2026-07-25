@@ -41,14 +41,14 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
       return;
     }
     const currentEnumValues = Array.isArray(possibleValues) ? possibleValues.map(String) : [];
-    if (isDefaultValueValidForColumnType(columnType, defaultValue, currentEnumValues)) {
+    if (isDefaultValueValidForColumnType(columnType, defaultValue, currentEnumValues, requiredValue)) {
       return;
     }
-    setValue(`${fieldPrefix}.defaultValue`, createDefaultValueForColumnType(columnType, currentEnumValues, minValue), {
+    setValue(`${fieldPrefix}.defaultValue`, createDefaultValueForColumnType(columnType, currentEnumValues, minValue, requiredValue), {
       shouldDirty: true,
       shouldValidate: true
     });
-  }, [columnType, defaultValue, fieldPrefix, minValue, possibleValues, setValue]);
+  }, [columnType, defaultValue, fieldPrefix, minValue, possibleValues, requiredValue, setValue]);
 
   function addPossibleValue(): void {
     const value = possibleValueInput;
@@ -67,7 +67,7 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
     );
     if (defaultValue === value) {
       const nextValues = enumValues.filter((entry) => entry !== value);
-      setValue(`${fieldPrefix}.defaultValue`, createDefaultValueForColumnType(ColumnType.enum, nextValues), {
+      setValue(`${fieldPrefix}.defaultValue`, createDefaultValueForColumnType(ColumnType.enum, nextValues, minValue, requiredValue), {
         shouldDirty: true,
         shouldValidate: true
       });
