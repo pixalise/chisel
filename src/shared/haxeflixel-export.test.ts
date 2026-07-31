@@ -34,9 +34,9 @@ describe("HaxeFlixel export", () => {
     const project: Project = { id: nanoid(), name: "Black Torch", path: "/tmp/black-torch" };
 
     const bundle = createHaxeFlixelExportBundle(project, [table], "2026-01-01T00:00:00.000Z", [], emptyLocalizationDocument);
-    const file = bundle.files.find((entry) => entry.path === "source/chisel/ChiselEnemies.hx");
+    const file = bundle.files.find((entry) => entry.path === "source/gamedata/ChiselEnemies.hx");
 
-    expect(file?.content).toContain("package chisel;");
+    expect(file?.content).toContain("package gamedata;");
     expect(file?.content).toContain("enum abstract ChiselEnemiesId(Int) from Int to Int");
     expect(file?.content).toContain("var ZOMBIE_BASIC = 0;");
     expect(file?.content).toContain("public static final MAX_HEALTH:Array<Int> = [100];");
@@ -100,8 +100,10 @@ describe("HaxeFlixel export", () => {
     expect(tableFile?.content).toContain("ChiselAssetId.UNIT_ICON");
     expect(tableFile?.content).toContain("ChiselLocalizationId.UNITS_NAME");
     expect(assetsFile?.content).toContain('"assets/chisel/image/unit_icon.png"');
+    expect(assetsFile?.content).toContain("function path(id:ChiselAssetId):String {\n\t\treturn PATHS[id];\n\t}");
+    expect(localizationFile?.content).toContain("if (localeIndex < 0) {\n\t\t\tthrow 'Unknown locale: $locale';\n\t\t}");
     expect(localizationFile?.content).toContain('public static final VALUES:Array<Array<String>> = [["Unit"]]');
-    expect(bundle.files.some((entry) => entry.path === "source/chisel/ChiselManifest.hx")).toBe(true);
+    expect(bundle.files.some((entry) => entry.path === "source/gamedata/ChiselManifest.hx")).toBe(true);
   });
 
   it("uses unpacked PNG paths for packed terrain textures", () => {

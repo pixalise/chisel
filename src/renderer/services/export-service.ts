@@ -8,7 +8,7 @@ import {
 import {
   createHaxeFlixelExportBundle,
   HAXEFLIXEL_ASSET_EXPORT_ROOT,
-  HAXEFLIXEL_SOURCE_EXPORT_ROOT,
+  HAXEFLIXEL_GAME_DATA_EXPORT_ROOT,
   haxeFlixelAssetExportPath,
   haxeFlixelPackedTextureExportPaths,
   isHaxeFlixelPackedTextureAsset
@@ -87,7 +87,7 @@ class ExportService {
   ): Promise<ExportProjectResult> {
     const bundle = createHaxeFlixelExportBundle(project, tables, exportedAt, assets, localization);
     await Promise.all([
-      fileService.deleteProjectDirectory(project, HAXEFLIXEL_SOURCE_EXPORT_ROOT),
+      fileService.deleteProjectDirectory(project, HAXEFLIXEL_GAME_DATA_EXPORT_ROOT),
       fileService.deleteProjectDirectory(project, HAXEFLIXEL_ASSET_EXPORT_ROOT)
     ]);
     const assetCounts = await Promise.all(assets.map((asset) => this.exportHaxeFlixelAsset(project, asset)));
@@ -95,8 +95,8 @@ class ExportService {
     return {
       exportedAt,
       fileCount: bundle.files.length + assetCounts.reduce((total, count) => total + count, 0),
-      manifestPath: `${HAXEFLIXEL_SOURCE_EXPORT_ROOT}/ChiselManifest.hx`,
-      outputPath: `${project.path}/${HAXEFLIXEL_SOURCE_EXPORT_ROOT}`,
+      manifestPath: `${HAXEFLIXEL_GAME_DATA_EXPORT_ROOT}/ChiselManifest.hx`,
+      outputPath: `${project.path}/${HAXEFLIXEL_GAME_DATA_EXPORT_ROOT}`,
       target: ExportTarget.haxeFlixel
     };
   }

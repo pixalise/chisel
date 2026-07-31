@@ -125,7 +125,7 @@ export const SettingsScreen: FC = () => {
           </Section>
           <Section title="Game Data Export" copy="Generate data-oriented runtime modules from the latest committed Chisel state.">
             <SettingsRow label="Godot" value="game_data/manifest.gd" />
-            <SettingsRow label="HaxeFlixel" value="source/chisel/ChiselManifest.hx" />
+            <SettingsRow label="HaxeFlixel" value="source/gamedata/ChiselManifest.hx" />
             {lastExport && <SettingsRow label="Last export" value={lastExport.exportedAt} />}
             {lastExport && <SettingsRow label="Files" value={String(lastExport.fileCount)} />}
             {lastExport && <SettingsRow label="Output folder" value={lastExport.outputPath} />}

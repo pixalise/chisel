@@ -90,7 +90,7 @@ export const INPUT_BINDINGS_TABLE = {
       possibleValues: Object.values(InputKeyEnum)
     })
   ],
-  description: "Input bindings exported to Godot InputMap setup.",
+  description: "Input actions and bindings exported to supported game runtimes.",
   id: INPUT_BINDINGS_TABLE_ID,
   isSystemTable: true,
   kind: "system",
