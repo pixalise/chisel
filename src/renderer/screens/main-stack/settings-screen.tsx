@@ -8,6 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 import { ExportTarget, type ExportProjectResult } from "@/services/export-service";
 import useAppStore from "@/stores/app-store";
 
+const exportTargetLabels: Record<ExportTarget, string> = {
+  [ExportTarget.godot]: "Godot",
+  [ExportTarget.haxeFlixel]: "HaxeFlixel",
+  [ExportTarget.love2d]: "LÖVE"
+};
+
 export const SettingsScreen: FC = () => {
   const [exportError, setExportError] = useState<string | null>(null);
   const [lastExport, setLastExport] = useState<ExportProjectResult | null>(null);
@@ -62,7 +68,7 @@ export const SettingsScreen: FC = () => {
       const result = await exportProject(target);
       setLastExport(result);
       toast({
-        title: `${target === ExportTarget.godot ? "Godot" : "HaxeFlixel"} data exported`,
+        title: `${exportTargetLabels[target]} data exported`,
         description: `${result.fileCount} files written to ${result.outputPath}.`
       });
     } catch (error) {
@@ -88,7 +94,7 @@ export const SettingsScreen: FC = () => {
             <SettingsRow label="Table rows" value=".chisel/tables/<table_id>_rows.json" />
             <SettingsRow label="Commits" value=".chisel/commits.json" />
           </Section>
-          <Section title="Current Project" copy="Runtime export will be added as a separate workflow.">
+          <Section title="Current Project" copy="Exports are generated beside .chisel from the latest committed source state.">
             <SettingsRow label="Name" value={project.name} />
             <SettingsRow label="Project path" value={project.path} />
             <SettingsRow label="Project id" value={project.id} />
@@ -126,11 +132,13 @@ export const SettingsScreen: FC = () => {
           <Section title="Game Data Export" copy="Generate data-oriented runtime modules from the latest committed Chisel state.">
             <SettingsRow label="Godot" value="game_data/manifest.gd" />
             <SettingsRow label="HaxeFlixel" value="source/gamedata/ChiselManifest.hx" />
+            <SettingsRow label="LÖVE" value="gamedata/manifest.lua" />
+            {lastExport && <SettingsRow label="Last target" value={exportTargetLabels[lastExport.target]} />}
             {lastExport && <SettingsRow label="Last export" value={lastExport.exportedAt} />}
             {lastExport && <SettingsRow label="Files" value={String(lastExport.fileCount)} />}
             {lastExport && <SettingsRow label="Output folder" value={lastExport.outputPath} />}
             {exportError && <SettingsRow label="Export error" value={exportError} />}
-            <div className="flex gap-2 pt-3">
+            <div className="flex flex-wrap gap-2 pt-3">
               <Button disabled={isExportProjectLoading} onClick={() => onExportProject(ExportTarget.godot)} type="button">
                 {isExportProjectLoading ? "Exporting..." : "Export Godot"}
               </Button>
@@ -141,6 +149,14 @@ export const SettingsScreen: FC = () => {
                 variant="secondary"
               >
                 {isExportProjectLoading ? "Exporting..." : "Export HaxeFlixel"}
+              </Button>
+              <Button
+                disabled={isExportProjectLoading}
+                onClick={() => onExportProject(ExportTarget.love2d)}
+                type="button"
+                variant="secondary"
+              >
+                {isExportProjectLoading ? "Exporting..." : "Export LÖVE"}
               </Button>
             </div>
           </Section>

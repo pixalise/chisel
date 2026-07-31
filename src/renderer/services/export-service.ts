@@ -13,6 +13,14 @@ import {
   haxeFlixelPackedTextureExportPaths,
   isHaxeFlixelPackedTextureAsset
 } from "../../shared/haxeflixel-export";
+import {
+  createLove2dExportBundle,
+  isLove2dPackedTextureAsset,
+  love2dAssetExportPath,
+  LOVE2D_GAME_DATA_EXPORT_ROOT,
+  LOVE2D_MANIFEST_PATH,
+  love2dPackedTextureExportPaths
+} from "../../shared/love2d-export";
 import { LocalizationProblemSeverity, validateLocalizationDocument } from "../../shared/localization";
 import { ProjectValidationSeverity, validateProjectContent } from "../../shared/project-validation";
 import { validatedDataTableSchema, type Asset, type Project } from "../../shared/schemas";
@@ -23,7 +31,8 @@ import texturePackingService from "@/services/texture-packing-service";
 
 export enum ExportTarget {
   godot = "godot",
-  haxeFlixel = "haxeFlixel"
+  haxeFlixel = "haxeFlixel",
+  love2d = "love2d"
 }
 
 export interface ExportProjectResult {
@@ -65,6 +74,10 @@ class ExportService {
     if (target === ExportTarget.haxeFlixel) {
       return this.exportHaxeFlixel(committedProject, tables, assets, commit.localization, exportedAt);
     }
+    if (target === ExportTarget.love2d) {
+      return this.exportLove2d(committedProject, tables, assets, commit.localization, exportedAt);
+    }
+
     const bundle = createGodotExportBundle(committedProject, tables, exportedAt, assets, commit.localization);
     await fileService.deleteProjectDirectory(committedProject, GAME_DATA_EXPORT_ROOT);
     const exportedAssetFileCounts = await Promise.all(assets.map((asset) => this.exportGodotAsset(committedProject, asset)));
@@ -101,6 +114,26 @@ class ExportService {
     };
   }
 
+  private async exportLove2d(
+    project: Project,
+    tables: Parameters<typeof createLove2dExportBundle>[1],
+    assets: Asset[],
+    localization: Parameters<typeof createLove2dExportBundle>[4],
+    exportedAt: string
+  ): Promise<ExportProjectResult> {
+    const bundle = createLove2dExportBundle(project, tables, exportedAt, assets, localization);
+    await fileService.deleteProjectDirectory(project, LOVE2D_GAME_DATA_EXPORT_ROOT);
+    const assetCounts = await Promise.all(assets.map((asset) => this.exportLove2dAsset(project, asset)));
+    await Promise.all(bundle.files.map((file) => fileService.writeProjectTextFile(project, file.path, file.content)));
+    return {
+      exportedAt,
+      fileCount: bundle.files.length + assetCounts.reduce((total, count) => total + count, 0),
+      manifestPath: LOVE2D_MANIFEST_PATH,
+      outputPath: `${project.path}/${LOVE2D_GAME_DATA_EXPORT_ROOT}`,
+      target: ExportTarget.love2d
+    };
+  }
+
   private assetSourcePath(project: Project, asset: Asset): string {
     return asset.relativePath.startsWith("/") ? asset.relativePath : `${project.path}/${asset.relativePath}`;
   }
@@ -130,6 +163,20 @@ class ExportService {
       return 2;
     }
     await fileService.copyProjectFile(project, this.assetSourcePath(project, asset), haxeFlixelAssetExportPath(asset));
+    return 1;
+  }
+
+  private async exportLove2dAsset(project: Project, asset: Asset): Promise<number> {
+    if (isLove2dPackedTextureAsset(asset)) {
+      const packedTexture = await texturePackingService.unpackPackage(this.assetSourcePath(project, asset));
+      const paths = love2dPackedTextureExportPaths(asset);
+      await Promise.all([
+        fileService.writePngFile(`${project.path}/${paths.albedoHeight}`, packedTexture.albedoHeight),
+        fileService.writePngFile(`${project.path}/${paths.normalRoughness}`, packedTexture.normalRoughness)
+      ]);
+      return 2;
+    }
+    await fileService.copyProjectFile(project, this.assetSourcePath(project, asset), love2dAssetExportPath(asset));
     return 1;
   }
 }

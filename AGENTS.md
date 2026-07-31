@@ -7,5 +7,6 @@
 - In JSX, use `condition && <Element />` for conditional rendering. Do not use `condition ? <Element /> : null`.
 - Keep hand-authored Chisel feature components to one React component per file. Split sub-editors into separate kebab-case files instead of nesting multiple components in one file.
 - Chisel and exported game code are explicitly fail-fast: do not silently fall back when required generated data, assets, translations, input bindings, or project config are missing or invalid. Surface the error close to the source with an assertion, thrown error, or validation failure.
-- When changing localization, exported schemas, schema validation, or generated Godot output contracts, update every affected side in the same change: Chisel schemas/tests, editor UI, export generator/tests, and the checked-in Godot generated files.
+- When changing localization, exported schemas, schema validation, or generated runtime output contracts, update every affected side in the same change: Chisel schemas/tests, editor UI, export generator/tests, and checked-in generated consumer files.
+- The LÖVE target owns the complete `gamedata` directory. Every generated Lua module and copied or unpacked asset must remain under that root; do not place LÖVE export artifacts in `source`, `assets/chisel`, or another sibling directory.
 - Chisel table data is saved as one full table JSON document per table. User tables live under `.chisel/tables/user/<table_id>.json`; system tables live under `.chisel/tables/system/...`, for example `.chisel/tables/system/inputs.json`.
