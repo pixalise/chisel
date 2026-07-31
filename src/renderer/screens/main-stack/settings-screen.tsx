@@ -5,7 +5,7 @@ import useExportProjectMutation from "@/hooks/use-export-project-mutation";
 import useSourceCommitsQuery from "@/hooks/use-source-commits-query";
 import useSourceStateMutations from "@/hooks/use-source-state-mutations";
 import { useToast } from "@/hooks/use-toast";
-import { type ExportProjectResult } from "@/services/export-service";
+import { ExportTarget, type ExportProjectResult } from "@/services/export-service";
 import useAppStore from "@/stores/app-store";
 
 export const SettingsScreen: FC = () => {
@@ -55,14 +55,14 @@ export const SettingsScreen: FC = () => {
     }
   }
 
-  async function onExportProject(): Promise<void> {
+  async function onExportProject(target: ExportTarget): Promise<void> {
     setExportError(null);
 
     try {
-      const result = await exportProject();
+      const result = await exportProject(target);
       setLastExport(result);
       toast({
-        title: "Game data exported",
+        title: `${target === ExportTarget.godot ? "Godot" : "HaxeFlixel"} data exported`,
         description: `${result.fileCount} files written to ${result.outputPath}.`
       });
     } catch (error) {
@@ -123,16 +123,24 @@ export const SettingsScreen: FC = () => {
               </div>
             </div>
           </Section>
-          <Section title="Game Data Export" copy="Generated Godot scripts are written from the latest committed Chisel state.">
-            <SettingsRow label="Export root" value="game_data" />
-            <SettingsRow label="Manifest" value="game_data/manifest.gd" />
+          <Section title="Game Data Export" copy="Generate data-oriented runtime modules from the latest committed Chisel state.">
+            <SettingsRow label="Godot" value="game_data/manifest.gd" />
+            <SettingsRow label="HaxeFlixel" value="source/chisel/ChiselManifest.hx" />
             {lastExport && <SettingsRow label="Last export" value={lastExport.exportedAt} />}
             {lastExport && <SettingsRow label="Files" value={String(lastExport.fileCount)} />}
             {lastExport && <SettingsRow label="Output folder" value={lastExport.outputPath} />}
             {exportError && <SettingsRow label="Export error" value={exportError} />}
-            <div className="pt-3">
-              <Button disabled={isExportProjectLoading} onClick={onExportProject} type="button">
-                {isExportProjectLoading ? "Exporting..." : "Export Game Data"}
+            <div className="flex gap-2 pt-3">
+              <Button disabled={isExportProjectLoading} onClick={() => onExportProject(ExportTarget.godot)} type="button">
+                {isExportProjectLoading ? "Exporting..." : "Export Godot"}
+              </Button>
+              <Button
+                disabled={isExportProjectLoading}
+                onClick={() => onExportProject(ExportTarget.haxeFlixel)}
+                type="button"
+                variant="secondary"
+              >
+                {isExportProjectLoading ? "Exporting..." : "Export HaxeFlixel"}
               </Button>
             </div>
           </Section>
