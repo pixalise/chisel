@@ -4,9 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Section } from "@/components/layout/section";
 import { AtlasEntryRow } from "@/screens/main-stack/texture-atlases-screen/atlas-entry-row";
+import { ImportAtlasImageButton } from "@/screens/main-stack/texture-atlases-screen/import-atlas-image-button";
 import useListAssetsQuery from "@/hooks/use-list-assets-query";
 import textureAtlasService from "@/services/texture-atlas-service";
-import type { TextureAtlasBuildResult, TextureAtlasDocument, TextureAtlasEntry } from "../../../../shared/schemas";
+import type { Asset, TextureAtlasBuildResult, TextureAtlasDocument, TextureAtlasEntry } from "../../../../shared/schemas";
+import { AssetCategoryEnum } from "../../../../shared/types";
+
+const supportedImageExtensions = new Set(["png", "jpg", "jpeg", "webp", "gif", "tif", "tiff"]);
 
 function createDocument(id = "UI_ATLAS", name = "UI Atlas"): TextureAtlasDocument {
   return {
@@ -49,7 +53,15 @@ export const TextureAtlasesScreen: FC = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
-  const imageAssets = useMemo(() => assets.filter((asset) => asset.extension.toLowerCase() !== "gppt"), [assets]);
+  const imageAssets = useMemo(
+    () =>
+      assets.filter(
+        (asset) =>
+          (asset.category === AssetCategoryEnum.image || asset.category === AssetCategoryEnum.uiIcon) &&
+          supportedImageExtensions.has(asset.extension.toLowerCase())
+      ),
+    [assets]
+  );
   const assetsById = useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
   const availableAssets = imageAssets.filter((asset) => !document.entries.some((entry) => entry.assetId === asset.id));
 
@@ -107,6 +119,18 @@ export const TextureAtlasesScreen: FC = () => {
     }
     setDocument((current) => ({ ...current, entries: [...current.entries, createEntry(assetId)] }));
     setSelectedAssetId("");
+    setBuildResult(null);
+  }
+
+  function addImportedAsset(asset: Asset): void {
+    clearFeedback();
+    setDocument((current) => {
+      if (current.entries.some((entry) => entry.assetId === asset.id)) {
+        return current;
+      }
+      return { ...current, entries: [...current.entries, createEntry(asset.id)] };
+    });
+    setMessage("Imported and added " + asset.id + ".");
     setBuildResult(null);
   }
 
@@ -290,7 +314,7 @@ export const TextureAtlasesScreen: FC = () => {
         </aside>
 
         <div className="grid min-w-0 content-start gap-4">
-          <div className="flex items-end gap-2 rounded-md border border-border bg-card p-3">
+          <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-card p-3">
             <label className="grid min-w-0 flex-1 gap-1 text-xs font-medium">
               Managed image asset
               <select
@@ -311,11 +335,12 @@ export const TextureAtlasesScreen: FC = () => {
               <Plus />
               Add sprite
             </Button>
+            <ImportAtlasImageButton disabled={isBusy} onError={setError} onImported={addImportedAsset} />
           </div>
 
           {document.entries.length === 0 && (
             <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-              Add managed image assets to define this atlas.
+              Import an image here or add an existing managed image asset.
             </div>
           )}
           {document.entries.map((entry, index) => (

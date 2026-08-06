@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { watch } from "node:fs";
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
@@ -50,6 +51,10 @@ function waitForPort(port, host) {
 await fs.rm(path.join(editorRoot, "dist-electron"), { recursive: true, force: true });
 await runOnce(bunBin, [tscScript, "-p", "tsconfig.electron.json"]);
 
+const compiler = spawn(bunBin, [tscScript, "-p", "tsconfig.electron.json", "--watch", "--preserveWatchOutput"], {
+  cwd: editorRoot,
+  stdio: "inherit"
+});
 const vite = spawn(bunBin, [viteScript, "--host", "127.0.0.1", "--port", "5174", "--strictPort"], {
   cwd: editorRoot,
   stdio: "inherit"
@@ -57,23 +62,77 @@ const vite = spawn(bunBin, [viteScript, "--host", "127.0.0.1", "--port", "5174",
 
 await waitForPort(5174, "127.0.0.1");
 
-const electron = spawn(electronBin, ["."], {
-  cwd: editorRoot,
-  stdio: "inherit",
-  env: {
-    ...process.env,
-    ELECTRON_RENDERER_URL: rendererUrl
-  }
-});
+let electron = null;
+let restartTimer = null;
+let isRestarting = false;
+let isShuttingDown = false;
 
-const shutdown = () => {
+function stopChildren(exitCode = 0) {
+  if (isShuttingDown) {
+    return;
+  }
+  isShuttingDown = true;
+  if (restartTimer) {
+    clearTimeout(restartTimer);
+  }
+  compiler.kill();
   vite.kill();
-  electron.kill();
-};
+  electron?.kill();
+  process.exit(exitCode);
+}
+
+function launchElectron() {
+  const child = spawn(electronBin, ["."], {
+    cwd: editorRoot,
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      ELECTRON_RENDERER_URL: rendererUrl
+    }
+  });
+  electron = child;
+  child.on("exit", (code) => {
+    if (electron !== child) {
+      return;
+    }
+    electron = null;
+    if (isShuttingDown) {
+      return;
+    }
+    if (isRestarting) {
+      isRestarting = false;
+      launchElectron();
+      return;
+    }
+    stopChildren(code ?? 0);
+  });
+}
+
+function restartElectron() {
+  if (isShuttingDown) {
+    return;
+  }
+  if (restartTimer) {
+    clearTimeout(restartTimer);
+  }
+  restartTimer = setTimeout(() => {
+    restartTimer = null;
+    if (!electron) {
+      launchElectron();
+      return;
+    }
+    isRestarting = true;
+    electron.kill();
+  }, 200);
+}
+
+launchElectron();
+const electronOutputWatcher = watch(path.join(editorRoot, "dist-electron"), { recursive: true }, restartElectron);
+
+function shutdown() {
+  electronOutputWatcher.close();
+  stopChildren(0);
+}
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
-electron.on("exit", (code) => {
-  vite.kill();
-  process.exit(code ?? 0);
-});
