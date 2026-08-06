@@ -3,6 +3,12 @@ import type {
   ConvertImages,
   ConvertedImage,
   ImportAssetInput,
+  ReplaceAssetSourceInput,
+  TextureAtlasBuildInput,
+  TextureAtlasBuildResult,
+  TextureAtlasDeleteInput,
+  TextureAtlasDocument,
+  TextureAtlasSaveInput,
   PackAlbedoHeightTexture,
   PackNormalRoughnessTexture,
   PackTexturePackage,
@@ -38,6 +44,8 @@ contextBridge.exposeInMainWorld("electron", {
   getFileMetadata: (sourcePath: string): Promise<FileMetadata> =>
     ipcRenderer.invoke("file:get-metadata", sourcePath) as Promise<FileMetadata>,
   importAsset: (input: ImportAssetInput): Promise<Asset> => ipcRenderer.invoke("asset:import", input) as Promise<Asset>,
+  replaceAssetSource: (input: ReplaceAssetSourceInput): Promise<Asset> =>
+    ipcRenderer.invoke("asset:replace-source", input) as Promise<Asset>,
   upgradeAssetLibraryPaths: (projectPath: string): Promise<UpgradeAssetLibraryPathsResult> =>
     ipcRenderer.invoke("asset:upgrade-library-paths", projectPath) as Promise<UpgradeAssetLibraryPathsResult>,
   replaceAssetReferences: (projectPath: string, assetIdChanges: Record<string, string>): Promise<boolean> =>
@@ -53,5 +61,12 @@ contextBridge.exposeInMainWorld("electron", {
     ipcRenderer.invoke("image:convert-to-png", input) as Promise<ConvertedImage[]>,
   createImageConversionPreview: (inputPath: string, preview?: "albedoHeight" | "normalRoughness"): Promise<string> =>
     ipcRenderer.invoke("image:conversion-preview", inputPath, preview) as Promise<string>,
+  listTextureAtlases: (projectPath: string): Promise<TextureAtlasDocument[]> =>
+    ipcRenderer.invoke("atlas:list", { projectPath }) as Promise<TextureAtlasDocument[]>,
+  saveTextureAtlas: (input: TextureAtlasSaveInput): Promise<TextureAtlasDocument> =>
+    ipcRenderer.invoke("atlas:save", input) as Promise<TextureAtlasDocument>,
+  deleteTextureAtlas: (input: TextureAtlasDeleteInput): Promise<void> => ipcRenderer.invoke("atlas:delete", input) as Promise<void>,
+  buildTextureAtlas: (input: TextureAtlasBuildInput): Promise<TextureAtlasBuildResult> =>
+    ipcRenderer.invoke("atlas:build", input) as Promise<TextureAtlasBuildResult>,
   getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 });

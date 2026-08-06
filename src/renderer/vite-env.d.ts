@@ -4,6 +4,12 @@ import type {
   ConvertImages,
   ConvertedImage,
   ImportAssetInput,
+  ReplaceAssetSourceInput,
+  TextureAtlasBuildInput,
+  TextureAtlasBuildResult,
+  TextureAtlasDeleteInput,
+  TextureAtlasDocument,
+  TextureAtlasSaveInput,
   PackAlbedoHeightTexture,
   PackNormalRoughnessTexture,
   PackTexturePackage,
@@ -47,6 +53,7 @@ declare global {
       deleteDirectory: (path: string) => Promise<void>;
       getFileMetadata: (sourcePath: string) => Promise<FileMetadata>;
       importAsset: (input: ImportAssetInput) => Promise<Asset>;
+      replaceAssetSource: (input: ReplaceAssetSourceInput) => Promise<Asset>;
       upgradeAssetLibraryPaths: (projectPath: string) => Promise<UpgradeAssetLibraryPathsResult>;
       replaceAssetReferences: (projectPath: string, assetIdChanges: Record<string, string>) => Promise<boolean>;
       packAlbedoHeightTexture: (input: PackAlbedoHeightTexture) => Promise<string>;
@@ -55,6 +62,10 @@ declare global {
       unpackTexturePackage: (inputPath: string) => Promise<PackedTexturePackageDataUrls>;
       convertImages: (input: ConvertImages) => Promise<ConvertedImage[]>;
       createImageConversionPreview: (inputPath: string, preview?: "albedoHeight" | "normalRoughness") => Promise<string>;
+      listTextureAtlases: (projectPath: string) => Promise<TextureAtlasDocument[]>;
+      saveTextureAtlas: (input: TextureAtlasSaveInput) => Promise<TextureAtlasDocument>;
+      deleteTextureAtlas: (input: TextureAtlasDeleteInput) => Promise<void>;
+      buildTextureAtlas: (input: TextureAtlasBuildInput) => Promise<TextureAtlasBuildResult>;
       getPathForFile: (file: File) => string;
     };
   }

@@ -1,6 +1,6 @@
 import z from "zod";
 import { emptyLocalizationDocument, localizationDocumentSchema } from "./localization";
-import { assetsJsonSchema, anyDataTableSchema, projectFileSchema } from "./schemas";
+import { assetsJsonSchema, anyDataTableSchema, projectFileSchema, textureAtlasDocumentSchema } from "./schemas";
 
 export const committedSourceSnapshotSchema = z
   .object({
@@ -9,7 +9,8 @@ export const committedSourceSnapshotSchema = z
     project: projectFileSchema,
     tables: z.array(anyDataTableSchema),
     assets: assetsJsonSchema,
-    localization: localizationDocumentSchema.default(emptyLocalizationDocument)
+    localization: localizationDocumentSchema.default(emptyLocalizationDocument),
+    atlases: z.array(textureAtlasDocumentSchema).default([])
   })
   .strict();
 export type CommittedSourceSnapshot = z.infer<typeof committedSourceSnapshotSchema>;

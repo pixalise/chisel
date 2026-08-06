@@ -5,6 +5,16 @@ type SharpWorkerRequest =
   | { id: number; type: "preview"; inputPath: string }
   | { id: number; type: "convertToPng"; inputPath: string; outputPath: string }
   | { id: number; type: "loadRgba"; filePath: string }
+  | {
+      id: number;
+      type: "processAtlasSprite";
+      filePath: string;
+      resizeMode: "native" | "scale" | "contain" | "cover" | "stretch";
+      outputWidth: number | null;
+      outputHeight: number | null;
+      scale: number;
+      trim: boolean;
+    }
   | { id: number; type: "encodeRgbaPng"; data: string; width: number; height: number };
 
 type SharpWorkerResponse = { id: number; ok: true; value: unknown } | { id: number; ok: false; error: string };
@@ -31,6 +41,37 @@ async function handleRequest(request: SharpWorkerRequest): Promise<unknown> {
         throw new Error(`Could not read image dimensions for ${request.filePath}`);
       }
       return { data: data.toString("base64"), width: info.width, height: info.height };
+    }
+    case "processAtlasSprite": {
+      let image = sharp(request.filePath).ensureAlpha();
+      const metadata = await image.metadata();
+      if (!metadata.width || !metadata.height) {
+        throw new Error(`Could not read image dimensions for ${request.filePath}`);
+      }
+      if (request.trim) {
+        image = image.trim({ background: { r: 0, g: 0, b: 0, alpha: 0 } });
+      }
+      if (request.resizeMode === "scale") {
+        image = image.resize({
+          width: Math.max(1, Math.round(metadata.width * request.scale)),
+          height: Math.max(1, Math.round(metadata.height * request.scale)),
+          fit: "fill"
+        });
+      } else if (request.resizeMode !== "native") {
+        if (request.outputWidth === null || request.outputHeight === null) {
+          throw new Error(`${request.resizeMode} requires output dimensions`);
+        }
+        const fit = request.resizeMode === "stretch" ? "fill" : request.resizeMode;
+        image = image.resize({ width: request.outputWidth, height: request.outputHeight, fit });
+      }
+      const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
+      return {
+        data: data.toString("base64"),
+        width: info.width,
+        height: info.height,
+        sourceWidth: metadata.width,
+        sourceHeight: metadata.height
+      };
     }
     case "encodeRgbaPng": {
       const buffer = await sharp(Buffer.from(request.data, "base64"), {

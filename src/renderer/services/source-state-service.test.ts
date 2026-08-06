@@ -23,6 +23,22 @@ const mocks = vi.hoisted(() => {
         width: 64
       }
     ],
+    atlases: [
+      {
+        schemaVersion: 1,
+        id: "HUD",
+        name: "HUD",
+        entries: [],
+        settings: {
+          extrusion: 1,
+          maxPageHeight: 1024,
+          maxPageWidth: 1024,
+          padding: 2,
+          powerOfTwo: true,
+          allowRotation: false
+        }
+      }
+    ],
     localization: {
       schemaVersion: 2,
       defaultLocale: "en",
@@ -134,6 +150,15 @@ vi.mock("@/services/localization-service", () => ({
   }
 }));
 
+vi.mock("@/services/texture-atlas-service", () => ({
+  default: {
+    build: vi.fn(),
+    delete: vi.fn(),
+    list: vi.fn(async () => mocks.atlases),
+    save: vi.fn()
+  }
+}));
+
 const { default: sourceStateService } = await import("./source-state-service");
 
 describe("source state service", () => {
@@ -158,13 +183,14 @@ describe("source state service", () => {
     await expect(sourceStateService.listCommits()).resolves.toEqual([]);
   });
 
-  it("commits draft tables, assets, and localization", async () => {
+  it("commits draft tables, assets, localization, and atlases", async () => {
     const commit = await sourceStateService.commitDraft();
 
     expect(commit.project).toEqual({ id: mocks.project.id, name: mocks.project.name });
     expect(commit.tables).toHaveLength(2);
     expect(commit.assets.assets[0]).toMatchObject({ id: "UNIT_ICON", category: AssetCategoryEnum.image });
     expect(commit.localization).toEqual(mocks.localization);
+    expect(commit.atlases).toEqual(mocks.atlases);
     expect(mocks.sourceState?.commits[0]?.id).toBe(commit.id);
   });
 

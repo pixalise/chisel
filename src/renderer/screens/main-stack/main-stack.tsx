@@ -13,6 +13,7 @@ import LocalizationScreen from "@/screens/main-stack/localization-screen/localiz
 import { SettingsScreen } from "@/screens/main-stack/settings-screen";
 import { TexturePackingScreen } from "@/screens/main-stack/texture-packing-screen/texture-packing-screen";
 import TodoScreen from "@/screens/main-stack/todo-screen/todo-screen";
+import { TextureAtlasesScreen } from "@/screens/main-stack/texture-atlases-screen/texture-atlases-screen";
 
 const MainStack: FC = () => {
   const { pathname } = useLocation();
@@ -35,6 +36,7 @@ const MainStack: FC = () => {
               <Route element={<LocalizationScreen />} path={RouteEnum.localization} />
               <Route element={<ImageConversionScreen />} path={RouteEnum.imageConversion} />
               <Route element={<TexturePackingScreen />} path={RouteEnum.texturePacking} />
+              <Route element={<TextureAtlasesScreen />} path={RouteEnum.textureAtlases} />
               <Route element={<SettingsScreen />} path={RouteEnum.settings} />
               <Route element={<TodoScreen />} path={RouteEnum.todos} />
               <Route element={<Navigate replace to={RouteEnum.assets} />} path="*" />

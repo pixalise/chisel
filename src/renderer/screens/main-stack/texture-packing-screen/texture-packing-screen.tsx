@@ -72,7 +72,7 @@ export const TexturePackingScreen: FC = () => {
   const canRun = form.formState.isValid && !isBusy;
 
   return (
-    <Section title="Texture Packing" copy="Creates asset in form of GPPT and packs them ready for Terrain3D.">
+    <Section title="Material Packing" copy="Creates GPPT material assets from albedo, height, normal, and roughness channels.">
       <form className="grid gap-5" onSubmit={form.handleSubmit(createPackage)}>
         <div className="grid gap-3 grid-cols-1">
           <ControlledSlugInput control={form.control} disabled={isBusy} label="Slug" name="name" />

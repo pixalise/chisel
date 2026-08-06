@@ -1,7 +1,16 @@
 import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { assetSchema, assetsJsonSchema, importAssetSchema, type Asset, type AssetsJson, type ImportAssetInput } from "../shared/schemas";
+import {
+  assetSchema,
+  assetsJsonSchema,
+  importAssetSchema,
+  replaceAssetSourceSchema,
+  type Asset,
+  type AssetsJson,
+  type ImportAssetInput,
+  type ReplaceAssetSourceInput
+} from "../shared/schemas";
 import { assetSlug, chiselAssetRelativePath } from "../shared/asset-paths";
 import { ColumnType } from "../shared/types";
 import { readImageDimensions } from "./sharp-worker-client";
@@ -274,6 +283,51 @@ export async function importAsset(input: ImportAssetInput): Promise<Asset> {
 
   await fs.mkdir(path.dirname(destinationPath), { recursive: true });
   await fs.copyFile(sourcePath, destinationPath);
+  await writeFileAtomic(assetsPath, `${JSON.stringify(assetsJsonSchema.parse({ schemaVersion: 1, assets }), null, 2)}\n`);
+  return asset;
+}
+
+export async function replaceAssetSource(input: ReplaceAssetSourceInput): Promise<Asset> {
+  const request = replaceAssetSourceSchema.parse(input);
+  const projectPath = path.resolve(request.projectPath);
+  const sourcePath = path.resolve(request.sourcePath);
+  const sourceStat = await fs.stat(sourcePath);
+  if (!sourceStat.isFile()) {
+    throw new Error("Replacement asset source must be a file");
+  }
+  const extension = path.extname(sourcePath).toLowerCase();
+  if (!extension) {
+    throw new Error("Replacement asset source must have a file extension");
+  }
+
+  const assetsPath = path.join(projectPath, ".chisel", "assets.json");
+  const document = (await upgradeAssetLibraryPaths(projectPath)).assetsJson;
+  const existing = document.assets.find((asset) => asset.id === request.assetId);
+  if (!existing) {
+    throw new Error(`Asset ${request.assetId} does not exist`);
+  }
+
+  const relativePath = chiselAssetRelativePath(existing.category, existing.name, extension);
+  const conflict = document.assets.find((asset) => asset.id !== existing.id && asset.relativePath === relativePath);
+  if (conflict) {
+    throw new Error(`Replacement destination ${relativePath} is already owned by ${conflict.id}`);
+  }
+  const destinationPath = projectRelativePath(projectPath, relativePath);
+  const dimensions = await imageDimensions(sourcePath);
+  const asset = assetSchema.parse({
+    ...existing,
+    relativePath,
+    extension: extension.replace(/^\./, ""),
+    sizeBytes: sourceStat.size,
+    width: dimensions.width,
+    height: dimensions.height
+  });
+
+  await writeFileAtomic(destinationPath, await fs.readFile(sourcePath));
+  if (relativePath !== existing.relativePath) {
+    await fs.rm(projectRelativePath(projectPath, existing.relativePath), { force: true });
+  }
+  const assets = document.assets.map((entry) => (entry.id === existing.id ? asset : entry));
   await writeFileAtomic(assetsPath, `${JSON.stringify(assetsJsonSchema.parse({ schemaVersion: 1, assets }), null, 2)}\n`);
   return asset;
 }

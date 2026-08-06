@@ -40,6 +40,14 @@ class AssetService extends BaseService {
     return asset;
   }
 
+  public async replaceAssetSource(assetId: string, sourcePath: string): Promise<Asset> {
+    return window.electron.replaceAssetSource({
+      projectPath: appStore.getState().computed.project.path,
+      assetId,
+      sourcePath
+    });
+  }
+
   public async updateAsset(assetId: string, asset: Asset): Promise<void> {
     const assets = await this.getAllAssets();
     const existing = assets.find((entry) => entry.id === assetId);

@@ -1,7 +1,8 @@
 import { BrowserWindow, app, dialog, ipcMain, nativeImage } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { importAsset, replaceAssetReferences, upgradeAssetLibraryPaths } from "./asset-store";
+import { importAsset, replaceAssetReferences, replaceAssetSource, upgradeAssetLibraryPaths } from "./asset-store";
+import { buildTextureAtlas, deleteTextureAtlas, listTextureAtlases, saveTextureAtlas } from "./texture-atlas";
 import { convertImagesToPng, createImageConversionPreview } from "./image-conversion";
 import { getFileMetadata } from "./file-metadata";
 import {
@@ -15,6 +16,11 @@ import {
 import type {
   ConvertImages,
   ImportAssetInput,
+  ReplaceAssetSourceInput,
+  TextureAtlasBuildInput,
+  TextureAtlasDeleteInput,
+  TextureAtlasProjectInput,
+  TextureAtlasSaveInput,
   PackAlbedoHeightTexture,
   PackNormalRoughnessTexture,
   PackTexturePackage
@@ -211,6 +217,7 @@ function registerIpc(): void {
   });
 
   ipcMain.handle("asset:import", (_event, input: ImportAssetInput) => importAsset(input));
+  ipcMain.handle("asset:replace-source", (_event, input: ReplaceAssetSourceInput) => replaceAssetSource(input));
   ipcMain.handle("asset:upgrade-library-paths", (_event, projectPath: string) => upgradeAssetLibraryPaths(projectPath));
   ipcMain.handle("asset:replace-references", (_event, projectPath: string, assetIdChanges: Record<string, string>) =>
     replaceAssetReferences(projectPath, assetIdChanges)
@@ -225,6 +232,10 @@ function registerIpc(): void {
   ipcMain.handle("image:conversion-preview", (_event, inputPath: string, preview?: PackedTexturePackagePreviewKind) =>
     createImagePreview(inputPath, preview)
   );
+  ipcMain.handle("atlas:list", (_event, input: TextureAtlasProjectInput) => listTextureAtlases(input));
+  ipcMain.handle("atlas:save", (_event, input: TextureAtlasSaveInput) => saveTextureAtlas(input));
+  ipcMain.handle("atlas:delete", (_event, input: TextureAtlasDeleteInput) => deleteTextureAtlas(input));
+  ipcMain.handle("atlas:build", (_event, input: TextureAtlasBuildInput) => buildTextureAtlas(input));
 }
 
 app.whenReady().then(() => {
