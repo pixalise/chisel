@@ -9,6 +9,13 @@ Chisel exports only the latest committed source state. Every target runs table, 
 | Godot      | `game_data/manifest.gd`             | `game_data`                           |
 | HaxeFlixel | `source/gamedata/ChiselManifest.hx` | `source/gamedata` and `assets/chisel` |
 | LÖVE       | `gamedata/manifest.lua`             | `gamedata`                            |
+| Teal       | `gamedata/manifest.tl`              | `gamedata`                            |
+
+## Teal Export Contract
+
+The Teal target is the typed LÖVE-facing contract used by Farbound. It preserves the LÖVE module API and asset layout, but writes `.tl` modules for tables, assets, localization, input, manifests, and texture-atlas metadata. A Teal project build compiles those generated modules into Lua together with the game's authored Teal source.
+
+Generated table modules declare a `Data` record with typed structure-of-arrays fields. References remain 1-based integer IDs with `0` reserved for `INVALID`, matching the LÖVE target. Runtime asset paths continue to resolve beneath `gamedata/assets`.
 
 ## LÖVE Export Contract
 
