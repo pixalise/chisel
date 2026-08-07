@@ -1,7 +1,7 @@
 import fileService from "@/services/file-service";
 import BaseService from "@/services/base-service";
 import appStore from "@/stores/app-store";
-import { assetSchema, addAssetSchema, type Asset, type AddAsset } from "../../shared/schemas";
+import { assetCategoryForExtension, assetSchema, addAssetSchema, type Asset, type AddAsset } from "../../shared/schemas";
 import { assetSlug, chiselAssetRelativePath } from "../../shared/asset-paths";
 import { findAssetReferences } from "../../shared/project-validation";
 import tableService from "@/services/table-service";
@@ -27,12 +27,13 @@ class AssetService extends BaseService {
     const assets = await this.getAllAssets();
     const parsed = addAssetSchema.parse(input);
     const name = assetSlug(parsed.name);
-    const relativePath = chiselAssetRelativePath(parsed.category, name, parsed.extension);
+    const category = assetCategoryForExtension(parsed.extension, parsed.category);
+    const relativePath = chiselAssetRelativePath(category, name, parsed.extension);
     const existing = assets.find((entry) => entry.id === name || entry.relativePath === relativePath);
     if (existing) {
       throw new Error(`Asset slug ${name} already exists`);
     }
-    const asset = assetSchema.parse({ ...parsed, id: name, name, relativePath });
+    const asset = assetSchema.parse({ ...parsed, category, id: name, name, relativePath });
     await fileService.writeAssetsJson(appStore.getState().computed.project, {
       schemaVersion: AssetService.schemaVersion,
       assets: [...assets, asset]

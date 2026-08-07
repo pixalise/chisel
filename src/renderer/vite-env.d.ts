@@ -67,6 +67,7 @@ declare global {
       deleteTextureAtlas: (input: TextureAtlasDeleteInput) => Promise<void>;
       buildTextureAtlas: (input: TextureAtlasBuildInput) => Promise<TextureAtlasBuildResult>;
       getPathForFile: (file: File) => string;
+      toFileUrl: (filePath: string) => string;
     };
   }
 }

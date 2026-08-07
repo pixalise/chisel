@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import {
   assetSchema,
+  assetCategoryForExtension,
   assetsJsonSchema,
   importAssetSchema,
   replaceAssetSourceSchema,
@@ -259,7 +260,8 @@ export async function importAsset(input: ImportAssetInput): Promise<Asset> {
   }
 
   const projectPath = path.resolve(request.projectPath);
-  const relativePath = chiselAssetRelativePath(request.category, slug, extension);
+  const category = assetCategoryForExtension(extension, request.category);
+  const relativePath = chiselAssetRelativePath(category, slug, extension);
   const destinationPath = path.join(projectPath, ...relativePath.split("/"));
   const assetsPath = path.join(projectPath, ".chisel", "assets.json");
   const document = (await upgradeAssetLibraryPaths(projectPath)).assetsJson;
@@ -271,7 +273,7 @@ export async function importAsset(input: ImportAssetInput): Promise<Asset> {
   const asset = assetSchema.parse({
     id: slug,
     name: slug,
-    category: request.category,
+    category,
     relativePath,
     sizeBytes: sourceStat.size,
     width: dimensions.width,
@@ -305,6 +307,11 @@ export async function replaceAssetSource(input: ReplaceAssetSourceInput): Promis
   const existing = document.assets.find((asset) => asset.id === request.assetId);
   if (!existing) {
     throw new Error(`Asset ${request.assetId} does not exist`);
+  }
+
+  const replacementCategory = assetCategoryForExtension(extension, existing.category);
+  if (replacementCategory !== existing.category) {
+    throw new Error(`Replacement source is ${replacementCategory}; ${existing.id} requires ${existing.category}.`);
   }
 
   const relativePath = chiselAssetRelativePath(existing.category, existing.name, extension);

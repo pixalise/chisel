@@ -160,6 +160,21 @@ describe("LÖVE export", () => {
     });
   });
 
+  it("exports audio assets beneath the generated audio root", () => {
+    const asset = assetSchema.parse({
+      category: AssetCategoryEnum.audio,
+      extension: "wav",
+      height: 0,
+      id: "BLADE_SWING",
+      name: "BLADE_SWING",
+      relativePath: ".chisel/assets/AUDIO/BLADE_SWING.wav",
+      sizeBytes: 100,
+      width: 0
+    });
+
+    expect(love2dAssetExportPath(asset)).toBe("gamedata/assets/audio/blade_swing.wav");
+  });
+
   it("rejects JSON null rather than emitting a lossy Lua table hole", () => {
     const metadataId = nanoid();
     const table = dataTableSchema.parse({

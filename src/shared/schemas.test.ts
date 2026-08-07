@@ -100,4 +100,19 @@ describe("asset slugs", () => {
 
     expect(asset.category).toBe(AssetCategoryEnum.mesh);
   });
+
+  it("keeps supported sound files in the audio asset category", () => {
+    const asset = assetSchema.parse({
+      category: AssetCategoryEnum.other,
+      extension: "wav",
+      height: 0,
+      id: "BLADE_SWING",
+      name: "BLADE_SWING",
+      relativePath: ".chisel/assets/AUDIO/BLADE_SWING.wav",
+      sizeBytes: 1024,
+      width: 0
+    });
+
+    expect(asset.category).toBe(AssetCategoryEnum.audio);
+  });
 });

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
+import { pathToFileURL } from "node:url";
 import type {
   ConvertImages,
   ConvertedImage,
@@ -68,5 +69,6 @@ contextBridge.exposeInMainWorld("electron", {
   deleteTextureAtlas: (input: TextureAtlasDeleteInput): Promise<void> => ipcRenderer.invoke("atlas:delete", input) as Promise<void>,
   buildTextureAtlas: (input: TextureAtlasBuildInput): Promise<TextureAtlasBuildResult> =>
     ipcRenderer.invoke("atlas:build", input) as Promise<TextureAtlasBuildResult>,
-  getPathForFile: (file: File): string => webUtils.getPathForFile(file)
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+  toFileUrl: (filePath: string): string => pathToFileURL(filePath).href
 });

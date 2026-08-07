@@ -49,7 +49,7 @@ const EditAssetDialogButton: FC<EditAssetDialogButtonProps> = (props) => {
           </DialogTitle>
           <DialogDescription>Update asset metadata. Slug changes move the managed file and update asset references.</DialogDescription>
         </DialogHeader>
-        {isOpen && <ReplaceAssetSource assetId={asset.id} disabled={isUpdateAssetLoading} onReplaced={() => setIsOpen(false)} />}
+        {isOpen && <ReplaceAssetSource asset={asset} disabled={isUpdateAssetLoading} onReplaced={() => setIsOpen(false)} />}
         {isOpen && (
           <AssetForm
             defaultValues={{

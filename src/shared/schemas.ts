@@ -1,6 +1,6 @@
 import z from "zod";
 import { assetSlug } from "./asset-paths";
-import { AssetCategoryEnum, ColumnType, isHdriExtension, isMeshExtension, isTerrainTextureExtension } from "./types";
+import { AssetCategoryEnum, ColumnType, isAudioExtension, isHdriExtension, isMeshExtension, isTerrainTextureExtension } from "./types";
 
 export const projectSchema = z.object({
   id: z.nanoid(),
@@ -46,17 +46,22 @@ export type AssetSlug = z.infer<typeof assetSlugSchema>;
 
 const assetCategorySchema = z.enum(AssetCategoryEnum);
 
-function assetCategoryForExtension(extension: string, category: AssetCategoryEnum): AssetCategoryEnum {
-  if (isHdriExtension(extension)) {
+export function assetCategoryForExtension(extension: string, category: AssetCategoryEnum): AssetCategoryEnum {
+  const normalizedExtension = extension.replace(/^\./, "");
+  if (isHdriExtension(normalizedExtension)) {
     return AssetCategoryEnum.hdri;
   }
 
-  if (isTerrainTextureExtension(extension)) {
+  if (isTerrainTextureExtension(normalizedExtension)) {
     return AssetCategoryEnum.terrainTexture;
   }
 
-  if (isMeshExtension(extension)) {
+  if (isMeshExtension(normalizedExtension)) {
     return AssetCategoryEnum.mesh;
+  }
+
+  if (isAudioExtension(normalizedExtension)) {
+    return AssetCategoryEnum.audio;
   }
 
   return category;

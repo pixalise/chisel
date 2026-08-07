@@ -40,6 +40,11 @@ export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
 const terrainTextureExtensions = new Set(["exr", "gppt", "tga", "tif", "tiff"]);
 const hdriExtensions = new Set(["exr", "hdr"]);
 const meshExtensions = new Set(["blend", "dae", "fbx", "glb", "gltf", "obj"]);
+const audioExtensions = new Set(["flac", "m4a", "mp3", "ogg", "wav"]);
+
+export function isAudioExtension(extension: string): boolean {
+  return audioExtensions.has(extension.toLowerCase());
+}
 
 export function isTerrainTextureExtension(extension: string): boolean {
   return terrainTextureExtensions.has(extension.toLowerCase());

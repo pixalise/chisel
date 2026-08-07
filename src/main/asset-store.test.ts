@@ -4,13 +4,44 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { AssetCategoryEnum, ColumnType } from "../shared/types";
-import { upgradeAssetLibraryPaths } from "./asset-store";
+import { importAsset, replaceAssetSource, upgradeAssetLibraryPaths } from "./asset-store";
 
 function createNanoid(): string {
   return randomBytes(16).toString("base64url").slice(0, 21);
 }
 
 describe("asset store", () => {
+  test("imports and replaces managed audio while preserving its category", async () => {
+    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), "chisel-audio-asset-project-"));
+    const sourcePath = path.join(projectPath, "source.wav");
+    const replacementPath = path.join(projectPath, "replacement.ogg");
+    await fs.writeFile(sourcePath, "WAVE");
+    await fs.writeFile(replacementPath, "OGG");
+
+    const imported = await importAsset({
+      category: AssetCategoryEnum.other,
+      name: "BLADE_SWING",
+      note: "Combat swing",
+      projectPath,
+      sourcePath
+    });
+
+    expect(imported).toMatchObject({
+      category: AssetCategoryEnum.audio,
+      height: 0,
+      relativePath: ".chisel/assets/AUDIO/BLADE_SWING.wav",
+      width: 0
+    });
+    await expect(fs.readFile(path.join(projectPath, ".chisel", "assets", "AUDIO", "BLADE_SWING.wav"), "utf8")).resolves.toBe("WAVE");
+
+    const replaced = await replaceAssetSource({ assetId: imported.id, projectPath, sourcePath: replacementPath });
+    expect(replaced).toMatchObject({
+      category: AssetCategoryEnum.audio,
+      relativePath: ".chisel/assets/AUDIO/BLADE_SWING.ogg"
+    });
+    await expect(fs.readFile(path.join(projectPath, ".chisel", "assets", "AUDIO", "BLADE_SWING.ogg"), "utf8")).resolves.toBe("OGG");
+  });
+
   test("upgrades managed assets into category folders", async () => {
     const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), "chisel-asset-store-project-"));
     const assetId = createNanoid();

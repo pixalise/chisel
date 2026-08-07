@@ -5,15 +5,16 @@ import { Input } from "@/components/ui/input";
 import { HookKeysEnum } from "@/constants/hook-keys-enum";
 import assetService from "@/services/asset-service";
 import CacheUtils from "@/utils/cache-utils";
+import { AssetCategoryEnum, type Asset } from "../../../shared/types";
 
 interface ReplaceAssetSourceProps {
-  assetId: string;
+  asset: Asset;
   disabled: boolean;
   onReplaced: () => void;
 }
 
 export const ReplaceAssetSource: FC<ReplaceAssetSourceProps> = (props) => {
-  const { assetId, disabled, onReplaced } = props;
+  const { asset, disabled, onReplaced } = props;
   const [sourcePath, setSourcePath] = useState("");
   const [message, setMessage] = useState("");
   const [isReplacing, setIsReplacing] = useState(false);
@@ -32,7 +33,7 @@ export const ReplaceAssetSource: FC<ReplaceAssetSourceProps> = (props) => {
     setIsReplacing(true);
     setMessage("");
     try {
-      await assetService.replaceAssetSource(assetId, sourcePath);
+      await assetService.replaceAssetSource(asset.id, sourcePath);
       await CacheUtils.invalidateQueries([[HookKeysEnum.listAssetsQuery]]);
       onReplaced();
     } catch (reason) {
@@ -45,11 +46,16 @@ export const ReplaceAssetSource: FC<ReplaceAssetSourceProps> = (props) => {
   return (
     <section className="grid gap-3 rounded-md border border-border bg-card p-3">
       <div>
-        <p className="text-sm font-semibold">Replace source image</p>
+        <p className="text-sm font-semibold">Replace source file</p>
         <p className="text-xs text-muted-foreground">Keeps the stable asset slug and updates dimensions and file metadata.</p>
       </div>
       <div className="flex items-center gap-2">
-        <Input accept="image/*" disabled={disabled || isReplacing} onChange={chooseSource} type="file" />
+        <Input
+          accept={asset.category === AssetCategoryEnum.audio ? "audio/*" : "image/*"}
+          disabled={disabled || isReplacing}
+          onChange={chooseSource}
+          type="file"
+        />
         <Button disabled={disabled || isReplacing || !sourcePath} onClick={replaceSource} type="button" variant="outline">
           <RefreshCw />
           Replace

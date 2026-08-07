@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import ImagePreview from "@/components/image-preview";
 import useAppStore from "@/stores/app-store";
 import { type FC, useState } from "react";
-import { type Asset } from "../../../../../shared/types";
+import { AssetCategoryEnum, type Asset } from "../../../../../shared/types";
 import { cn } from "@/lib/utils";
 
 export interface AssetPreviewProps {
@@ -30,6 +30,7 @@ export const AssetPreview: FC<AssetPreviewProps> = (props) => {
   const [gpptPreview, setGpptPreview] = useState<GpptPreview>("albedoHeight");
   const project = useAppStore((state) => state._project);
   const canPreview = previewablePathPattern.test(asset.relativePath);
+  const canPlayAudio = asset.category === AssetCategoryEnum.audio;
   const isGppt = /\.gppt$/i.test(asset.relativePath);
   const previewPath = asset.relativePath.startsWith("/") || !project ? asset.relativePath : `${project.path}/${asset.relativePath}`;
 
@@ -51,7 +52,9 @@ export const AssetPreview: FC<AssetPreviewProps> = (props) => {
         </div>
       )}
       <div className="grid min-h-60 ">
-        {canPreview ? <ImagePreview path={previewPath} preview={isGppt ? gpptPreview : undefined} /> : <p>No preview</p>}
+        {canPreview && <ImagePreview path={previewPath} preview={isGppt ? gpptPreview : undefined} />}
+        {canPlayAudio && <audio className="w-full self-center" controls preload="metadata" src={window.electron.toFileUrl(previewPath)} />}
+        {!canPreview && !canPlayAudio && <p>No preview</p>}
       </div>
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <PreviewFact label="id" value={asset.id} />

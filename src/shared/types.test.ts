@@ -3,6 +3,7 @@ import {
   AssetCategoryEnum,
   assetCategoryLabelMap,
   assetCategoryOptionValues,
+  isAudioExtension,
   isHdriExtension,
   isMeshExtension,
   isTerrainTextureExtension
@@ -30,5 +31,12 @@ describe("asset categories", () => {
     expect(isMeshExtension("GLTF")).toBe(true);
     expect(isMeshExtension("obj")).toBe(true);
     expect(isMeshExtension("png")).toBe(false);
+  });
+
+  it("recognizes audio file extensions", () => {
+    expect(isAudioExtension("wav")).toBe(true);
+    expect(isAudioExtension("OGG")).toBe(true);
+    expect(isAudioExtension("flac")).toBe(true);
+    expect(isAudioExtension("png")).toBe(false);
   });
 });
