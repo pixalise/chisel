@@ -102,23 +102,6 @@ function tealTableContent(file: Love2dExportFile, table: AnyDataTable): string {
   return replaceRequired(tealFileReferences(file.content), "local data = {", `${recordLines.join("\n")}local data: Data = {`, file.path);
 }
 
-function tealAssetsContent(file: Love2dExportFile): string {
-  let content = tealFileReferences(file.content);
-  const record = [
-    "local record Assets",
-    "\tCOUNT: integer",
-    "\tID: {string: integer}",
-    "\tIDS: {string}",
-    "\tPATHS: {string}",
-    "\tpath: function(integer): string",
-    "end",
-    ""
-  ].join("\n");
-  content = replaceRequired(content, "local assets = {", `${record}local assets: Assets = {`, file.path);
-  content = replaceRequired(content, "function assets.path(id)", "function assets.path(id: integer): string", file.path);
-  return content;
-}
-
 function tealLocalizationContent(file: Love2dExportFile): string {
   let content = tealFileReferences(file.content);
   const record = [
@@ -222,8 +205,8 @@ function tealFile(file: Love2dExportFile, tablesByLuaPath: Map<string, AnyDataTa
   let content: string;
   if (table) {
     content = tealTableContent(file, table);
-  } else if (file.path.endsWith("/assets.lua")) {
-    content = tealAssetsContent(file);
+  } else if (file.path.endsWith("/asset_manager.lua")) {
+    content = tealFileReferences(file.content);
   } else if (file.path.endsWith("/localization.lua")) {
     content = tealLocalizationContent(file);
   } else if (file.path.endsWith("/input.lua")) {

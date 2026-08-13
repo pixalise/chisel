@@ -13,6 +13,7 @@ import {
   isAudioExtension,
   isHdriExtension,
   isMeshExtension,
+  isShaderExtension,
   isTerrainTextureExtension
 } from "../../../shared/types";
 import fileService from "@/services/file-service";
@@ -40,6 +41,9 @@ function categoryForFile(metadata: FileMetadata): AssetCategoryEnum {
 
   if (isAudioExtension(extension)) {
     return AssetCategoryEnum.audio;
+  }
+  if (isShaderExtension(extension)) {
+    return AssetCategoryEnum.shader;
   }
   if (["otf", "ttf", "woff", "woff2"].includes(extension)) {
     return AssetCategoryEnum.font;

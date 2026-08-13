@@ -11,6 +11,49 @@ function createNanoid(): string {
 }
 
 describe("asset store", () => {
+  test("replaces a managed UI image without changing its stable ID", async () => {
+    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), "chisel-ui-asset-project-"));
+    const sourcePath = path.join(projectPath, "portrait.png");
+    const replacementPath = path.join(projectPath, "replacement.png");
+    await fs.writeFile(sourcePath, "FIRST");
+    await fs.writeFile(replacementPath, "SECOND");
+
+    const imported = await importAsset({
+      category: AssetCategoryEnum.ui,
+      name: "HUMAN_MALE",
+      projectPath,
+      sourcePath
+    });
+    const replaced = await replaceAssetSource({ assetId: imported.id, projectPath, sourcePath: replacementPath });
+
+    expect(replaced).toMatchObject({
+      category: AssetCategoryEnum.ui,
+      id: "HUMAN_MALE",
+      relativePath: ".chisel/assets/UI/HUMAN_MALE.png"
+    });
+    await expect(fs.readFile(path.join(projectPath, ".chisel", "assets", "UI", "HUMAN_MALE.png"), "utf8")).resolves.toBe("SECOND");
+  });
+
+  test("rejects a non-image replacement for a managed UI image", async () => {
+    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), "chisel-ui-replacement-project-"));
+    const sourcePath = path.join(projectPath, "portrait.png");
+    const replacementPath = path.join(projectPath, "replacement.txt");
+    await fs.writeFile(sourcePath, "FIRST");
+    await fs.writeFile(replacementPath, "SECOND");
+
+    const imported = await importAsset({
+      category: AssetCategoryEnum.ui,
+      name: "HUMAN_MALE",
+      projectPath,
+      sourcePath
+    });
+
+    await expect(replaceAssetSource({ assetId: imported.id, projectPath, sourcePath: replacementPath })).rejects.toThrow(
+      "UI does not support .txt files"
+    );
+    await expect(fs.readFile(path.join(projectPath, ".chisel", "assets", "UI", "HUMAN_MALE.png"), "utf8")).resolves.toBe("FIRST");
+  });
+
   test("imports and replaces managed audio while preserving its category", async () => {
     const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), "chisel-audio-asset-project-"));
     const sourcePath = path.join(projectPath, "source.wav");
@@ -93,5 +136,62 @@ describe("asset store", () => {
     await expect(fs.readFile(newPath, "utf8")).resolves.toBe("GPPT");
     await expect(fs.access(oldPath)).rejects.toMatchObject({ code: "ENOENT" });
     await expect(fs.readFile(tablePath, "utf8")).resolves.toContain('"value": "FOREST_SOIL_1"');
+  });
+
+  test("migrates legacy UI_ICON assets into UI", async () => {
+    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), "chisel-ui-category-project-"));
+    const oldRelativePath = ".chisel/assets/UI_ICON/ICON_HOME.png";
+    const oldPath = path.join(projectPath, ...oldRelativePath.split("/"));
+    await fs.mkdir(path.dirname(oldPath), { recursive: true });
+    await fs.writeFile(oldPath, "PNG");
+    await fs.writeFile(
+      path.join(projectPath, ".chisel", "assets.json"),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        assets: [
+          {
+            category: "UI_ICON",
+            extension: "png",
+            height: 16,
+            id: "ICON_HOME",
+            name: "ICON_HOME",
+            relativePath: oldRelativePath,
+            sizeBytes: 3,
+            width: 16
+          }
+        ]
+      })}\n`
+    );
+    await fs.writeFile(
+      path.join(projectPath, ".chisel", "tables.json"),
+      `${JSON.stringify({ tables: [{ columns: [{ assetCategory: "UI_ICON" }] }] })}\n`
+    );
+    await fs.writeFile(
+      path.join(projectPath, ".chisel", "commits.json"),
+      `${JSON.stringify({
+        commits: [
+          {
+            assets: {
+              assets: [{ category: "UI_ICON", relativePath: oldRelativePath }]
+            },
+            tables: [{ columns: [{ assetCategory: "UI_ICON" }] }]
+          }
+        ]
+      })}\n`
+    );
+
+    const document = await upgradeAssetLibraryPaths(projectPath);
+
+    expect(document.assetsJson.assets[0]).toMatchObject({
+      category: AssetCategoryEnum.ui,
+      relativePath: ".chisel/assets/UI/ICON_HOME.png"
+    });
+    await expect(fs.readFile(path.join(projectPath, ".chisel", "assets", "UI", "ICON_HOME.png"), "utf8")).resolves.toBe("PNG");
+    await expect(fs.readFile(path.join(projectPath, ".chisel", "tables.json"), "utf8")).resolves.toContain('"assetCategory": "UI"');
+    const upgradedCommits = await fs.readFile(path.join(projectPath, ".chisel", "commits.json"), "utf8");
+    expect(upgradedCommits).toContain('"category": "UI"');
+    expect(upgradedCommits).toContain('"relativePath": ".chisel/assets/UI/ICON_HOME.png"');
+    expect(upgradedCommits).not.toContain("UI_ICON");
+    await expect(fs.access(oldPath)).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

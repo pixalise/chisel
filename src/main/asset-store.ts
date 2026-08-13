@@ -13,7 +13,7 @@ import {
   type ReplaceAssetSourceInput
 } from "../shared/schemas";
 import { assetSlug, chiselAssetRelativePath } from "../shared/asset-paths";
-import { ColumnType } from "../shared/types";
+import { ColumnType, isAssetExtensionAllowed, isImageExtension } from "../shared/types";
 import { readImageDimensions } from "./sharp-worker-client";
 
 export interface UpgradeAssetLibraryPathsResult {
@@ -128,6 +128,21 @@ function upgradeAssetRefValues(value: unknown, assetIdChanges: Map<string, strin
   let changed = false;
   const nextRecord: Record<string, unknown> = {};
   for (const [key, entry] of Object.entries(record)) {
+    if (key === "assetCategory" && entry === "UI_ICON") {
+      changed = true;
+      nextRecord[key] = "UI";
+      continue;
+    }
+    if (key === "category" && entry === "UI_ICON") {
+      changed = true;
+      nextRecord[key] = "UI";
+      continue;
+    }
+    if (key === "relativePath" && typeof entry === "string" && entry.startsWith(".chisel/assets/UI_ICON/")) {
+      changed = true;
+      nextRecord[key] = entry.replace(".chisel/assets/UI_ICON/", ".chisel/assets/UI/");
+      continue;
+    }
     const result = upgradeAssetRefValues(entry, assetIdChanges);
     changed ||= result.changed;
     nextRecord[key] = result.value;
@@ -136,15 +151,15 @@ function upgradeAssetRefValues(value: unknown, assetIdChanges: Map<string, strin
 }
 
 async function upgradeTableAssetReferences(projectPath: string, assetIdChanges: Map<string, string>): Promise<boolean> {
-  if (assetIdChanges.size === 0) {
-    return false;
-  }
-
   let changed = false;
   const rootTablesJsonPath = path.join(projectPath, ".chisel", "tables.json");
+  const commitsJsonPath = path.join(projectPath, ".chisel", "commits.json");
   const tableJsonFiles = await listJsonFiles(path.join(projectPath, ".chisel", "tables"));
   if (await fileExists(rootTablesJsonPath)) {
     tableJsonFiles.push(rootTablesJsonPath);
+  }
+  if (await fileExists(commitsJsonPath)) {
+    tableJsonFiles.push(commitsJsonPath);
   }
   await Promise.all(
     tableJsonFiles.map(async (filePath) => {
@@ -234,6 +249,9 @@ async function writeFileAtomic(filePath: string, content: string | Buffer): Prom
 }
 
 async function imageDimensions(filePath: string): Promise<{ width: number; height: number }> {
+  if (!isImageExtension(path.extname(filePath).replace(/^\./, ""))) {
+    return { width: 0, height: 0 };
+  }
   try {
     return await readImageDimensions(filePath);
   } catch {
@@ -261,6 +279,9 @@ export async function importAsset(input: ImportAssetInput): Promise<Asset> {
 
   const projectPath = path.resolve(request.projectPath);
   const category = assetCategoryForExtension(extension, request.category);
+  if (!isAssetExtensionAllowed(category, extension)) {
+    throw new Error(`${category} does not support ${extension} files.`);
+  }
   const relativePath = chiselAssetRelativePath(category, slug, extension);
   const destinationPath = path.join(projectPath, ...relativePath.split("/"));
   const assetsPath = path.join(projectPath, ".chisel", "assets.json");
@@ -312,6 +333,9 @@ export async function replaceAssetSource(input: ReplaceAssetSourceInput): Promis
   const replacementCategory = assetCategoryForExtension(extension, existing.category);
   if (replacementCategory !== existing.category) {
     throw new Error(`Replacement source is ${replacementCategory}; ${existing.id} requires ${existing.category}.`);
+  }
+  if (!isAssetExtensionAllowed(existing.category, extension)) {
+    throw new Error(`${existing.category} does not support ${extension} files.`);
   }
 
   const relativePath = chiselAssetRelativePath(existing.category, existing.name, extension);

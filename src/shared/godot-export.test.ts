@@ -548,12 +548,12 @@ describe("Godot export", () => {
       ]
     });
     const iconAsset = assetSchema.parse({
-      category: AssetCategoryEnum.uiIcon,
+      category: AssetCategoryEnum.ui,
       extension: "png",
       height: 32,
       id: "PHYSICAL_DAMAGE",
       name: "PHYSICAL_DAMAGE",
-      relativePath: ".chisel/assets/UI_ICON/PHYSICAL_DAMAGE.png",
+      relativePath: ".chisel/assets/UI/PHYSICAL_DAMAGE.png",
       sizeBytes: 1024,
       width: 32
     });
@@ -575,7 +575,7 @@ describe("Godot export", () => {
     expect(localizationFile?.content).toContain("const VALUES := {");
     expect(localizationFile?.content).toContain('const ICON_SLUGS := [[], ["PHYSICAL_DAMAGE"]]');
     expect(localizationFile?.content).toContain('"PHYSICAL_DAMAGE": {');
-    expect(localizationFile?.content).toContain('"path": "res://game_data/assets/ui_icon/physical_damage.png"');
+    expect(localizationFile?.content).toContain('"path": "res://game_data/assets/ui/physical_damage.png"');
     expect(localizationFile?.content).toContain('const PLACEHOLDERS := [[], ["damage_toxin_percentage", "aoe_radius"]]');
     expect(localizationFile?.content).toContain('const PLACEHOLDER_TYPES := [[], ["float", "float"]]');
     expect(localizationFile?.content).not.toContain("PLACEHOLDER_TERMS");
@@ -587,7 +587,7 @@ describe("Godot export", () => {
     expect(localizationFile?.content).toContain("const TOOLTIPS := {");
     expect(localizationFile?.content).toContain('"title_id": Id.TERM_AOE_RADIUS_TOOLTIP');
     expect(localizationFile?.content).toContain('"description_id": Id.TERM_AOE_RADIUS_TOOLTIP');
-    expect(localizationFile?.content).toContain('"icon_path": "res://game_data/assets/ui_icon/physical_damage.png"');
+    expect(localizationFile?.content).toContain('"icon_path": "res://game_data/assets/ui/physical_damage.png"');
     expect(localizationFile?.content).toContain("class TooltipContent:");
     expect(localizationFile?.content).toContain('"tooltip_title_bbcode_text": tooltip_content.title.bbcode_text');
     expect(localizationFile?.content).toContain('"tooltip_bbcode_text": tooltip_content.description.bbcode_text');

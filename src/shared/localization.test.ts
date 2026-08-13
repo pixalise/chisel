@@ -65,13 +65,13 @@ describe("localization schemas", () => {
     expect(
       validateLocalizationDocument(document, [
         {
-          category: AssetCategoryEnum.uiIcon,
+          category: AssetCategoryEnum.ui,
           extension: "png",
           formattedBytes: "1.0 KB",
           height: 32,
           id: "PHYSICAL_DAMAGE",
           name: "PHYSICAL_DAMAGE",
-          relativePath: ".chisel/assets/UI_ICON/PHYSICAL_DAMAGE.png",
+          relativePath: ".chisel/assets/UI/PHYSICAL_DAMAGE.png",
           sizeBytes: 1024,
           width: 32
         }
@@ -348,7 +348,7 @@ describe("localization schemas", () => {
     expect(problems).toContainEqual(
       expect.objectContaining({
         severity: LocalizationProblemSeverity.error,
-        message: 'Translation UNIT.RIFLEMAN.DESCRIPTION references asset "WRONG_CATEGORY" as an icon but it is IMAGE, not UI_ICON'
+        message: 'Translation UNIT.RIFLEMAN.DESCRIPTION references asset "WRONG_CATEGORY" as an icon but it is IMAGE, not UI'
       })
     );
   });

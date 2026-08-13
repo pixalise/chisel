@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { describe, expect, it } from "vitest";
-import { assetSchema, createOrUpdateAssetSchema, dataTableRowSchema, rowSlugSchema } from "./schemas";
-import { AssetCategoryEnum } from "./types";
+import { assetSchema, createOrUpdateAssetSchema, dataTableRowSchema, dataTableSchema, rowSlugSchema } from "./schemas";
+import { AssetCategoryEnum, ColumnType } from "./types";
 
 describe("row slugs", () => {
   it("accepts constant case slugs", () => {
@@ -114,5 +114,60 @@ describe("asset slugs", () => {
     });
 
     expect(asset.category).toBe(AssetCategoryEnum.audio);
+  });
+
+  it("classifies GLSL files as managed shaders", () => {
+    const asset = assetSchema.parse({
+      category: AssetCategoryEnum.other,
+      extension: "glsl",
+      height: 0,
+      id: "UI_MATERIAL",
+      name: "UI_MATERIAL",
+      relativePath: ".chisel/assets/SHADER/UI_MATERIAL.glsl",
+      sizeBytes: 1024,
+      width: 0
+    });
+
+    expect(asset.category).toBe(AssetCategoryEnum.shader);
+  });
+
+  it("reads legacy UI_ICON documents as UI assets", () => {
+    const asset = assetSchema.parse({
+      category: "UI_ICON",
+      extension: "png",
+      height: 32,
+      id: "ICON_HOME",
+      name: "ICON_HOME",
+      relativePath: ".chisel/assets/UI_ICON/ICON_HOME.png",
+      sizeBytes: 100,
+      width: 32
+    });
+
+    expect(asset.category).toBe(AssetCategoryEnum.ui);
+  });
+
+  it("reads legacy UI_ICON column filters as UI", () => {
+    const table = dataTableSchema.parse({
+      columns: [
+        {
+          assetCategory: "UI_ICON",
+          defaultValue: "",
+          id: nanoid(),
+          name: "portrait",
+          required: true,
+          type: ColumnType.assetRef,
+          unique: false
+        }
+      ],
+      description: "Characters",
+      id: "characters",
+      kind: "user",
+      lastChangeAt: "2026-01-01T00:00:00.000Z",
+      name: "Characters",
+      rows: [],
+      version: 1
+    });
+
+    expect(table.columns[0]?.assetCategory).toBe(AssetCategoryEnum.ui);
   });
 });

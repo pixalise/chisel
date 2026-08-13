@@ -3,9 +3,13 @@ import {
   AssetCategoryEnum,
   assetCategoryLabelMap,
   assetCategoryOptionValues,
+  isAssetExtensionAllowed,
   isAudioExtension,
+  isFontExtension,
   isHdriExtension,
+  isImageExtension,
   isMeshExtension,
+  isShaderExtension,
   isTerrainTextureExtension
 } from "./types";
 
@@ -13,10 +17,11 @@ describe("asset categories", () => {
   it("includes HDRI as a selectable asset category", () => {
     expect(assetCategoryLabelMap[AssetCategoryEnum.hdri]).toBe("HDRI");
     expect(assetCategoryOptionValues).toContainEqual({ label: "HDRI", value: AssetCategoryEnum.hdri });
-    expect(assetCategoryLabelMap[AssetCategoryEnum.uiIcon]).toBe("UI Icon");
-    expect(assetCategoryOptionValues).toContainEqual({ label: "UI Icon", value: AssetCategoryEnum.uiIcon });
+    expect(assetCategoryLabelMap[AssetCategoryEnum.ui]).toBe("UI");
+    expect(assetCategoryOptionValues).toContainEqual({ label: "UI", value: AssetCategoryEnum.ui });
     expect(assetCategoryLabelMap[AssetCategoryEnum.mesh]).toBe("Mesh");
     expect(assetCategoryOptionValues).toContainEqual({ label: "Mesh", value: AssetCategoryEnum.mesh });
+    expect(assetCategoryOptionValues).toContainEqual({ label: "Shader", value: AssetCategoryEnum.shader });
   });
 
   it("recognizes HDRI file extensions without stealing terrain texture extensions", () => {
@@ -38,5 +43,17 @@ describe("asset categories", () => {
     expect(isAudioExtension("OGG")).toBe(true);
     expect(isAudioExtension("flac")).toBe(true);
     expect(isAudioExtension("png")).toBe(false);
+  });
+
+  it("recognizes managed shader and image extensions", () => {
+    expect(isShaderExtension("GLSL")).toBe(true);
+    expect(isShaderExtension("png")).toBe(false);
+    expect(isImageExtension("png")).toBe(true);
+    expect(isImageExtension("WEBP")).toBe(true);
+    expect(isImageExtension("wav")).toBe(false);
+    expect(isFontExtension("TTF")).toBe(true);
+    expect(isFontExtension("png")).toBe(false);
+    expect(isAssetExtensionAllowed(AssetCategoryEnum.ui, "png")).toBe(true);
+    expect(isAssetExtensionAllowed(AssetCategoryEnum.ui, "txt")).toBe(false);
   });
 });

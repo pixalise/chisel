@@ -24,7 +24,7 @@ The entire LÖVE export is contained beneath `gamedata`:
 ```text
 gamedata/
   manifest.lua
-  assets.lua
+  asset_manager.lua
   localization.lua
   input.lua                 # Present when the input_bindings system table exists.
 
@@ -49,12 +49,17 @@ local health = enemies.MAX_HEALTH[enemyId]
 
 Table, asset, and translation references are exported as their target's numeric ID. Empty optional references become `0`; unresolved non-empty references block export.
 
-Assets remain inside `gamedata/assets`. The generated asset module returns runtime paths that can be passed directly to LÖVE loaders:
+Assets remain inside `gamedata/assets`. Chisel generates a standalone, lazy-loading asset manager with category-scoped stable IDs:
 
 ```lua
-local assets = require("gamedata.assets")
-local icon = love.graphics.newImage(assets.path(assets.ID.UNIT_ICON))
+local AssetManager = require("gamedata.asset_manager")
+local portrait = AssetManager.image(AssetManager.UI.HUMAN_MALE)
+local font = AssetManager.font(AssetManager.FONT.BODY, 18, 1)
 ```
+
+The manager validates each loader against the authored category and caches resources only after first use. It supports managed images, linear data images, fonts, shaders, audio sources, text data, validated paths, cache cleanup, and category namespaces such as `UI`, `IMAGE`, `FONT`, `SHADER`, and `AUDIO`. `AssetManager.destroy()` releases every loaded LÖVE resource.
+
+`UI` replaces the former `UI_ICON` category. Opening an older project migrates its asset documents and files into `.chisel/assets/UI`. Replacing an asset source preserves its stable slug, so game code continues using the same generated ID without path changes.
 
 GPPT terrain packages are unpacked beneath their asset directory as `albedo_height.png` and `normal_roughness.png`.
 

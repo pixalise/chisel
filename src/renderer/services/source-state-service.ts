@@ -24,6 +24,7 @@ class SourceStateService extends BaseService {
   }
 
   public async getLatestCommit(): Promise<CommittedSourceSnapshot | undefined> {
+    await assetService.getAllAssets();
     return (await this.listCommits())[0];
   }
 

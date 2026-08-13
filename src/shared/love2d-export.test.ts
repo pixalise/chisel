@@ -125,19 +125,24 @@ describe("LÖVE export", () => {
 
     const bundle = createLove2dExportBundle(project, [targetTable, table], "2026-01-01T00:00:00.000Z", [asset], localization);
     const tableFile = bundle.files.find((entry) => entry.path.endsWith("tables/units.lua"));
-    const assetsFile = bundle.files.find((entry) => entry.path === "gamedata/assets.lua");
+    const assetsFile = bundle.files.find((entry) => entry.path === "gamedata/asset_manager.lua");
     const localizationFile = bundle.files.find((entry) => entry.path === "gamedata/localization.lua");
     const manifestFile = bundle.files.find((entry) => entry.path === "gamedata/manifest.lua");
 
     expect(tableFile?.content).toContain("CLASS = { 1 }");
     expect(tableFile?.content).toContain("ICON = { 1 }");
     expect(tableFile?.content).toContain("NAME = { 1 }");
-    expect(assetsFile?.content).toContain('"gamedata/assets/image/unit_icon.png"');
-    expect(assetsFile?.content).toContain("function assets.path(id)");
+    expect(assetsFile?.content).toContain('path = "gamedata/assets/image/unit_icon.png"');
+    expect(assetsFile?.content).toContain("function AssetManager.image(assetId)");
+    expect(assetsFile?.content).toContain("IMAGE = {");
+    expect(assetsFile?.content).toContain("UNIT_ICON = 1");
+    expect(assetsFile?.content).toContain(
+      "local caches = { images = {}, dataImages = {}, fonts = {}, shaders = {}, audio = {}, text = {} }"
+    );
     expect(localizationFile?.content).toContain('VALUES = { { "Unit" } }');
     expect(localizationFile?.content).toContain("function localization.get(id, locale)");
     expect(manifestFile?.content).toContain('["units"] = { module = "gamedata.tables.units", count = 1 }');
-    expect(manifestFile?.content).toContain('root = "gamedata/assets"');
+    expect(manifestFile?.content).toContain('module = "gamedata.asset_manager"');
     expect(manifestFile?.content).toContain("INPUT = { module = nil, enabled = false }");
   });
 

@@ -62,7 +62,7 @@ describe("Teal export", () => {
     const bundle = createTealExportBundle(project, [table, inputTable()], "2026-01-01T00:00:00.000Z", [], emptyLocalizationDocument);
     const tableFile = bundle.files.find((file) => file.path === "gamedata/tables/enemies.tl");
     const inputFile = bundle.files.find((file) => file.path === "gamedata/input.tl");
-    const assetsFile = bundle.files.find((file) => file.path === "gamedata/assets.tl");
+    const assetsFile = bundle.files.find((file) => file.path === "gamedata/asset_manager.tl");
     const localizationFile = bundle.files.find((file) => file.path === "gamedata/localization.tl");
     const manifestFile = bundle.files.find((file) => file.path === TEAL_MANIFEST_PATH);
 
@@ -75,8 +75,8 @@ describe("Teal export", () => {
     expect(inputFile?.content).toContain("local input: Input = {");
     expect(inputFile?.content).toContain("function input.isActionPressed(action: integer): boolean");
     expect(inputFile?.content).toContain("function input.endFrame(): nil");
-    expect(assetsFile?.content).toContain("local assets: Assets = {");
-    expect(assetsFile?.content).toContain("function assets.path(id: integer): string");
+    expect(assetsFile?.content).toContain("local AssetManager = {");
+    expect(assetsFile?.content).toContain("function AssetManager.image(assetId)");
     expect(localizationFile?.content).toContain("local localization: Localization = {");
     expect(localizationFile?.content).toContain("function localization.get(id: integer, locale: string): string");
     expect(manifestFile?.content).toContain('"gamedata/tables/enemies.tl"');

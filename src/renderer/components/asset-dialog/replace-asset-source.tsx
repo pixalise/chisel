@@ -13,6 +13,22 @@ interface ReplaceAssetSourceProps {
   onReplaced: () => void;
 }
 
+function acceptedSourceTypes(category: AssetCategoryEnum): string | undefined {
+  if (category === AssetCategoryEnum.audio) {
+    return "audio/*";
+  }
+  if (category === AssetCategoryEnum.font) {
+    return ".otf,.ttf,.woff,.woff2";
+  }
+  if (category === AssetCategoryEnum.shader) {
+    return ".glsl";
+  }
+  if (category === AssetCategoryEnum.image || category === AssetCategoryEnum.ui) {
+    return "image/*";
+  }
+  return undefined;
+}
+
 export const ReplaceAssetSource: FC<ReplaceAssetSourceProps> = (props) => {
   const { asset, disabled, onReplaced } = props;
   const [sourcePath, setSourcePath] = useState("");
@@ -50,12 +66,7 @@ export const ReplaceAssetSource: FC<ReplaceAssetSourceProps> = (props) => {
         <p className="text-xs text-muted-foreground">Keeps the stable asset slug and updates dimensions and file metadata.</p>
       </div>
       <div className="flex items-center gap-2">
-        <Input
-          accept={asset.category === AssetCategoryEnum.audio ? "audio/*" : "image/*"}
-          disabled={disabled || isReplacing}
-          onChange={chooseSource}
-          type="file"
-        />
+        <Input accept={acceptedSourceTypes(asset.category)} disabled={disabled || isReplacing} onChange={chooseSource} type="file" />
         <Button disabled={disabled || isReplacing || !sourcePath} onClick={replaceSource} type="button" variant="outline">
           <RefreshCw />
           Replace

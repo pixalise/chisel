@@ -736,12 +736,12 @@ function localizationTooltipsDictionary(localization: LocalizationDocument, asse
     return "{}";
   }
   const keyIndexByPath = new Map(localization.keys.map((key, index) => [key.path, index]));
-  const uiIconAssetsById = new Map(assets.filter((asset) => asset.category === AssetCategoryEnum.uiIcon).map((asset) => [asset.id, asset]));
+  const uiAssetsById = new Map(assets.filter((asset) => asset.category === AssetCategoryEnum.ui).map((asset) => [asset.id, asset]));
   const lines = localization.tooltips.map((tooltip) => {
     const fields: string[] = [];
     const titleIndex = keyIndexByPath.get(tooltip.titleKey);
     const descriptionIndex = keyIndexByPath.get(tooltip.descriptionKey);
-    const iconAsset = tooltip.iconAssetId ? uiIconAssetsById.get(tooltip.iconAssetId) : undefined;
+    const iconAsset = tooltip.iconAssetId ? uiAssetsById.get(tooltip.iconAssetId) : undefined;
     if (typeof titleIndex === "number") {
       fields.push(`\t\t"title_id": Id.${localizationKeyConstant(tooltip.titleKey)}`);
     } else {
@@ -762,7 +762,7 @@ function localizationTooltipsDictionary(localization: LocalizationDocument, asse
 }
 
 function localizationIconsDictionary(assets: Asset[]): string {
-  const iconAssets = assets.filter((asset) => asset.category === AssetCategoryEnum.uiIcon);
+  const iconAssets = assets.filter((asset) => asset.category === AssetCategoryEnum.ui);
   if (iconAssets.length === 0) {
     return "{}";
   }

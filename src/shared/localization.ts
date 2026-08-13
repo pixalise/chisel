@@ -295,11 +295,11 @@ export function validateLocalizationDocument(document: LocalizationDocument, ass
           });
           continue;
         }
-        if (asset && asset.category !== AssetCategoryEnum.uiIcon) {
+        if (asset && asset.category !== AssetCategoryEnum.ui) {
           problems.push({
             severity: LocalizationProblemSeverity.error,
             path: `keys.${keyIndex}.values.${locale}`,
-            message: `Translation ${key.path} references asset "${iconSlug}" as an icon but it is ${asset.category}, not UI_ICON`
+            message: `Translation ${key.path} references asset "${iconSlug}" as an icon but it is ${asset.category}, not UI`
           });
         }
       }
@@ -357,11 +357,11 @@ export function validateLocalizationDocument(document: LocalizationDocument, ass
           path: `tooltips.${tooltipIndex}.iconAssetId`,
           message: `Tooltip ${tooltip.slug} references missing UI icon asset "${tooltip.iconAssetId}"`
         });
-      } else if (asset && asset.category !== AssetCategoryEnum.uiIcon) {
+      } else if (asset && asset.category !== AssetCategoryEnum.ui) {
         problems.push({
           severity: LocalizationProblemSeverity.error,
           path: `tooltips.${tooltipIndex}.iconAssetId`,
-          message: `Tooltip ${tooltip.slug} references asset "${tooltip.iconAssetId}" as an icon but it is ${asset.category}, not UI_ICON`
+          message: `Tooltip ${tooltip.slug} references asset "${tooltip.iconAssetId}" as an icon but it is ${asset.category}, not UI`
         });
       }
     }

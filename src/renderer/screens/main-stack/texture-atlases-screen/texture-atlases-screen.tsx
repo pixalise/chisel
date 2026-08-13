@@ -57,7 +57,7 @@ export const TextureAtlasesScreen: FC = () => {
     () =>
       assets.filter(
         (asset) =>
-          (asset.category === AssetCategoryEnum.image || asset.category === AssetCategoryEnum.uiIcon) &&
+          (asset.category === AssetCategoryEnum.image || asset.category === AssetCategoryEnum.ui) &&
           supportedImageExtensions.has(asset.extension.toLowerCase())
       ),
     [assets]

@@ -10,8 +10,8 @@ class AssetService extends BaseService {
   private static schemaVersion: number = 1;
 
   public async getAllAssets(): Promise<Asset[]> {
-    const assets = await fileService.tryReadAssetsJson(this.getPath());
-    return assets?.assets ?? [];
+    const result = await window.electron.upgradeAssetLibraryPaths(this.getPath());
+    return result.assetsJson.assets;
   }
 
   public async getAsset(assetId: string): Promise<Asset> {

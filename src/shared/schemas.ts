@@ -1,6 +1,14 @@
 import z from "zod";
 import { assetSlug } from "./asset-paths";
-import { AssetCategoryEnum, ColumnType, isAudioExtension, isHdriExtension, isMeshExtension, isTerrainTextureExtension } from "./types";
+import {
+  AssetCategoryEnum,
+  ColumnType,
+  isAudioExtension,
+  isHdriExtension,
+  isMeshExtension,
+  isShaderExtension,
+  isTerrainTextureExtension
+} from "./types";
 
 export const projectSchema = z.object({
   id: z.nanoid(),
@@ -64,6 +72,10 @@ export function assetCategoryForExtension(extension: string, category: AssetCate
     return AssetCategoryEnum.audio;
   }
 
+  if (isShaderExtension(normalizedExtension)) {
+    return AssetCategoryEnum.shader;
+  }
+
   return category;
 }
 
@@ -80,12 +92,20 @@ const assetInputFields = {
 const assetInputSchema = z.object(assetInputFields);
 
 const assetDocumentSchema = z
-  .object({
-    ...assetInputFields,
-    id: z.string(),
-    name: z.string().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
-    relativePath: z.string()
-  })
+  .preprocess(
+    (input) => {
+      if (typeof input !== "object" || input === null || !("category" in input) || input.category !== "UI_ICON") {
+        return input;
+      }
+      return { ...input, category: AssetCategoryEnum.ui };
+    },
+    z.object({
+      ...assetInputFields,
+      id: z.string(),
+      name: z.string().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
+      relativePath: z.string()
+    })
+  )
   .transform((asset) => {
     const slug = assetSlugSchema.parse(assetSlug(asset.name));
     return {
@@ -342,6 +362,21 @@ const baseDataTableSchema = z.object({
   rows: z.array(dataTableRowSchema).default([])
 });
 
+function migrateLegacyTableAssetCategories(input: unknown): unknown {
+  if (typeof input !== "object" || input === null || !("columns" in input) || !Array.isArray(input.columns)) {
+    return input;
+  }
+  return {
+    ...input,
+    columns: input.columns.map((column) => {
+      if (typeof column !== "object" || column === null || !("assetCategory" in column) || column.assetCategory !== "UI_ICON") {
+        return column;
+      }
+      return { ...column, assetCategory: AssetCategoryEnum.ui };
+    })
+  };
+}
+
 export const createOrUpdateUserTableSchema = z.object({
   name: z.string(),
   description: z.string(),
@@ -349,21 +384,27 @@ export const createOrUpdateUserTableSchema = z.object({
 });
 export type CreateOrUpdateTable = z.infer<typeof createOrUpdateUserTableSchema>;
 
-export const dataTableSchema = baseDataTableSchema
-  .extend({
-    kind: z.literal("user").default("user")
-  })
+export const dataTableSchema = z
+  .preprocess(
+    migrateLegacyTableAssetCategories,
+    baseDataTableSchema.extend({
+      kind: z.literal("user").default("user")
+    })
+  )
   .transform((t) => ({
     ...t,
     isSystemTable: false
   }));
 export type DataTableSchema = z.infer<typeof dataTableSchema>;
 
-export const systemDataTableSchema = baseDataTableSchema
-  .extend({
-    kind: z.literal("system").default("system"),
-    moduleId: z.string()
-  })
+export const systemDataTableSchema = z
+  .preprocess(
+    migrateLegacyTableAssetCategories,
+    baseDataTableSchema.extend({
+      kind: z.literal("system").default("system"),
+      moduleId: z.string()
+    })
+  )
   .transform((t) => ({
     ...t,
     isSystemTable: true

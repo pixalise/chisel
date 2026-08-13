@@ -17,22 +17,24 @@ export interface FileMetadata {
 export enum AssetCategoryEnum {
   terrainTexture = "TERRAIN_TEXTURE",
   hdri = "HDRI",
-  uiIcon = "UI_ICON",
+  ui = "UI",
   mesh = "MESH",
   image = "IMAGE",
   audio = "AUDIO",
   font = "FONT",
+  shader = "SHADER",
   data = "DATA",
   other = "OTHER"
 }
 export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
   [AssetCategoryEnum.terrainTexture]: "Terrain Texture",
   [AssetCategoryEnum.hdri]: "HDRI",
-  [AssetCategoryEnum.uiIcon]: "UI Icon",
+  [AssetCategoryEnum.ui]: "UI",
   [AssetCategoryEnum.mesh]: "Mesh",
   [AssetCategoryEnum.image]: "Image",
   [AssetCategoryEnum.audio]: "Audio",
   [AssetCategoryEnum.font]: "Font",
+  [AssetCategoryEnum.shader]: "Shader",
   [AssetCategoryEnum.data]: "Data",
   [AssetCategoryEnum.other]: "Other"
 };
@@ -41,9 +43,24 @@ const terrainTextureExtensions = new Set(["exr", "gppt", "tga", "tif", "tiff"]);
 const hdriExtensions = new Set(["exr", "hdr"]);
 const meshExtensions = new Set(["blend", "dae", "fbx", "glb", "gltf", "obj"]);
 const audioExtensions = new Set(["flac", "m4a", "mp3", "ogg", "wav"]);
+const fontExtensions = new Set(["otf", "ttf", "woff", "woff2"]);
+const shaderExtensions = new Set(["glsl"]);
+const imageExtensions = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "svg", "webp"]);
 
 export function isAudioExtension(extension: string): boolean {
   return audioExtensions.has(extension.toLowerCase());
+}
+
+export function isShaderExtension(extension: string): boolean {
+  return shaderExtensions.has(extension.toLowerCase());
+}
+
+export function isFontExtension(extension: string): boolean {
+  return fontExtensions.has(extension.toLowerCase());
+}
+
+export function isImageExtension(extension: string): boolean {
+  return imageExtensions.has(extension.toLowerCase());
 }
 
 export function isTerrainTextureExtension(extension: string): boolean {
@@ -56,6 +73,32 @@ export function isHdriExtension(extension: string): boolean {
 
 export function isMeshExtension(extension: string): boolean {
   return meshExtensions.has(extension.toLowerCase());
+}
+
+export function isAssetExtensionAllowed(category: AssetCategoryEnum, extension: string): boolean {
+  const normalizedExtension = extension.replace(/^\./, "");
+  if (category === AssetCategoryEnum.ui || category === AssetCategoryEnum.image) {
+    return isImageExtension(normalizedExtension);
+  }
+  if (category === AssetCategoryEnum.audio) {
+    return isAudioExtension(normalizedExtension);
+  }
+  if (category === AssetCategoryEnum.font) {
+    return isFontExtension(normalizedExtension);
+  }
+  if (category === AssetCategoryEnum.shader) {
+    return isShaderExtension(normalizedExtension);
+  }
+  if (category === AssetCategoryEnum.hdri) {
+    return isHdriExtension(normalizedExtension);
+  }
+  if (category === AssetCategoryEnum.mesh) {
+    return isMeshExtension(normalizedExtension);
+  }
+  if (category === AssetCategoryEnum.terrainTexture) {
+    return isTerrainTextureExtension(normalizedExtension);
+  }
+  return true;
 }
 
 export const assetCategoryOptionValues = Object.values(AssetCategoryEnum).map((category) => ({
