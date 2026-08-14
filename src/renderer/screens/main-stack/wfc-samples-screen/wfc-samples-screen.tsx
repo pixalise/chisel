@@ -8,6 +8,7 @@ import { TiledRoleEditor } from "@/screens/main-stack/wfc-samples-screen/tiled-r
 import { TiledSampleInspector } from "@/screens/main-stack/wfc-samples-screen/tiled-sample-inspector";
 import { TiledTileCatalog } from "@/screens/main-stack/wfc-samples-screen/tiled-tile-catalog";
 import { TiledProblemList } from "@/screens/main-stack/wfc-samples-screen/tiled-problem-list";
+import { TiledWfcPreview } from "@/screens/main-stack/wfc-samples-screen/tiled-wfc-preview";
 import tiledSampleService from "@/services/tiled-sample-service";
 import { AlertTriangle, RefreshCw, Save } from "lucide-react";
 import { type FC, useEffect, useMemo, useState } from "react";
@@ -241,6 +242,7 @@ export const WfcSamplesScreen: FC = () => {
                 sample={sample}
               />
             </div>
+            <TiledWfcPreview board={board} />
             <TiledTileCatalog
               board={board}
               onChange={(tileBindings) => mutateBoard((current) => ({ ...current, enrichment: { ...current.enrichment, tileBindings } }))}

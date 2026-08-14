@@ -4,7 +4,8 @@ Tiled and Chisel have deliberately separate jobs:
 
 - **Tiled** assembles visual sample boards from ordinary tile layers and external spritesheet tilesets.
 - **Chisel** manages a project-local copy, validates the supported Tiled subset, assigns semantic tile metadata, and defines weighted WFC sample rectangles.
-- **The game/runtime** will eventually consume a compiled generation format. Chisel does not compile WFC rules or generate maps in this slice.
+- **Chisel's preview compiler** extracts fixed `3×3` overlapping patterns, deduplicates exact multi-layer arrangements, derives directional adjacency, and runs seeded test generations.
+- **The game/runtime** will eventually consume an exported form of the same compiled library. Runtime export is not part of this slice.
 
 ## Project layout
 
@@ -53,14 +54,18 @@ A board may contain many non-overlapping, grid-aligned samples. Each sample has 
 
 Movement blocking belongs to the generated contents. Terrain tiles contribute their binding's blocking flag, future feature stamps will contribute explicit footprint masks, and decorative scatter can remain non-blocking.
 
-## Future WFC adjacency contract
+## WFC adjacency contract
 
 Chisel will learn ordinary tile compatibility from the authored samples instead of requiring a hand-written north/east/south/west rule for every sprite:
 
-1. A terrain profile selects sample slugs and a pattern size, initially expected to be `3×3`.
+1. The sample preview currently compiles every sample on the board with a fixed `3×3` pattern size. The future biome editor will select sample slugs and apply profile weights.
 2. The compiler extracts every overlapping pattern wholly contained by each selected sample. A sample edge is not implicitly joined to another sample edge.
 3. Two patterns fit horizontally or vertically only when their overlapping rows or columns are identical.
 4. Observed frequency and the sample weight configured by that biome profile produce the final pattern weight.
+
+Samples compiled together may have different rectangle dimensions, but must include the same layer ids. Each sample contributes one normalized unit of pattern weight, so a larger sample supplies more local evidence without automatically outweighing a smaller sample. Exact recurring patterns are stored once while retaining per-sample occurrence counts. Rotation and reflection permissions expand each observation before this deduplication step, including the corresponding Tiled sprite orientation flags.
+
+The preview solver accepts output dimensions from `3×3` through `64×64`, a deterministic integer seed, and retries contradictions with derived seeds. It reports the unique pattern count, attempt count, and patterns lacking a compatible neighbor in each cardinal direction.
 
 This means cliffs and shorelines must be represented by complete authored examples: straight runs, inner corners, outer corners, starts, ends, and any legal junctions. Open water and solid ground also need enough interior area for the selected pattern size. If a transition never appears in an eligible sample, WFC does not invent it.
 
