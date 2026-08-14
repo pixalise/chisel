@@ -12,3 +12,8 @@
 - LÖVE runtime consumers load assets through generated `gamedata.asset_manager` category IDs. Keep its loaders lazy, category-validated, and self-contained; never require consumers to reconstruct paths or maintain a parallel cache.
 - `UI` is the canonical category for interface imagery and replaces legacy `UI_ICON`. Project upgrades must migrate both metadata and managed source paths without changing stable asset slugs.
 - Chisel table data is saved as one full table JSON document per table. User tables live under `.chisel/tables/user/<table_id>.json`; system tables live under `.chisel/tables/system/...`, for example `.chisel/tables/system/inputs.json`.
+- Read `EXPORTS.md` before changing a generated runtime contract. For FARBOUND-facing content work, also read `FARBOUND_INTEGRATION.md` and the authoritative product specifications in the sibling `farbound` repository.
+- Keep immutable authored definitions in Chisel and mutable gameplay instances in the consumer. Do not export save-state containers, installed-upgrade instances, enabled deck state, hands, or encounter state as content tables.
+- Preserve FARBOUND's card taxonomy in schemas: upgrade cards, combat cards, physical consumables, and contextual requirements are distinct. Never model all four through one ambiguous generic card table.
+- Model variable equipment-native and upgrade-granted combat actions through reference rows or another normalized relation, not numbered fields such as `card_1`, `card_2`, and `card_3`.
+- Export enough stable definition identity and references for the runtime to retain source traces. Generated dense numeric IDs are runtime projections and must not be treated as durable save identity.

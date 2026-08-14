@@ -13,7 +13,7 @@ Chisel exports only the latest committed source state. Every target runs table, 
 
 ## Teal Export Contract
 
-The Teal target is the typed LÖVE-facing contract used by Farbound. It preserves the LÖVE module API and asset layout, but writes `.tl` modules for tables, assets, localization, input, manifests, and texture-atlas metadata. A Teal project build compiles those generated modules into Lua together with the game's authored Teal source.
+The Teal target is an optional typed LÖVE-facing contract. It preserves the LÖVE module API and asset layout, but writes `.tl` modules for tables, assets, localization, input, manifests, and texture-atlas metadata. A Teal project build compiles those generated modules into Lua together with the consumer's authored Teal source. FARBOUND uses the ordinary LÖVE/Lua target because its authored runtime is YueScript compiled to Lua.
 
 Generated table modules declare a `Data` record with typed structure-of-arrays fields. References remain 1-based integer IDs with `0` reserved for `INVALID`, matching the LÖVE target. Runtime asset paths continue to resolve beneath `gamedata/assets`.
 
@@ -102,3 +102,19 @@ end
 ```
 
 Call `input.endFrame()` once after all gameplay input consumers have run for the frame. The adapter does not replace callbacks or install global state itself.
+
+## FARBOUND Content Contract
+
+FARBOUND uses Chisel as the authority for immutable card, host-family, equipment, inventory-item, encounter, event, narrative, localization, and asset definitions. Chisel does not own installed upgrades, carried item instances, enabled decks, hands, encounter state, or other mutable gameplay state.
+
+The universal card framework deliberately exports distinct definition families:
+
+- Upgrade cards install into compatible hosts and never enter the combat hand.
+- Combat cards are reusable actions and are the only cards shuffled, drawn, and played.
+- Equipment-native and upgrade-granted combat actions use explicit reference records rather than fixed `card_1`, `card_2`, and `card_3` columns.
+- Consumables remain physical item definitions and never count toward deck size.
+- Knowledge, evidence, magic, reputation, relationships, contracts, and law remain contextual requirements unless a definition explicitly grants a combat action.
+
+Every exported definition uses a stable slug. References resolve to dense generated indexes for runtime use, while saves and external protocols retain stable identities. Generated numeric IDs must not become durable content identity.
+
+See `FARBOUND_INTEGRATION.md` for the proposed table families, validation contract, source-tracing boundary, and migration from the current placeholder `cards` and `items` tables.
