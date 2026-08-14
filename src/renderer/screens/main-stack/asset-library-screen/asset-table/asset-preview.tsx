@@ -29,7 +29,7 @@ export const AssetPreview: FC<AssetPreviewProps> = (props) => {
     <div className={cn("min-w-0 space-y-4", className)}>
       <div className="grid min-h-60 ">
         {canPreview && <ImagePreview path={previewPath} />}
-        {canPlayAudio && <audio className="w-full self-center" controls preload="metadata" src={window.electron.toFileUrl(previewPath)} />}
+        {canPlayAudio && <audio className="w-full self-center" controls preload="metadata" src={window.electron.toAssetUrl(previewPath)} />}
         {!canPreview && !canPlayAudio && <p>No preview</p>}
       </div>
       <dl className="grid grid-cols-2 gap-3 text-sm">

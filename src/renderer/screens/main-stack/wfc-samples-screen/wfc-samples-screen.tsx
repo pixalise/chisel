@@ -7,6 +7,7 @@ import { TiledBoardImport } from "@/screens/main-stack/wfc-samples-screen/tiled-
 import { TiledRoleEditor } from "@/screens/main-stack/wfc-samples-screen/tiled-role-editor";
 import { TiledSampleInspector } from "@/screens/main-stack/wfc-samples-screen/tiled-sample-inspector";
 import { TiledTileCatalog } from "@/screens/main-stack/wfc-samples-screen/tiled-tile-catalog";
+import { TiledProblemList } from "@/screens/main-stack/wfc-samples-screen/tiled-problem-list";
 import tiledSampleService from "@/services/tiled-sample-service";
 import { AlertTriangle, RefreshCw, Save } from "lucide-react";
 import { type FC, useEffect, useMemo, useState } from "react";
@@ -15,13 +16,13 @@ import type { TiledBoardView, TiledRole, TiledSample, TiledWorkspaceView } from 
 export const WfcSamplesScreen: FC = () => {
   const [workspace, setWorkspace] = useState<TiledWorkspaceView>();
   const [selectedBoardId, setSelectedBoardId] = useState<string>();
-  const [selectedSampleId, setSelectedSampleId] = useState<string>();
+  const [selectedSampleSlug, setSelectedSampleSlug] = useState<string>();
   const [roles, setRoles] = useState<TiledRole[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const board = useMemo(() => workspace?.boards.find((entry) => entry.id === selectedBoardId), [selectedBoardId, workspace]);
-  const sample = board?.enrichment.samples.find((entry) => entry.id === selectedSampleId);
+  const sample = board?.enrichment.samples.find((entry) => entry.slug === selectedSampleSlug);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,7 +34,7 @@ export const WfcSamplesScreen: FC = () => {
         setWorkspace(loaded);
         setRoles(loaded.config.roles);
         setSelectedBoardId(undefined);
-        setSelectedSampleId(undefined);
+        setSelectedSampleSlug(undefined);
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(caught instanceof Error ? caught.message : String(caught));
@@ -94,7 +95,7 @@ export const WfcSamplesScreen: FC = () => {
     try {
       const loaded = await tiledSampleService.reloadBoard(board.id);
       replaceBoard(loaded);
-      setSelectedSampleId((current) => (loaded.enrichment.samples.some((entry) => entry.id === current) ? current : undefined));
+      setSelectedSampleSlug((current) => (loaded.enrichment.samples.some((entry) => entry.slug === current) ? current : undefined));
       setMessage(
         loaded.problems.length === 0
           ? "Reloaded the managed Tiled board."
@@ -110,26 +111,35 @@ export const WfcSamplesScreen: FC = () => {
   function createSample(bounds: { x: number; y: number; width: number; height: number }): void {
     if (!board) return;
     let index = board.enrichment.samples.length + 1;
-    while (board.enrichment.samples.some((entry) => entry.id === `SAMPLE_${index}`)) index += 1;
+    while (board.enrichment.samples.some((entry) => entry.slug === `SAMPLE_${index}`)) index += 1;
     const next: TiledSample = {
-      id: `SAMPLE_${index}`,
-      name: `Sample ${index}`,
-      kind: "INTERIOR",
-      profiles: ["UNASSIGNED"],
-      weight: 1,
+      slug: `SAMPLE_${index}`,
       layerIds: board.layers.map((layer) => layer.id),
       ...bounds,
       allowRotations: false,
       allowReflections: false
     };
     mutateBoard((current) => ({ ...current, enrichment: { ...current.enrichment, samples: [...current.enrichment.samples, next] } }));
-    setSelectedSampleId(next.id);
+    setSelectedSampleSlug(next.slug);
+  }
+
+  function updateSample(next: TiledSample): void {
+    if (!sample) return;
+    const previousSlug = sample.slug;
+    mutateBoard((current) => ({
+      ...current,
+      enrichment: {
+        ...current.enrichment,
+        samples: current.enrichment.samples.map((entry) => (entry.slug === previousSlug ? next : entry))
+      }
+    }));
+    setSelectedSampleSlug(next.slug);
   }
 
   return (
     <Section
       title="WFC Samples"
-      copy="Import Tiled sample boards, assign semantic tile metadata, and mark weighted interior or boundary regions for future WFC compilation."
+      copy="Import Tiled sample boards, assign semantic tile metadata, and mark reusable regions for future terrain generation."
     >
       <div className="space-y-4">
         <TiledBoardImport
@@ -162,7 +172,7 @@ export const WfcSamplesScreen: FC = () => {
             id="wfc-board-selection"
             onChange={(event) => {
               setSelectedBoardId(event.target.value || undefined);
-              setSelectedSampleId(undefined);
+              setSelectedSampleSlug(undefined);
             }}
             value={selectedBoardId ?? ""}
           >
@@ -206,47 +216,31 @@ export const WfcSamplesScreen: FC = () => {
                 </Button>
               </div>
             </div>
-            {board.problems.length > 0 && (
-              <Alert variant="destructive">
-                <AlertTriangle className="size-4" />
-                <AlertTitle>
-                  {board.problems.length} blocking metadata problem{board.problems.length === 1 ? "" : "s"}
-                </AlertTitle>
-                <AlertDescription>
-                  <ul className="list-disc space-y-1 pl-5">
-                    {board.problems.map((problem) => (
-                      <li key={problem}>{problem}</li>
-                    ))}
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            )}
-            <TiledBoardCanvas
-              board={board}
-              onCreateBounds={createSample}
-              onSelectSample={setSelectedSampleId}
-              selectedSampleId={selectedSampleId}
-            />
-            <TiledSampleInspector
-              board={board}
-              onChange={(next) =>
-                mutateBoard((current) => ({
-                  ...current,
-                  enrichment: {
-                    ...current.enrichment,
-                    samples: current.enrichment.samples.map((entry) => (entry.id === sample?.id ? next : entry))
-                  }
-                }))
-              }
-              onDelete={() => {
-                mutateBoard((current) => ({
-                  ...current,
-                  enrichment: { ...current.enrichment, samples: current.enrichment.samples.filter((entry) => entry.id !== sample?.id) }
-                }));
-                setSelectedSampleId(undefined);
-              }}
-              sample={sample}
-            />
+            {board.problems.length > 0 && <TiledProblemList problems={board.problems} />}
+            <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+              <TiledBoardCanvas
+                board={board}
+                onCreateBounds={createSample}
+                onSelectSample={setSelectedSampleSlug}
+                selectedSampleSlug={selectedSampleSlug}
+              />
+              <TiledSampleInspector
+                board={board}
+                onChange={updateSample}
+                onDelete={() => {
+                  mutateBoard((current) => ({
+                    ...current,
+                    enrichment: {
+                      ...current.enrichment,
+                      samples: current.enrichment.samples.filter((entry) => entry.slug !== sample?.slug)
+                    }
+                  }));
+                  setSelectedSampleSlug(undefined);
+                }}
+                onSelect={setSelectedSampleSlug}
+                sample={sample}
+              />
+            </div>
             <TiledTileCatalog
               board={board}
               onChange={(tileBindings) => mutateBoard((current) => ({ ...current, enrichment: { ...current.enrichment, tileBindings } }))}

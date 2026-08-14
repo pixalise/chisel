@@ -51,7 +51,7 @@ declare global {
       snapshotTiledWorkspace: (input: TiledProjectInput) => Promise<TiledSourceSnapshot>;
       restoreTiledWorkspace: (input: TiledProjectInput & { snapshot: TiledSourceSnapshot }) => Promise<TiledWorkspaceView>;
       getPathForFile: (file: File) => string;
-      toFileUrl: (filePath: string) => string;
+      toAssetUrl: (filePath: string) => string;
     };
   }
 }

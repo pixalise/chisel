@@ -46,11 +46,27 @@ Every tileset sprite receives:
 
 - a stable `CONSTANT_CASE` slug;
 - exactly one project-defined role, such as `GROUND`, `WATER`, or `FOLIAGE`;
+- an explicit movement-blocking flag;
 - zero or more optional `CONSTANT_CASE` tags.
 
-A board may contain many non-overlapping, grid-aligned samples. Each sample has a stable id, `INTERIOR` or `BOUNDARY` kind, one or more future biome profile slugs, a positive weight, included layer ids, bounds, and rotation/reflection permissions.
+A board may contain many non-overlapping, grid-aligned samples. Each sample has a stable slug, included layer ids, grid bounds, and rotation/reflection permissions. Biome-specific properties such as selection weight do not belong to the sample; a future biome editor will select sample slugs and configure their terrain-generation behavior.
 
-Profiles are references to future biome-generation profiles; Chisel records those references but does not define or compile biome profiles yet.
+Movement blocking belongs to the generated contents. Terrain tiles contribute their binding's blocking flag, future feature stamps will contribute explicit footprint masks, and decorative scatter can remain non-blocking.
+
+## Future WFC adjacency contract
+
+Chisel will learn ordinary tile compatibility from the authored samples instead of requiring a hand-written north/east/south/west rule for every sprite:
+
+1. A terrain profile selects sample slugs and a pattern size, initially expected to be `3×3`.
+2. The compiler extracts every overlapping pattern wholly contained by each selected sample. A sample edge is not implicitly joined to another sample edge.
+3. Two patterns fit horizontally or vertically only when their overlapping rows or columns are identical.
+4. Observed frequency and the sample weight configured by that biome profile produce the final pattern weight.
+
+This means cliffs and shorelines must be represented by complete authored examples: straight runs, inner corners, outer corners, starts, ends, and any legal junctions. Open water and solid ground also need enough interior area for the selected pattern size. If a transition never appears in an eligible sample, WFC does not invent it.
+
+World-map edges are an explicit generation constraint rather than an accidental sample edge. Terrain profiles will choose which sample slugs are eligible for interiors and for each outer side/corner, and will pin the outer band to a policy such as water, cliff, or open ground. The compiler can then select only learned patterns compatible with that pinned band. Tile tags such as `CLIFF`, `SHORE`, or `OPEN_WATER` provide semantic constraints and diagnostics; they do not replace the learned visual adjacency.
+
+Biome boundaries use the same mechanism. A boundary sample visibly contains both terrain families, the terrain setup selects that sample slug for the relevant biome pair and orientation, and overlapping-pattern equality carries the transition into generation.
 
 ## Source commits
 

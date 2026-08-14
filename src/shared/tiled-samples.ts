@@ -55,6 +55,7 @@ export const tiledTileBindingSchema = z
   .object({
     slug: constantSlugSchema,
     roleId: constantSlugSchema,
+    blocking: z.boolean(),
     tags: z.array(constantSlugSchema).default([])
   })
   .strict();
@@ -62,11 +63,7 @@ export type TiledTileBinding = z.infer<typeof tiledTileBindingSchema>;
 
 export const tiledSampleSchema = z
   .object({
-    id: constantSlugSchema,
-    name: z.string().trim().min(1),
-    kind: z.enum(["INTERIOR", "BOUNDARY"]),
-    profiles: z.array(constantSlugSchema).min(1),
-    weight: z.number().finite().positive(),
+    slug: constantSlugSchema,
     layerIds: z.array(z.number().int().nonnegative()).min(1),
     x: z.number().int().nonnegative(),
     y: z.number().int().nonnegative(),
@@ -80,23 +77,23 @@ export type TiledSample = z.infer<typeof tiledSampleSchema>;
 
 export const tiledBoardEnrichmentSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(3),
     tileBindings: z.record(z.string(), tiledTileBindingSchema),
     samples: z.array(tiledSampleSchema)
   })
   .strict()
   .superRefine((value, context) => {
-    const sampleIds = new Set<string>();
+    const sampleSlugs = new Set<string>();
     for (const [index, sample] of value.samples.entries()) {
-      if (sampleIds.has(sample.id))
-        context.addIssue({ code: "custom", message: `Duplicate sample id '${sample.id}'`, path: ["samples", index, "id"] });
-      sampleIds.add(sample.id);
+      if (sampleSlugs.has(sample.slug))
+        context.addIssue({ code: "custom", message: `Duplicate sample slug '${sample.slug}'`, path: ["samples", index, "slug"] });
+      sampleSlugs.add(sample.slug);
     }
   });
 export type TiledBoardEnrichment = z.infer<typeof tiledBoardEnrichmentSchema>;
 
 export const emptyTiledBoardEnrichment = {
-  schemaVersion: 1,
+  schemaVersion: 3,
   tileBindings: {},
   samples: []
 } satisfies TiledBoardEnrichment;

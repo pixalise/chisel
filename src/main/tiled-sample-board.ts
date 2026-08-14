@@ -384,10 +384,10 @@ function enrichmentProblems(
   }
   for (const sample of enrichment.samples) {
     if (sample.x + sample.width > board.width || sample.y + sample.height > board.height) {
-      problems.push(`Sample '${sample.id}' extends outside the board`);
+      problems.push(`Sample '${sample.slug}' extends outside the board`);
     }
     for (const layerId of sample.layerIds) {
-      if (!layerIds.has(layerId)) problems.push(`Sample '${sample.id}' uses missing layer ${layerId}`);
+      if (!layerIds.has(layerId)) problems.push(`Sample '${sample.slug}' uses missing layer ${layerId}`);
     }
   }
   for (let left = 0; left < enrichment.samples.length; left += 1) {
@@ -395,7 +395,7 @@ function enrichmentProblems(
       const a = enrichment.samples[left];
       const b = enrichment.samples[right];
       const overlaps = a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
-      if (overlaps) problems.push(`Samples '${a.id}' and '${b.id}' overlap`);
+      if (overlaps) problems.push(`Samples '${a.slug}' and '${b.slug}' overlap`);
     }
   }
   return problems;

@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -12,7 +13,7 @@ interface TiledTileCatalogProps {
 }
 
 function defaultBinding(tilesetId: string, localId: number, roleId: string): TiledTileBinding {
-  return { slug: `${tilesetId}_${localId}`, roleId, tags: [] };
+  return { slug: `${tilesetId}_${localId}`, roleId, blocking: false, tags: [] };
 }
 
 export const TiledTileCatalog: FC<TiledTileCatalogProps> = (props) => {
@@ -75,7 +76,7 @@ export const TiledTileCatalog: FC<TiledTileCatalogProps> = (props) => {
                   style={{
                     width: tile.tileset.tileWidth * scale,
                     height: tile.tileset.tileHeight * scale,
-                    backgroundImage: `url(${window.electron.toFileUrl(tile.tileset.imagePath)})`,
+                    backgroundImage: `url(${window.electron.toAssetUrl(tile.tileset.imagePath)})`,
                     backgroundSize: `${tile.tileset.imageWidth * scale}px ${tile.tileset.imageHeight * scale}px`,
                     backgroundPosition: `${-(tile.tileset.margin + column * (tile.tileset.tileWidth + tile.tileset.spacing)) * scale}px ${-(tile.tileset.margin + row * (tile.tileset.tileHeight + tile.tileset.spacing)) * scale}px`
                   }}
@@ -98,6 +99,13 @@ export const TiledTileCatalog: FC<TiledTileCatalogProps> = (props) => {
                 value={selectedBinding?.slug ?? ""}
               />
             </div>
+            <Label className="flex items-center gap-2">
+              <Checkbox
+                checked={selectedBinding?.blocking ?? false}
+                onCheckedChange={(checked) => updateSelected({ blocking: checked === true })}
+              />
+              Blocks movement
+            </Label>
             <div className="space-y-1">
               <Label htmlFor="tile-role">Required role</Label>
               <select

@@ -1,6 +1,7 @@
-import { BrowserWindow, app, dialog, ipcMain, nativeImage } from "electron";
+import { BrowserWindow, app, dialog, ipcMain, nativeImage, net, protocol } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { importAsset, replaceAssetReferences, replaceAssetSource } from "./asset-store";
 import { convertImagesToPng, createImageConversionPreview } from "./image-conversion";
 import { getFileMetadata } from "./file-metadata";
@@ -29,6 +30,20 @@ const APP_ICON_FILE = "chisel-apple.png";
 let mainWindow: BrowserWindow | null = null;
 
 app.setName(APP_NAME);
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "chisel-asset",
+    privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true }
+  }
+]);
+
+function assetPathFromUrl(value: string): string {
+  const url = new URL(value);
+  if (url.protocol !== "chisel-asset:" || url.hostname !== "local") throw new Error(`Invalid Chisel asset URL: ${value}`);
+  const filePath = decodeURIComponent(url.pathname.slice(1));
+  if (!path.isAbsolute(filePath) || filePath.includes("\0")) throw new Error(`Invalid Chisel asset path: ${filePath}`);
+  return filePath;
+}
 
 function appIconPath(): string {
   return path.join(__dirname, "..", "..", "assets", APP_ICON_FILE);
@@ -225,7 +240,8 @@ function registerIpc(): void {
   ipcMain.handle("tiled:restore", (_event, input: TiledProjectInput & { snapshot: TiledSourceSnapshot }) => restoreTiledWorkspace(input));
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await protocol.handle("chisel-asset", (request) => net.fetch(pathToFileURL(assetPathFromUrl(request.url)).toString()));
   const icon = nativeImage.createFromPath(appIconPath());
   if (process.platform === "darwin" && !icon.isEmpty()) {
     app.dock.setIcon(icon);

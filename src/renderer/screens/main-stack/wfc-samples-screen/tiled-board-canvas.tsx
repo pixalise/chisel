@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { type FC, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
@@ -14,14 +13,13 @@ interface Bounds {
 interface TiledBoardCanvasProps {
   board: TiledBoardView;
   onCreateBounds: (bounds: Bounds) => void;
-  onSelectSample: (sampleId: string) => void;
-  selectedSampleId?: string;
+  onSelectSample: (sampleSlug: string) => void;
+  selectedSampleSlug?: string;
 }
 
 interface Camera {
   x: number;
   y: number;
-  zoom: number;
 }
 
 interface DragState {
@@ -40,11 +38,11 @@ const verticalFlipFlag = 0x40000000;
 const diagonalFlipFlag = 0x20000000;
 
 export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
-  const { board, onCreateBounds, onSelectSample, selectedSampleId } = props;
+  const { board, onCreateBounds, onSelectSample, selectedSampleSlug } = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef(new Map<string, HTMLImageElement>());
   const dragRef = useRef<DragState>();
-  const [camera, setCamera] = useState<Camera>({ x: 24, y: 24, zoom: 1 });
+  const [camera, setCamera] = useState<Camera>({ x: 24, y: 24 });
   const [draft, setDraft] = useState<Bounds>();
   const [visibleLayerIds, setVisibleLayerIds] = useState(
     () => new Set(board.layers.filter((layer) => layer.visible).map((layer) => layer.id))
@@ -54,7 +52,7 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
 
   useEffect(() => {
     setVisibleLayerIds(new Set(board.layers.filter((layer) => layer.visible).map((layer) => layer.id)));
-    setCamera({ x: 24, y: 24, zoom: 1 });
+    setCamera({ x: 24, y: 24 });
     setDraft(undefined);
   }, [board.id, board.layers]);
 
@@ -76,7 +74,10 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
       image.onload = () => {
         if (!cancelled) setImageRevision((value) => value + 1);
       };
-      image.src = window.electron.toFileUrl(tileset.imagePath);
+      image.onerror = () => {
+        if (!cancelled) setImageRevision((value) => value + 1);
+      };
+      image.src = window.electron.toAssetUrl(tileset.imagePath);
       imagesRef.current.set(tileset.id, image);
     }
     return () => {
@@ -98,7 +99,6 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
     context.fillRect(0, 0, canvasSize.width, canvasSize.height);
     context.save();
     context.translate(camera.x, camera.y);
-    context.scale(camera.zoom, camera.zoom);
     context.imageSmoothingEnabled = false;
 
     const orderedTilesets = [...board.tilesets].sort((left, right) => left.firstGid - right.firstGid);
@@ -112,7 +112,7 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
         const tileset = [...orderedTilesets].reverse().find((entry) => entry.firstGid <= gid);
         if (!tileset) return;
         const image = imagesRef.current.get(tileset.id);
-        if (!image?.complete) return;
+        if (!image?.complete || image.naturalWidth === 0 || image.naturalHeight === 0) return;
         const localId = gid - tileset.firstGid;
         const sourceX = tileset.margin + (localId % tileset.columns) * (tileset.tileWidth + tileset.spacing);
         const sourceY = tileset.margin + Math.floor(localId / tileset.columns) * (tileset.tileHeight + tileset.spacing);
@@ -144,7 +144,7 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
 
     context.globalAlpha = 1;
     context.strokeStyle = "rgba(255,255,255,0.16)";
-    context.lineWidth = 1 / camera.zoom;
+    context.lineWidth = 1;
     context.beginPath();
     for (let x = 0; x <= board.width; x += 1) {
       context.moveTo(x * board.tileWidth, 0);
@@ -157,9 +157,9 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
     context.stroke();
 
     for (const sample of board.enrichment.samples) {
-      context.fillStyle = sample.id === selectedSampleId ? "rgba(251,191,36,0.25)" : "rgba(59,130,246,0.18)";
-      context.strokeStyle = sample.id === selectedSampleId ? "#fbbf24" : "#60a5fa";
-      context.lineWidth = 2 / camera.zoom;
+      context.fillStyle = sample.slug === selectedSampleSlug ? "rgba(251,191,36,0.25)" : "rgba(59,130,246,0.18)";
+      context.strokeStyle = sample.slug === selectedSampleSlug ? "#fbbf24" : "#60a5fa";
+      context.lineWidth = 2;
       context.fillRect(
         sample.x * board.tileWidth,
         sample.y * board.tileHeight,
@@ -176,7 +176,7 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
     if (draft) {
       context.fillStyle = "rgba(16,185,129,0.2)";
       context.strokeStyle = "#34d399";
-      context.lineWidth = 2 / camera.zoom;
+      context.lineWidth = 2;
       context.fillRect(
         draft.x * board.tileWidth,
         draft.y * board.tileHeight,
@@ -191,13 +191,13 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
       );
     }
     context.restore();
-  }, [board, camera, canvasSize, draft, imageRevision, selectedSampleId, visibleLayerIds]);
+  }, [board, camera, canvasSize, draft, imageRevision, selectedSampleSlug, visibleLayerIds]);
 
   function cellAt(event: ReactPointerEvent<HTMLCanvasElement>): { x: number; y: number } {
     const rect = event.currentTarget.getBoundingClientRect();
     return {
-      x: Math.max(0, Math.min(board.width - 1, Math.floor((event.clientX - rect.left - camera.x) / camera.zoom / board.tileWidth))),
-      y: Math.max(0, Math.min(board.height - 1, Math.floor((event.clientY - rect.top - camera.y) / camera.zoom / board.tileHeight)))
+      x: Math.max(0, Math.min(board.width - 1, Math.floor((event.clientX - rect.left - camera.x) / board.tileWidth))),
+      y: Math.max(0, Math.min(board.height - 1, Math.floor((event.clientY - rect.top - camera.y) / board.tileHeight)))
     };
   }
 
@@ -220,7 +220,7 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
       .reverse()
       .find((entry) => cell.x >= entry.x && cell.x < entry.x + entry.width && cell.y >= entry.y && cell.y < entry.y + entry.height);
     if (sample) {
-      onSelectSample(sample.id);
+      onSelectSample(sample.slug);
       return;
     }
     dragRef.current = {
@@ -282,12 +282,6 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
             </Label>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{Math.round(camera.zoom * 100)}%</span>
-          <Button onClick={() => setCamera({ x: 24, y: 24, zoom: 1 })} size="sm" type="button" variant="outline">
-            Reset view
-          </Button>
-        </div>
       </div>
       <canvas
         className="h-[32rem] w-full cursor-crosshair rounded bg-black touch-none"
@@ -295,15 +289,10 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
-        onWheel={(event) => {
-          event.preventDefault();
-          const nextZoom = Math.max(0.25, Math.min(4, camera.zoom * (event.deltaY > 0 ? 0.9 : 1.1)));
-          setCamera((value) => ({ ...value, zoom: nextZoom }));
-        }}
         ref={canvasRef}
       />
       <p className="text-xs text-muted-foreground">
-        Drag empty cells to create a grid-aligned sample. Click a sample to inspect it. Alt/right/middle drag pans; wheel zooms.
+        Drag empty cells to create a grid-aligned sample. Click a sample to inspect it. Alt/right/middle drag pans.
       </p>
     </div>
   );

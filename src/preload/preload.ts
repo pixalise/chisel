@@ -12,25 +12,10 @@ import type {
 } from "../shared/tiled-samples";
 import type { Asset, FileMetadata } from "../shared/types";
 
-function encodePathSegments(value: string): string {
-  return value
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-}
-
-function fileUrlFromPath(filePath: string): string {
+function assetUrlFromPath(filePath: string): string {
   if (filePath.includes("\0")) throw new Error("File path cannot contain a null byte");
-  const normalized = filePath.replaceAll("\\", "/");
-  const windowsDrive = /^([A-Za-z]:)(\/.*)$/.exec(normalized);
-  if (windowsDrive) return `file:///${windowsDrive[1]}${encodePathSegments(windowsDrive[2])}`;
-  if (normalized.startsWith("//")) {
-    const [host, ...segments] = normalized.slice(2).split("/");
-    if (!host) throw new Error("UNC file path must include a host");
-    return `file://${encodeURIComponent(host)}/${segments.map((segment) => encodeURIComponent(segment)).join("/")}`;
-  }
-  if (!normalized.startsWith("/")) throw new Error(`File path must be absolute: ${filePath}`);
-  return `file://${encodePathSegments(normalized)}`;
+  if (!/^(?:\/|[A-Za-z]:[\\/]|\\\\)/.test(filePath)) throw new Error(`File path must be absolute: ${filePath}`);
+  return `chisel-asset://local/${encodeURIComponent(filePath)}`;
 }
 
 contextBridge.exposeInMainWorld("electron", {
@@ -74,5 +59,5 @@ contextBridge.exposeInMainWorld("electron", {
   restoreTiledWorkspace: (input: TiledProjectInput & { snapshot: TiledSourceSnapshot }): Promise<TiledWorkspaceView> =>
     ipcRenderer.invoke("tiled:restore", input) as Promise<TiledWorkspaceView>,
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
-  toFileUrl: (filePath: string): string => fileUrlFromPath(filePath)
+  toAssetUrl: (filePath: string): string => assetUrlFromPath(filePath)
 });

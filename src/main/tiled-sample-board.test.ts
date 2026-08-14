@@ -87,15 +87,11 @@ describe("managed Tiled sample boards", () => {
       projectPath,
       boardId: board.id,
       enrichment: {
-        schemaVersion: 1,
-        tileBindings: { "TERRAIN:0": { slug: "GRASS", roleId: "GROUND", tags: ["WALKABLE"] } },
+        schemaVersion: 3,
+        tileBindings: { "TERRAIN:0": { slug: "GRASS", roleId: "GROUND", blocking: false, tags: ["WALKABLE"] } },
         samples: [
           {
-            id: "FOREST_INTERIOR",
-            name: "Forest Interior",
-            kind: "INTERIOR",
-            profiles: ["FOREST"],
-            weight: 2,
+            slug: "FOREST_INTERIOR",
             layerIds: [1],
             x: 0,
             y: 0,
@@ -131,7 +127,7 @@ describe("managed Tiled sample boards", () => {
     const snapshot = await snapshotTiledWorkspace({ projectPath });
     const imagePath = path.join(projectPath, ".chisel", "tiled", "BOARD", "images", "TERRAIN", "TERRAIN.png");
     const enrichmentPath = path.join(projectPath, ".chisel", "tiled", "BOARD", "enrichment.json");
-    await writeJson(enrichmentPath, { schemaVersion: 1, tileBindings: {}, samples: [] });
+    await writeJson(enrichmentPath, { schemaVersion: 3, tileBindings: {}, samples: [] });
 
     await restoreTiledWorkspace({ projectPath, snapshot });
     await expect(fs.readFile(imagePath)).resolves.toEqual(onePixelPng);
