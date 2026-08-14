@@ -40,6 +40,34 @@ the compiler extracts nine overlapping 3×3 windows. Those windows include `B` i
 - **Entropy**: uncertainty at an output position, accounting for both the remaining patterns and their weights.
 - **Contradiction**: an output position whose domain has been reduced to zero patterns.
 
+## The mental model
+
+Think of an authored sample as a short piece of terrain grammar written with pictures. Chisel does not copy the sample and does not identify objects by looking at them. It records which exact 3×3 arrangements occurred and which arrangements can overlap by two cells.
+
+```text
+authored layered sample
+          │
+          ├─ slide a 3×3 window over every position
+          ▼
+weighted library of exact 3×3 patterns
+          │
+          ├─ compare two-cell overlaps north/east/south/west
+          ▼
+compatibility graph
+          │
+          ├─ lowest-entropy collapse + constraint propagation
+          ▼
+new terrain assembled from observed local relationships
+```
+
+This has three important consequences:
+
+1. WFC can recombine local relationships into a map that was never painted, but it cannot invent a local relationship it never observed.
+2. Two sprites with the same role are still different symbols. Roles describe meaning to later systems; exact sprite stacks determine WFC compatibility.
+3. The quality of the output is mostly determined by the coverage and balance of the examples, not by the number of tags attached to the tiles.
+
+A useful test while painting is: _if a 3×3 camera moved one cell at a time over this feature, has it seen every way the feature is allowed to begin, continue, turn, touch something else, and end?_
+
 ## Add tilesets
 
 1. Open **Asset Library** and add an asset.
@@ -163,6 +191,38 @@ For cliffs, shorelines, walls, and map edges, apply the same principle:
 - teach caps or endpoints when termination is legal;
 - keep forbidden transitions absent from every sample.
 
+## Authoring water and shorelines
+
+Water is structural terrain, so it belongs in the WFC sample whenever WFC is expected to determine the shape of lakes, rivers, coasts, or islands.
+
+The base layer still needs a tile reference in every cell. A transparent ground sprite is a painted base cell, not an empty overlay cell. Chisel's WFC compiler does not use pixel alpha when deciding compatibility: the exact tileset ID, local tile ID, orientation, and complete layer stack are the symbol. Alpha-derived water semantics can be interpreted later without changing the learned overlaps.
+
+For a lake, teach at least these families:
+
+```text
+deep fill       straight shore    outer corner     inner corner
+
+W W W           G G G             G G G            G W W
+W W W           S S S             G S S            G C W
+W W W           W W W             G S W            G G G
+```
+
+Here `G` is ordinary ground, `W` is repeatable water fill, and `S`/`C` are the appropriate shoreline sprites. The letters describe intent only; every position must use its correct sprite.
+
+Good water examples should include:
+
+- large enough `W` regions to learn the all-water 3×3 pattern;
+- large enough `G` regions to learn the all-ground pattern;
+- long straight shores in every allowed direction;
+- every inner and outer corner supported by the art;
+- narrow channels only when they should be legal;
+- small islands and small ponds only when their full boundary can be represented;
+- transitions from shore back into the shared neutral ground used by other samples.
+
+Avoid painting a single tiny ring of shoreline and expecting arbitrary lakes. Without repeatable water and ground interiors, WFC learns one rigid ring or a small family of phase-shifted rings. For rivers, explicitly teach straight runs, bends, widening, narrowing, junctions, sources, mouths, and any legal connection to a lake or map edge.
+
+If water must always form one globally connected body, local overlapping constraints alone do not guarantee that. Let WFC create locally valid water shapes, then use a later connectivity pass to select, join, fill, or reject components according to the biome's global rules.
+
 ## Empty space is a pattern
 
 Empty space is not a lack of authored information. A repeated 3×3 area of neutral ground is the pattern that allows WFC to produce breathing room of arbitrary size.
@@ -232,6 +292,52 @@ RUINS_LIGHT      occasional paths and graves
 RUINS_DENSE      frequent paths, junctions, and props
 ```
 
+## What should belong to WFC
+
+Use WFC for features whose **local arrangement is part of terrain structure**:
+
+- ground and water regions;
+- shores, cliffs, walls, paths, and their boundaries;
+- repeatable clearings and vegetation clusters;
+- small repeatable ruins whose neighboring terrain matters;
+- transitions between terrain families.
+
+Use stamps or a later placement pass for features whose **identity and global placement matter more than local repetition**:
+
+- a unique castle, dungeon entrance, boss arena, or event site;
+- a large authored ruin that must remain intact;
+- resource nodes with biome-wide spacing or quotas;
+- individual trees, rocks, flowers, and debris that only provide surface variation;
+- objects needing navigation, quest, visibility, or encounter checks before placement.
+
+A hybrid usually gives the best result:
+
+1. WFC establishes terrain regions and coherent boundaries.
+2. Connectivity and navigation passes validate rivers, roads, traversable land, and map edges.
+3. Large stamps reserve and replace suitable areas.
+4. Scatter passes add foliage, rocks, decals, and other dressing according to biome rules.
+5. Runtime enrichment turns semantic tile metadata into collision, movement cost, water behavior, encounters, and rendering layers.
+
+Foliage may appear in both systems. Put representative foliage clusters in WFC when their silhouette or relationship to paths and shores should be preserved. Use scatter placement for abundant independent decoration. Do not make WFC carry thousands of interchangeable one-cell decorations merely to add visual noise; that inflates the pattern library without improving terrain topology.
+
+## Planning a sample library
+
+Prefer several coherent samples with a shared neutral language over one enormous sample containing every biome feature.
+
+An initial meadow library could be:
+
+| Sample          | Purpose                                  | Suggested size |
+| --------------- | ---------------------------------------- | -------------- |
+| `MEADOW_OPEN`   | Mostly neutral grass, sparse detail      | 16×16          |
+| `MEADOW_GROVES` | Isolated, paired, and clustered bushes   | 20×20          |
+| `MEADOW_WATER`  | Pond interiors, shorelines, corners      | 24×24          |
+| `MEADOW_PATHS`  | Straights, corners, junctions, endpoints | 24×24          |
+| `MEADOW_RUINS`  | Repeatable path/ruin relationships       | 24×20          |
+
+All five should reuse the exact same neutral grass stack where they meet. A biome profile can then choose which samples participate and how strongly they contribute. A dry meadow might omit `MEADOW_WATER`; a ruin biome might raise the path and ruin sample weights.
+
+Do not connect unrelated visual languages accidentally. If snow and desert never touch directly, do not give them one shared neutral cell merely to improve viability. Add an intentional transition sample, or place them in different biome profiles.
+
 ## Read the diagnostics
 
 The preview reports:
@@ -257,6 +363,46 @@ Useful targets are:
 - multiple seeds change topology, not only rotation or translation;
 - ordinary seeds finish in one attempt;
 - the output includes each intended feature without fragmenting multi-cell art.
+
+## Evaluating output systematically
+
+Do not judge the library from one attractive seed. Generate a small review set—ten to twenty seeds at the intended gameplay scale—and evaluate four separate qualities:
+
+### Local correctness
+
+- Are shore, cliff, wall, and path sprites joined correctly?
+- Are multi-cell bushes and props reconstructed intact?
+- Does every visible adjacency exist intentionally in an authored sample?
+
+### Topological variety
+
+- Do paths take materially different routes?
+- Do lakes and clearings change shape and position?
+- Are outputs genuinely different rather than translated, reflected, or rotated copies?
+
+### Distribution
+
+- Is there enough empty space?
+- Are rare features actually rare?
+- Do common terrain patterns dominate without eliminating landmarks?
+
+### Global playability
+
+- Is required land connected?
+- Are important destinations reachable?
+- Are water bodies, cliffs, and map boundaries consistent with world-level rules?
+
+The first three can be improved primarily through samples and biome weights. The fourth normally needs post-generation validation because a 3×3 local model cannot guarantee arbitrary global properties such as one connected road between two distant entrances.
+
+Change one variable at a time while tuning:
+
+1. Save a fixed list of review seeds.
+2. Record pattern counts and contribution diagnostics.
+3. Change one sample, transformation policy, or biome weight.
+4. Regenerate the same seeds.
+5. Compare topology and frequency, not just visual attractiveness.
+
+Fixed review seeds make regressions visible. New random seeds are useful only after the known review set remains healthy.
 
 ## Diagnose common failures
 
