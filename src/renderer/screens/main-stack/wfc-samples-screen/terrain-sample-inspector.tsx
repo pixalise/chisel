@@ -3,11 +3,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type FC, useState } from "react";
-import type { TerrainSample, TerrainSampleDimension } from "../../../../shared/terrain-authoring";
+import type { TerrainSample, TerrainSampleDimension, TerrainSampleLayerCount } from "../../../../shared/terrain-authoring";
+
+export interface TerrainSampleCreation {
+  height: TerrainSampleDimension;
+  layerCount: TerrainSampleLayerCount;
+  width: TerrainSampleDimension;
+}
 
 interface TerrainSampleInspectorProps {
   onChange: (sample: TerrainSample) => void;
-  onCreate: (dimension: TerrainSampleDimension) => void;
+  onCreate: (creation: TerrainSampleCreation) => void;
   onDelete: () => void;
   onSelect: (sampleSlug?: string) => void;
   sample?: TerrainSample;
@@ -16,10 +22,22 @@ interface TerrainSampleInspectorProps {
 
 export const TerrainSampleInspector: FC<TerrainSampleInspectorProps> = (props) => {
   const { onChange, onCreate, onDelete, onSelect, sample, samples } = props;
-  const [dimension, setDimension] = useState<TerrainSampleDimension>(3);
+  const [width, setWidth] = useState<TerrainSampleDimension>(12);
+  const [height, setHeight] = useState<TerrainSampleDimension>(12);
+  const [layerCount, setLayerCount] = useState<TerrainSampleLayerCount>(1);
+
+  function updateLayerCount(nextLayerCount: TerrainSampleLayerCount): void {
+    if (!sample) return;
+    onChange({
+      ...sample,
+      layerCount: nextLayerCount,
+      cells: sample.cells.map((cell) => Array.from({ length: nextLayerCount }, (_, index) => cell[index] ?? null))
+    });
+  }
+
   return (
     <div className="space-y-4 rounded-md border border-border p-3">
-      <div className="grid gap-2 sm:grid-cols-[1fr_8rem_auto] sm:items-end">
+      <div className="grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_5rem_5rem_6rem_auto] sm:items-end">
         <div className="space-y-1">
           <Label htmlFor="wfc-sample-selection">Sample to edit</Label>
           <select
@@ -38,19 +56,42 @@ export const TerrainSampleInspector: FC<TerrainSampleInspectorProps> = (props) =
           </select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="new-sample-dimension">Dimensions</Label>
+          <Label htmlFor="new-sample-width">Width</Label>
+          <Input
+            id="new-sample-width"
+            max={64}
+            min={3}
+            onChange={(event) => setWidth(Number(event.target.value))}
+            type="number"
+            value={width}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="new-sample-height">Height</Label>
+          <Input
+            id="new-sample-height"
+            max={64}
+            min={3}
+            onChange={(event) => setHeight(Number(event.target.value))}
+            type="number"
+            value={height}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="new-sample-layers">Layers</Label>
           <select
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-            id="new-sample-dimension"
-            onChange={(event) => setDimension(Number(event.target.value) as TerrainSampleDimension)}
-            value={dimension}
+            id="new-sample-layers"
+            onChange={(event) => setLayerCount(Number(event.target.value) as TerrainSampleLayerCount)}
+            value={layerCount}
           >
-            <option value={3}>3×3</option>
-            <option value={4}>4×4</option>
-            <option value={5}>5×5</option>
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+            <option value={4}>4</option>
           </select>
         </div>
-        <Button onClick={() => onCreate(dimension)} type="button">
+        <Button onClick={() => onCreate({ width, height, layerCount })} type="button">
           Create sample
         </Button>
       </div>
@@ -60,7 +101,7 @@ export const TerrainSampleInspector: FC<TerrainSampleInspectorProps> = (props) =
         </div>
       )}
       {sample && (
-        <div className="grid gap-3 border-t border-border pt-3 md:grid-cols-[minmax(12rem,1fr)_auto_auto_auto] md:items-end">
+        <div className="grid gap-3 border-t border-border pt-3 md:grid-cols-[minmax(12rem,1fr)_6rem_auto_auto_auto_auto] md:items-end">
           <div className="space-y-1">
             <Label htmlFor="sample-slug">Stable slug</Label>
             <Input
@@ -69,6 +110,27 @@ export const TerrainSampleInspector: FC<TerrainSampleInspectorProps> = (props) =
               value={sample.slug}
             />
           </div>
+          <div className="space-y-1">
+            <Label htmlFor="sample-layer-count">Layers</Label>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              id="sample-layer-count"
+              onChange={(event) => updateLayerCount(Number(event.target.value) as TerrainSampleLayerCount)}
+              value={sample.layerCount}
+            >
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+              <option value={4}>4</option>
+            </select>
+          </div>
+          <Label className="flex h-9 items-center gap-2">
+            <Checkbox
+              checked={sample.periodicInput}
+              onCheckedChange={(checked) => onChange({ ...sample, periodicInput: checked === true })}
+            />
+            Periodic input
+          </Label>
           <Label className="flex h-9 items-center gap-2">
             <Checkbox
               checked={sample.allowRotations}

@@ -124,9 +124,12 @@ class TerrainSampleService {
         slug: entry.slug,
         width: integerCell(entry, TERRAIN_WFC_SAMPLE_COLUMNS.width),
         height: integerCell(entry, TERRAIN_WFC_SAMPLE_COLUMNS.height),
-        cells: Array(integerCell(entry, TERRAIN_WFC_SAMPLE_COLUMNS.width) * integerCell(entry, TERRAIN_WFC_SAMPLE_COLUMNS.height)).fill(
-          null
+        layerCount: integerCell(entry, TERRAIN_WFC_SAMPLE_COLUMNS.layerCount),
+        cells: Array.from(
+          { length: integerCell(entry, TERRAIN_WFC_SAMPLE_COLUMNS.width) * integerCell(entry, TERRAIN_WFC_SAMPLE_COLUMNS.height) },
+          () => Array(integerCell(entry, TERRAIN_WFC_SAMPLE_COLUMNS.layerCount)).fill(null)
         ),
+        periodicInput: booleanCell(entry, TERRAIN_WFC_SAMPLE_COLUMNS.periodicInput),
         allowRotations: booleanCell(entry, TERRAIN_WFC_SAMPLE_COLUMNS.allowRotations),
         allowReflections: booleanCell(entry, TERRAIN_WFC_SAMPLE_COLUMNS.allowReflections)
       })
@@ -138,6 +141,7 @@ class TerrainSampleService {
       const sample = samplesBySlug.get(sampleSlug);
       const x = integerCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.x);
       const y = integerCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.y);
+      const layer = integerCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.layer);
       if (!sample) {
         problems.push(`Painted cell '${entry.slug}' references missing sample '${sampleSlug}'`);
         continue;
@@ -146,12 +150,16 @@ class TerrainSampleService {
         problems.push(`Painted cell '${entry.slug}' lies outside sample '${sampleSlug}'`);
         continue;
       }
-      const index = y * sample.width + x;
-      if (sample.cells[index]) {
-        problems.push(`Sample '${sampleSlug}' has duplicate painted cell ${x},${y}`);
+      if (layer >= sample.layerCount) {
+        problems.push(`Painted cell '${entry.slug}' uses missing layer ${layer} in sample '${sampleSlug}'`);
         continue;
       }
-      sample.cells[index] = {
+      const index = y * sample.width + x;
+      if (sample.cells[index][layer]) {
+        problems.push(`Sample '${sampleSlug}' has duplicate painted cell ${x},${y}, layer ${layer}`);
+        continue;
+      }
+      sample.cells[index][layer] = {
         tilesetId: stringCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.tileset),
         localId: integerCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.localId),
         orientation: 0
@@ -159,11 +167,6 @@ class TerrainSampleService {
     }
     const roleIds = new Set(roles.map((role) => role.id));
     const bindingSlugs = new Map<string, number>();
-    for (const tileset of tilesets) {
-      for (let localId = 0; localId < tileset.tileCount; localId += 1) {
-        if (!tileBindings[terrainTileKey(tileset.id, localId)]) problems.push(`Tile '${tileset.id}:${localId}' needs a slug and role`);
-      }
-    }
     for (const [key, binding] of Object.entries(tileBindings)) {
       const [tilesetId, localIdText] = key.split(":");
       const tileset = tilesets.find((entry) => entry.id === tilesetId);
@@ -175,13 +178,15 @@ class TerrainSampleService {
       if (count > 1) problems.push(`Tile metadata has duplicated tile slug '${slug}' (${count} uses)`);
     }
     for (const sample of samples) {
-      const blankCount = sample.cells.filter((entry) => entry === null).length;
-      if (blankCount > 0) problems.push(`Sample '${sample.slug}' has ${blankCount} unpainted cells`);
-      for (const painted of sample.cells) {
-        if (!painted) continue;
-        const tileset = tilesets.find((entry) => entry.id === painted.tilesetId);
-        if (!tileset || painted.localId >= tileset.tileCount) {
-          problems.push(`Sample '${sample.slug}' uses missing tile '${painted.tilesetId}:${painted.localId}'`);
+      const blankCount = sample.cells.filter((entry) => entry[0] === null).length;
+      if (blankCount > 0) problems.push(`Sample '${sample.slug}' has ${blankCount} unpainted base cells`);
+      for (const stack of sample.cells) {
+        for (const painted of stack) {
+          if (!painted) continue;
+          const tileset = tilesets.find((entry) => entry.id === painted.tilesetId);
+          if (!tileset || painted.localId >= tileset.tileCount) {
+            problems.push(`Sample '${sample.slug}' uses missing tile '${painted.tilesetId}:${painted.localId}'`);
+          }
         }
       }
     }
@@ -246,6 +251,8 @@ class TerrainSampleService {
         [
           rowValue(TERRAIN_WFC_SAMPLE_COLUMNS.width, sample.width),
           rowValue(TERRAIN_WFC_SAMPLE_COLUMNS.height, sample.height),
+          rowValue(TERRAIN_WFC_SAMPLE_COLUMNS.layerCount, sample.layerCount),
+          rowValue(TERRAIN_WFC_SAMPLE_COLUMNS.periodicInput, sample.periodicInput),
           rowValue(TERRAIN_WFC_SAMPLE_COLUMNS.allowRotations, sample.allowRotations),
           rowValue(TERRAIN_WFC_SAMPLE_COLUMNS.allowReflections, sample.allowReflections)
         ],
@@ -254,29 +261,32 @@ class TerrainSampleService {
     );
     const existingCells = new Map(
       cellsTable.rows.map((entry) => [
-        `${stringCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.sample)}:${integerCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.x)}:${integerCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.y)}`,
+        `${stringCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.sample)}:${integerCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.x)}:${integerCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.y)}:${integerCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.layer)}`,
         entry
       ])
     );
     const cellRows = samples.flatMap((sample) =>
-      sample.cells.flatMap((painted, index) => {
-        if (!painted) return [];
+      sample.cells.flatMap((stack, index) => {
         const x = index % sample.width;
         const y = Math.floor(index / sample.width);
-        const existing = existingCells.get(`${sample.slug}:${x}:${y}`);
-        return [
-          row(
-            existing?.slug ?? newCellSlug(),
-            [
-              rowValue(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.sample, sample.slug),
-              rowValue(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.x, x),
-              rowValue(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.y, y),
-              rowValue(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.tileset, painted.tilesetId),
-              rowValue(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.localId, painted.localId)
-            ],
-            existing?.id
-          )
-        ];
+        return stack.flatMap((painted, layer) => {
+          if (!painted) return [];
+          const existing = existingCells.get(`${sample.slug}:${x}:${y}:${layer}`);
+          return [
+            row(
+              existing?.slug ?? newCellSlug(),
+              [
+                rowValue(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.sample, sample.slug),
+                rowValue(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.x, x),
+                rowValue(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.y, y),
+                rowValue(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.layer, layer),
+                rowValue(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.tileset, painted.tilesetId),
+                rowValue(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.localId, painted.localId)
+              ],
+              existing?.id
+            )
+          ];
+        });
       })
     );
     await tableService.saveSystemTableRows(TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID, cellRows);

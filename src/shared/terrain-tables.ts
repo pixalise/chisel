@@ -84,6 +84,8 @@ export const TERRAIN_TILE_BINDING_COLUMNS = {
 export const TERRAIN_WFC_SAMPLE_COLUMNS = {
   width: column("terrain_sample_width", "width", ColumnType.integer, { min: 3 }),
   height: column("terrain_sample_height", "height", ColumnType.integer, { min: 3 }),
+  layerCount: column("terrain_sample_layers", "layer_count", ColumnType.integer, { defaultValue: 1, min: 1 }),
+  periodicInput: column("terrain_sample_periodic", "periodic_input", ColumnType.boolean),
   allowRotations: column("terrain_sample_rotate", "allow_rotations", ColumnType.boolean),
   allowReflections: column("terrain_sample_reflect", "allow_reflections", ColumnType.boolean)
 } as const;
@@ -92,6 +94,7 @@ export const TERRAIN_WFC_SAMPLE_CELL_COLUMNS = {
   sample: column("terrain_cell_sample", "sample", ColumnType.ref, { refTableId: TERRAIN_WFC_SAMPLES_TABLE_ID }),
   x: column("terrain_cell_x", "x", ColumnType.integer, { min: 0 }),
   y: column("terrain_cell_y", "y", ColumnType.integer, { min: 0 }),
+  layer: column("terrain_cell_layer", "layer", ColumnType.integer, { min: 0 }),
   tileset: column("terrain_cell_tileset", "tileset", ColumnType.assetRef, { assetCategory: AssetCategoryEnum.tileset }),
   localId: column("terrain_cell_local", "local_id", ColumnType.integer, { min: 0 })
 } as const;

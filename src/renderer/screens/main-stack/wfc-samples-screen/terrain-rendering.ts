@@ -1,4 +1,4 @@
-import type { TerrainTileRef, TerrainTilesetView } from "../../../../shared/terrain-authoring";
+import type { TerrainSampleCell, TerrainTileRef, TerrainTilesetView } from "../../../../shared/terrain-authoring";
 import { terrainOrientationMatrix } from "../../../../shared/terrain-wfc";
 
 export function drawTerrainTile(
@@ -31,4 +31,18 @@ export function drawTerrainTile(
     destinationSize
   );
   context.restore();
+}
+
+export function drawTerrainCell(
+  context: CanvasRenderingContext2D,
+  cell: TerrainSampleCell,
+  tilesets: TerrainTilesetView[],
+  images: Map<string, HTMLImageElement>,
+  destinationX: number,
+  destinationY: number,
+  destinationSize: number
+): void {
+  for (const tile of cell) {
+    if (tile) drawTerrainTile(context, tile, tilesets, images, destinationX, destinationY, destinationSize);
+  }
 }

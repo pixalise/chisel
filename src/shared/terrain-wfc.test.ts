@@ -6,12 +6,14 @@ function tile(localId: number): TerrainTileRef {
   return { tilesetId: "TERRAIN", localId, orientation: 0 };
 }
 
-function sample(slug: string, width: 3 | 4 | 5, height: 3 | 4 | 5, ids: number[]): TerrainSample {
+function sample(slug: string, width: number, height: number, ids: number[]): TerrainSample {
   return {
     slug,
     width,
     height,
-    cells: ids.map(tile),
+    layerCount: 1,
+    cells: ids.map((localId) => [tile(localId)]),
+    periodicInput: false,
     allowRotations: false,
     allowReflections: false
   };
@@ -50,7 +52,7 @@ describe("native terrain overlapping WFC", () => {
     });
 
     expect(library.patterns).toHaveLength(9);
-    expect(library.patterns[0].cells.map((entry) => entry.localId)).toEqual([1, 2, 3, 6, 7, 8, 11, 12, 13]);
+    expect(library.patterns[0].cells.map((entry) => entry[0]?.localId)).toEqual([1, 2, 3, 6, 7, 8, 11, 12, 13]);
   });
 
   it("rotates pattern positions and sprite orientations together", () => {
@@ -59,8 +61,8 @@ describe("native terrain overlapping WFC", () => {
     const library = compileTerrainWfcLibrary({ samples: [rotating] });
 
     expect(library.patterns).toHaveLength(4);
-    const clockwise = library.patterns.find((pattern) => pattern.cells.map((entry) => entry.localId).join(",") === "7,4,1,8,5,2,9,6,3");
-    expect(clockwise?.cells.every((entry) => entry.orientation === 1)).toBe(true);
+    const clockwise = library.patterns.find((pattern) => pattern.cells.map((entry) => entry[0]?.localId).join(",") === "7,4,1,8,5,2,9,6,3");
+    expect(clockwise?.cells.every((entry) => entry[0]?.orientation === 1)).toBe(true);
   });
 
   it("generates deterministic output from compiled adjacency", () => {
@@ -69,13 +71,13 @@ describe("native terrain overlapping WFC", () => {
     const second = generateTerrainWfcOutput(library, { width: 12, height: 8, seed: 42 });
 
     expect(first).toEqual(second);
-    expect(first.cells.map((entry) => entry.localId)).toEqual(Array(96).fill(4));
+    expect(first.cells.map((entry) => entry[0]?.localId)).toEqual(Array(96).fill(4));
   });
 
   it("rejects incomplete samples", () => {
     const incomplete = sample("INCOMPLETE", 3, 3, Array(9).fill(1));
-    incomplete.cells[4] = null;
-    expect(() => compileTerrainWfcLibrary({ samples: [incomplete] })).toThrow("fully painted");
+    incomplete.cells[4][0] = null;
+    expect(() => compileTerrainWfcLibrary({ samples: [incomplete] })).toThrow("base layer fully painted");
   });
 
   it("explains when isolated 3x3 samples teach no compatible neighbors", () => {
@@ -87,7 +89,28 @@ describe("native terrain overlapping WFC", () => {
     second.allowReflections = true;
     const library = compileTerrainWfcLibrary({ samples: [first, second] });
 
-    expect(terrainWfcAdjacencyProblem(library)).toContain("matches exact sprite ids and orientations, not tile roles or tags");
-    expect(() => generateTerrainWfcOutput(library, { width: 20, height: 20, seed: 1 })).toThrow("author a 4×4 or 5×5 sample");
+    expect(terrainWfcAdjacencyProblem(library)).toContain("complete layered cells");
+    expect(() => generateTerrainWfcOutput(library, { width: 20, height: 20, seed: 1 })).toThrow("No pattern belongs to a cycle");
+  });
+
+  it("wraps periodic input while extracting overlapping patterns", () => {
+    const periodic = sample("PERIODIC", 3, 3, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    periodic.periodicInput = true;
+    const library = compileTerrainWfcLibrary({ samples: [periodic] });
+
+    expect(library.patterns).toHaveLength(9);
+    expect(library.sampleStats.PERIODIC).toEqual({ extractedOccurrences: 9, uniquePatterns: 9, viablePatterns: 9 });
+    expect(generateTerrainWfcOutput(library, { width: 12, height: 12, seed: 7 }).cells).toHaveLength(144);
+  });
+
+  it("matches and reconstructs complete layered cells", () => {
+    const layered = sample("LAYERED", 5, 5, Array(25).fill(1));
+    layered.layerCount = 2;
+    layered.cells = layered.cells.map((cell, index) => [cell[0], index % 2 === 0 ? tile(2) : null]);
+    layered.periodicInput = true;
+    const library = compileTerrainWfcLibrary({ samples: [layered] });
+    const output = generateTerrainWfcOutput(library, { width: 10, height: 10, seed: 3 });
+
+    expect(output.cells.every((cell) => cell.length === 2 && cell[0]?.localId === 1)).toBe(true);
   });
 });

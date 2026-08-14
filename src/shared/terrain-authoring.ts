@@ -24,6 +24,12 @@ export const terrainTileRefSchema = z
   .strict();
 export type TerrainTileRef = z.infer<typeof terrainTileRefSchema>;
 
+export const terrainSampleLayerCountSchema = z.number().int().min(1).max(4);
+export type TerrainSampleLayerCount = z.infer<typeof terrainSampleLayerCountSchema>;
+
+export const terrainSampleCellSchema = z.array(terrainTileRefSchema.nullable()).min(1).max(4);
+export type TerrainSampleCell = z.infer<typeof terrainSampleCellSchema>;
+
 export const terrainTileBindingSchema = z
   .object({
     slug: terrainSlugSchema,
@@ -34,7 +40,7 @@ export const terrainTileBindingSchema = z
   .strict();
 export type TerrainTileBinding = z.infer<typeof terrainTileBindingSchema>;
 
-export const terrainSampleDimensionSchema = z.union([z.literal(3), z.literal(4), z.literal(5)]);
+export const terrainSampleDimensionSchema = z.number().int().min(3).max(64);
 export type TerrainSampleDimension = z.infer<typeof terrainSampleDimensionSchema>;
 
 export const terrainSampleSchema = z
@@ -42,7 +48,9 @@ export const terrainSampleSchema = z
     slug: terrainSlugSchema,
     width: terrainSampleDimensionSchema,
     height: terrainSampleDimensionSchema,
-    cells: z.array(terrainTileRefSchema.nullable()),
+    layerCount: terrainSampleLayerCountSchema,
+    cells: z.array(terrainSampleCellSchema),
+    periodicInput: z.boolean(),
     allowRotations: z.boolean(),
     allowReflections: z.boolean()
   })
@@ -51,6 +59,11 @@ export const terrainSampleSchema = z
     if (sample.cells.length !== sample.width * sample.height) {
       context.addIssue({ code: "custom", message: "Sample cell count must match its dimensions", path: ["cells"] });
     }
+    sample.cells.forEach((cell, index) => {
+      if (cell.length !== sample.layerCount) {
+        context.addIssue({ code: "custom", message: "Sample cell layer count must match the sample", path: ["cells", index] });
+      }
+    });
   });
 export type TerrainSample = z.infer<typeof terrainSampleSchema>;
 

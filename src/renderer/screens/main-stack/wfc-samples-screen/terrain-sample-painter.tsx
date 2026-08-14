@@ -1,6 +1,6 @@
 import { type FC, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import type { TerrainSample, TerrainTileRef, TerrainTilesetView } from "../../../../shared/terrain-authoring";
-import { drawTerrainTile } from "./terrain-rendering";
+import { drawTerrainCell } from "./terrain-rendering";
 
 interface TerrainSamplePainterProps {
   onChange: (sample: TerrainSample) => void;
@@ -14,7 +14,7 @@ interface PaintState {
   pointerId: number;
 }
 
-const displayCellSize = 96;
+const displayCellSize = 48;
 
 export const TerrainSamplePainter: FC<TerrainSamplePainterProps> = (props) => {
   const { onChange, sample, selectedTile, tilesets } = props;
@@ -22,7 +22,12 @@ export const TerrainSamplePainter: FC<TerrainSamplePainterProps> = (props) => {
   const imagesRef = useRef(new Map<string, HTMLImageElement>());
   const paintRef = useRef<PaintState>();
   const lastCellRef = useRef(-1);
+  const [activeLayer, setActiveLayer] = useState(0);
   const [imageRevision, setImageRevision] = useState(0);
+
+  useEffect(() => {
+    setActiveLayer((current) => Math.min(current, (sample?.layerCount ?? 1) - 1));
+  }, [sample?.layerCount, sample?.slug]);
 
   useEffect(() => {
     imagesRef.current.clear();
@@ -59,12 +64,12 @@ export const TerrainSamplePainter: FC<TerrainSamplePainterProps> = (props) => {
     context.imageSmoothingEnabled = false;
     context.fillStyle = "#151515";
     context.fillRect(0, 0, width, height);
-    sample.cells.forEach((tile, index) => {
+    sample.cells.forEach((cell, index) => {
       const x = index % sample.width;
       const y = Math.floor(index / sample.width);
       context.fillStyle = (x + y) % 2 === 0 ? "#202020" : "#191919";
       context.fillRect(x * displayCellSize, y * displayCellSize, displayCellSize, displayCellSize);
-      if (tile) drawTerrainTile(context, tile, tilesets, imagesRef.current, x * displayCellSize, y * displayCellSize, displayCellSize);
+      drawTerrainCell(context, cell, tilesets, imagesRef.current, x * displayCellSize, y * displayCellSize, displayCellSize);
     });
     context.strokeStyle = "rgba(255,255,255,0.2)";
     context.lineWidth = 1;
@@ -93,7 +98,9 @@ export const TerrainSamplePainter: FC<TerrainSamplePainterProps> = (props) => {
     if (!sample || index < 0 || index === lastCellRef.current || (!erase && !selectedTile)) return;
     lastCellRef.current = index;
     const cells = [...sample.cells];
-    cells[index] = erase ? null : { ...selectedTile!, orientation: 0 };
+    const stack = [...cells[index]];
+    stack[activeLayer] = erase ? null : { ...selectedTile!, orientation: 0 };
+    cells[index] = stack;
     onChange({ ...sample, cells });
   }
 
@@ -120,9 +127,27 @@ export const TerrainSamplePainter: FC<TerrainSamplePainterProps> = (props) => {
   return (
     <div className="space-y-2 rounded-md border border-border p-3">
       <div>
-        <h3 className="text-sm font-semibold">Sample painter</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold">Sample painter</h3>
+          {sample && (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              Paint layer
+              <select
+                className="h-8 rounded-md border border-input bg-background px-2 text-foreground"
+                onChange={(event) => setActiveLayer(Number(event.target.value))}
+                value={activeLayer}
+              >
+                {Array.from({ length: sample.layerCount }, (_, layer) => (
+                  <option key={layer} value={layer}>
+                    {layer === 0 ? "Base" : `Overlay ${layer}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
         <p className="text-xs text-muted-foreground">
-          Left-click or drag to paint the selected palette tile. Ctrl+left-click, right-click, or drag erases cells.
+          Left-click or drag to paint the selected palette tile on the active layer. Ctrl+left-click, right-click, or drag erases it.
         </p>
       </div>
       {!sample && (

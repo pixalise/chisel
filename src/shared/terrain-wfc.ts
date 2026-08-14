@@ -1,11 +1,11 @@
-import type { TerrainSample, TerrainTileRef, TerrainWorkspaceView } from "./terrain-authoring";
+import type { TerrainSample, TerrainSampleCell, TerrainTileRef, TerrainWorkspaceView } from "./terrain-authoring";
 
 export const terrainWfcPatternSize = 3;
 
 export type TerrainWfcDirection = "north" | "east" | "south" | "west";
 
 export interface TerrainWfcPattern {
-  cells: TerrainTileRef[];
+  cells: TerrainSampleCell[];
   id: number;
   sampleOccurrences: Record<string, number>;
   weight: number;
@@ -15,12 +15,19 @@ export interface TerrainWfcLibrary {
   adjacency: Record<TerrainWfcDirection, number[][]>;
   patternSize: number;
   patterns: TerrainWfcPattern[];
+  sampleStats: Record<string, TerrainWfcSampleStats>;
   sampleSlugs: string[];
+}
+
+export interface TerrainWfcSampleStats {
+  extractedOccurrences: number;
+  uniquePatterns: number;
+  viablePatterns: number;
 }
 
 export interface TerrainWfcOutput {
   attempts: number;
-  cells: TerrainTileRef[];
+  cells: TerrainSampleCell[];
   height: number;
   seed: number;
   width: number;
@@ -106,13 +113,17 @@ function transformTile(tile: TerrainTileRef, transform: GridTransform): TerrainT
   return { ...tile, orientation };
 }
 
-function transformPattern(cells: TerrainTileRef[], transform: GridTransform): TerrainTileRef[] {
+function transformCell(cell: TerrainSampleCell, transform: GridTransform): TerrainSampleCell {
+  return cell.map((tile) => (tile ? transformTile(tile, transform) : null));
+}
+
+function transformPattern(cells: TerrainSampleCell[], transform: GridTransform): TerrainSampleCell[] {
   const size = terrainWfcPatternSize;
-  const transformed = Array<TerrainTileRef>(cells.length);
+  const transformed = Array<TerrainSampleCell>(cells.length);
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       const [targetX, targetY] = transformPoint(x, y, size, transform);
-      transformed[targetY * size + targetX] = transformTile(cells[y * size + x], transform);
+      transformed[targetY * size + targetX] = transformCell(cells[y * size + x], transform);
     }
   }
   return transformed;
@@ -120,6 +131,10 @@ function transformPattern(cells: TerrainTileRef[], transform: GridTransform): Te
 
 function tileKey(tile: TerrainTileRef): string {
   return `${tile.tilesetId}:${tile.localId}:${tile.orientation}`;
+}
+
+function cellKey(cell: TerrainSampleCell): string {
+  return cell.map((tile) => (tile ? tileKey(tile) : "-")).join("/");
 }
 
 function patternsFit(left: TerrainWfcPattern, right: TerrainWfcPattern, direction: TerrainWfcDirection): boolean {
@@ -130,7 +145,7 @@ function patternsFit(left: TerrainWfcPattern, right: TerrainWfcPattern, directio
       const rightX = x - offsetX;
       const rightY = y - offsetY;
       if (rightX < 0 || rightX >= size || rightY < 0 || rightY >= size) continue;
-      if (tileKey(left.cells[y * size + x]) !== tileKey(right.cells[rightY * size + rightX])) return false;
+      if (cellKey(left.cells[y * size + x]) !== cellKey(right.cells[rightY * size + rightX])) return false;
     }
   }
   return true;
@@ -140,17 +155,21 @@ export function compileTerrainWfcLibrary(workspace: Pick<TerrainWorkspaceView, "
   if (workspace.samples.length === 0) throw new Error("Create at least one WFC sample before compiling a preview");
   const patterns: TerrainWfcPattern[] = [];
   const patternByKey = new Map<string, TerrainWfcPattern>();
+  const sampleStats: Record<string, TerrainWfcSampleStats> = {};
   for (const sample of workspace.samples) {
-    if (sample.cells.some((cell) => cell === null)) throw new Error(`Sample '${sample.slug}' must be fully painted before compiling`);
-    const occurrences: TerrainTileRef[][] = [];
-    for (let patternY = 0; patternY <= sample.height - terrainWfcPatternSize; patternY += 1) {
-      for (let patternX = 0; patternX <= sample.width - terrainWfcPatternSize; patternX += 1) {
-        const cells: TerrainTileRef[] = [];
+    if (sample.cells.some((cell) => cell[0] === null))
+      throw new Error(`Sample '${sample.slug}' must have its base layer fully painted before compiling`);
+    const occurrences: TerrainSampleCell[][] = [];
+    const patternRows = sample.periodicInput ? sample.height : sample.height - terrainWfcPatternSize + 1;
+    const patternColumns = sample.periodicInput ? sample.width : sample.width - terrainWfcPatternSize + 1;
+    for (let patternY = 0; patternY < patternRows; patternY += 1) {
+      for (let patternX = 0; patternX < patternColumns; patternX += 1) {
+        const cells: TerrainSampleCell[] = [];
         for (let y = 0; y < terrainWfcPatternSize; y += 1) {
           for (let x = 0; x < terrainWfcPatternSize; x += 1) {
-            const cell = sample.cells[(patternY + y) * sample.width + patternX + x];
-            if (!cell) throw new Error(`Sample '${sample.slug}' must be fully painted before compiling`);
-            cells.push(cell);
+            const sourceX = (patternX + x) % sample.width;
+            const sourceY = (patternY + y) % sample.height;
+            cells.push(sample.cells[sourceY * sample.width + sourceX]);
           }
         }
         for (const transform of sampleTransforms(sample)) occurrences.push(transformPattern(cells, transform));
@@ -158,7 +177,7 @@ export function compileTerrainWfcLibrary(workspace: Pick<TerrainWorkspaceView, "
     }
     const contribution = 1 / occurrences.length;
     for (const cells of occurrences) {
-      const key = cells.map(tileKey).join("|");
+      const key = cells.map(cellKey).join("|");
       let pattern = patternByKey.get(key);
       if (!pattern) {
         pattern = { cells, id: patterns.length, sampleOccurrences: {}, weight: 0 };
@@ -168,6 +187,7 @@ export function compileTerrainWfcLibrary(workspace: Pick<TerrainWorkspaceView, "
       pattern.sampleOccurrences[sample.slug] = (pattern.sampleOccurrences[sample.slug] ?? 0) + 1;
       pattern.weight += contribution;
     }
+    sampleStats[sample.slug] = { extractedOccurrences: occurrences.length, uniquePatterns: 0, viablePatterns: 0 };
   }
   const adjacency = Object.fromEntries(directions.map((direction) => [direction, patterns.map(() => [] as number[])])) as Record<
     TerrainWfcDirection,
@@ -180,19 +200,44 @@ export function compileTerrainWfcLibrary(workspace: Pick<TerrainWorkspaceView, "
       }
     }
   }
+  const viablePatternIds = terrainWfcViablePatternIds({ adjacency, patterns });
+  for (const sample of workspace.samples) {
+    const contributed = patterns.filter((pattern) => pattern.sampleOccurrences[sample.slug] !== undefined);
+    sampleStats[sample.slug].uniquePatterns = contributed.length;
+    sampleStats[sample.slug].viablePatterns = contributed.filter((pattern) => viablePatternIds.has(pattern.id)).length;
+  }
   return {
     adjacency,
     patternSize: terrainWfcPatternSize,
     patterns,
+    sampleStats,
     sampleSlugs: workspace.samples.map((sample) => sample.slug)
   };
 }
 
+export function terrainWfcViablePatternIds(library: Pick<TerrainWfcLibrary, "adjacency" | "patterns">): Set<number> {
+  const viable = new Set(library.patterns.map((pattern) => pattern.id));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const patternId of [...viable]) {
+      if (directions.some((direction) => !library.adjacency[direction][patternId].some((neighbor) => viable.has(neighbor)))) {
+        viable.delete(patternId);
+        changed = true;
+      }
+    }
+  }
+  return viable;
+}
+
 export function terrainWfcAdjacencyProblem(library: TerrainWfcLibrary): string | undefined {
+  if (terrainWfcViablePatternIds(library).size === 0) {
+    return `No pattern belongs to a cycle that can continue in every direction. WFC matches complete layered cells by exact sprite ids and orientations. Paint a larger representative sample with recurring empty space and features that return to that space, or enable periodic input only when opposite sample edges are designed to meet.`;
+  }
   const emptyDirections = directions.filter((direction) => library.adjacency[direction].every((neighbors) => neighbors.length === 0));
   if (emptyDirections.length === 0) return undefined;
   const labels = emptyDirections.map((direction) => direction[0].toUpperCase()).join(", ");
-  return `No compatible pattern overlaps were learned for ${labels}. WFC matches exact sprite ids and orientations, not tile roles or tags. A 3×3 sample contributes only one pattern, so author a 4×4 or 5×5 sample containing repeated overlaps that form usable cycles, or add 3×3 samples whose two-cell borders overlap exactly.`;
+  return `No compatible pattern overlaps were learned for ${labels}. WFC matches complete layered cells by exact sprite ids and orientations, not tile roles or tags. Paint a larger representative sample containing recurring overlaps, or add 3×3 samples whose two-cell borders overlap exactly.`;
 }
 
 function randomGenerator(seed: number): () => number {
@@ -233,9 +278,8 @@ function solvePatterns(library: TerrainWfcLibrary, width: number, height: number
   const waveWidth = width - library.patternSize + 1;
   const waveHeight = height - library.patternSize + 1;
   const wave = Array.from({ length: waveWidth * waveHeight }, () => new Set(library.patterns.map((pattern) => pattern.id)));
-  const adjacencySets = Object.fromEntries(
-    directions.map((direction) => [direction, library.adjacency[direction].map((entries) => new Set(entries))])
-  ) as Record<TerrainWfcDirection, Set<number>[]>;
+  const supportMarks = new Uint32Array(library.patterns.length);
+  let supportRevision = 0;
   const random = randomGenerator(seed);
 
   function propagate(initialIndices: number[]): void {
@@ -254,10 +298,17 @@ function solvePatterns(library: TerrainWfcLibrary, width: number, height: number
         if (neighborX < 0 || neighborX >= waveWidth || neighborY < 0 || neighborY >= waveHeight) continue;
         const neighborIndex = neighborY * waveWidth + neighborX;
         const neighbor = wave[neighborIndex];
+        supportRevision += 1;
+        if (supportRevision === 0xffffffff) {
+          supportMarks.fill(0);
+          supportRevision = 1;
+        }
+        for (const patternId of wave[index]) {
+          for (const supportedId of library.adjacency[direction][patternId]) supportMarks[supportedId] = supportRevision;
+        }
         let changed = false;
         for (const candidate of [...neighbor]) {
-          const supported = [...wave[index]].some((patternId) => adjacencySets[direction][patternId].has(candidate));
-          if (!supported) {
+          if (supportMarks[candidate] !== supportRevision) {
             neighbor.delete(candidate);
             changed = true;
           }
@@ -294,9 +345,9 @@ function solvePatterns(library: TerrainWfcLibrary, width: number, height: number
   });
 }
 
-function reconstructOutput(library: TerrainWfcLibrary, patternIds: number[], width: number, height: number): TerrainTileRef[] {
+function reconstructOutput(library: TerrainWfcLibrary, patternIds: number[], width: number, height: number): TerrainSampleCell[] {
   const waveWidth = width - library.patternSize + 1;
-  const cells = Array<TerrainTileRef | undefined>(width * height).fill(undefined);
+  const cells = Array<TerrainSampleCell | undefined>(width * height).fill(undefined);
   for (const [anchorIndex, patternId] of patternIds.entries()) {
     const anchorX = anchorIndex % waveWidth;
     const anchorY = Math.floor(anchorIndex / waveWidth);
@@ -306,7 +357,7 @@ function reconstructOutput(library: TerrainWfcLibrary, patternIds: number[], wid
         const outputIndex = (anchorY + y) * width + anchorX + x;
         const value = pattern.cells[y * library.patternSize + x];
         const existing = cells[outputIndex];
-        if (existing && tileKey(existing) !== tileKey(value)) throw new Error("Compatible WFC patterns reconstructed conflicting tiles");
+        if (existing && cellKey(existing) !== cellKey(value)) throw new Error("Compatible WFC patterns reconstructed conflicting cells");
         cells[outputIndex] = value;
       }
     }

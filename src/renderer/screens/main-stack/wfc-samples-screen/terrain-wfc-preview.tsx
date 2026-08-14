@@ -9,10 +9,11 @@ import {
   generateTerrainWfcOutput,
   terrainWfcAdjacencyProblem,
   terrainWfcPatternSize,
+  terrainWfcViablePatternIds,
   type TerrainWfcLibrary,
   type TerrainWfcOutput
 } from "../../../../shared/terrain-wfc";
-import { drawTerrainTile } from "./terrain-rendering";
+import { drawTerrainCell } from "./terrain-rendering";
 
 interface TerrainWfcPreviewProps {
   workspace: TerrainWorkspaceView;
@@ -67,10 +68,10 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
     context.imageSmoothingEnabled = false;
     context.fillStyle = "#151515";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    output.cells.forEach((tile, index) =>
-      drawTerrainTile(
+    output.cells.forEach((cell, index) =>
+      drawTerrainCell(
         context,
-        tile,
+        cell,
         workspace.tilesets,
         imagesRef.current,
         (index % output.width) * previewCellSize,
@@ -113,8 +114,8 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
         <div>
           <h3 className="text-sm font-semibold">WFC preview</h3>
           <p className="text-xs text-muted-foreground">
-            Compile painted samples into overlapping {terrainWfcPatternSize}×{terrainWfcPatternSize} patterns. Adjacency matches exact
-            sprites and orientations; roles and tags do not make edges compatible.
+            Compile large painted examples into overlapping {terrainWfcPatternSize}×{terrainWfcPatternSize} patterns. Adjacency matches
+            complete layered cells by exact sprites and orientations; roles and tags do not make edges compatible.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -173,15 +174,31 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
       )}
       {error && <p className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">{error}</p>}
       {library && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <span>{library.patterns.length} unique patterns</span>
-          <span>{library.sampleSlugs.length} samples</span>
-          {output && <span>{output.attempts} generation attempts</span>}
-          {missingAdjacency.map((entry) => (
-            <span className={entry.count > 0 ? "text-amber-500" : undefined} key={entry.direction}>
-              {entry.direction[0].toUpperCase()}: {entry.count} dead ends
-            </span>
-          ))}
+        <div className="space-y-2 text-xs text-muted-foreground">
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <span>{library.patterns.length} unique patterns</span>
+            <span>{terrainWfcViablePatternIds(library).size} globally viable</span>
+            <span>{library.sampleSlugs.length} samples</span>
+            {output && <span>{output.attempts} generation attempts</span>}
+            {missingAdjacency.map((entry) => (
+              <span className={entry.count > 0 ? "text-amber-500" : undefined} key={entry.direction}>
+                {entry.direction[0].toUpperCase()}: {entry.count} dead ends
+              </span>
+            ))}
+          </div>
+          <details className="rounded border border-border px-2 py-1">
+            <summary className="cursor-pointer">Pattern contribution by sample</summary>
+            <div className="mt-1 grid gap-1 sm:grid-cols-2 xl:grid-cols-3">
+              {library.sampleSlugs.map((slug) => {
+                const stats = library.sampleStats[slug];
+                return (
+                  <span className={stats.viablePatterns === 0 ? "text-amber-500" : undefined} key={slug}>
+                    {slug}: {stats.viablePatterns}/{stats.uniquePatterns} viable ({stats.extractedOccurrences} extracted)
+                  </span>
+                );
+              })}
+            </div>
+          </details>
         </div>
       )}
       {output && (

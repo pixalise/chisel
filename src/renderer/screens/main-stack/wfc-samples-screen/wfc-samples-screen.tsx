@@ -4,14 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TerrainProblemList } from "@/screens/main-stack/wfc-samples-screen/terrain-problem-list";
 import { TerrainRoleEditor } from "@/screens/main-stack/wfc-samples-screen/terrain-role-editor";
-import { TerrainSampleInspector } from "@/screens/main-stack/wfc-samples-screen/terrain-sample-inspector";
+import { TerrainSampleInspector, type TerrainSampleCreation } from "@/screens/main-stack/wfc-samples-screen/terrain-sample-inspector";
 import { TerrainSamplePainter } from "@/screens/main-stack/wfc-samples-screen/terrain-sample-painter";
 import { TerrainTileCatalog } from "@/screens/main-stack/wfc-samples-screen/terrain-tile-catalog";
 import { TerrainWfcPreview } from "@/screens/main-stack/wfc-samples-screen/terrain-wfc-preview";
 import terrainSampleService from "@/services/terrain-sample-service";
 import { AlertTriangle, Save } from "lucide-react";
 import { type FC, useEffect, useMemo, useState } from "react";
-import type { TerrainSample, TerrainSampleDimension, TerrainTileRef, TerrainWorkspaceView } from "../../../../shared/terrain-authoring";
+import type { TerrainSample, TerrainTileRef, TerrainWorkspaceView } from "../../../../shared/terrain-authoring";
 
 export const WfcSamplesScreen: FC = () => {
   const [workspace, setWorkspace] = useState<TerrainWorkspaceView>();
@@ -81,15 +81,18 @@ export const WfcSamplesScreen: FC = () => {
     }
   }
 
-  function createSample(dimension: TerrainSampleDimension): void {
+  function createSample(creation: TerrainSampleCreation): void {
     if (!workspace) return;
+    const { width, height, layerCount } = creation;
     let index = workspace.samples.length + 1;
     while (workspace.samples.some((entry) => entry.slug === `SAMPLE_${index}`)) index += 1;
     const next: TerrainSample = {
       slug: `SAMPLE_${index}`,
-      width: dimension,
-      height: dimension,
-      cells: Array<TerrainTileRef | null>(dimension * dimension).fill(null),
+      width,
+      height,
+      layerCount,
+      cells: Array.from({ length: width * height }, () => Array<TerrainTileRef | null>(layerCount).fill(null)),
+      periodicInput: false,
       allowRotations: false,
       allowReflections: false
     };
