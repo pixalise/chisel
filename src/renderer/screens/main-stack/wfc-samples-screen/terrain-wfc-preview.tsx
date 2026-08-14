@@ -7,6 +7,7 @@ import type { TerrainWorkspaceView } from "../../../../shared/terrain-authoring"
 import {
   compileTerrainWfcLibrary,
   generateTerrainWfcOutput,
+  terrainWfcAdjacencyProblem,
   terrainWfcPatternSize,
   type TerrainWfcLibrary,
   type TerrainWfcOutput
@@ -89,6 +90,8 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
       }
       compiled = compileTerrainWfcLibrary(workspace);
       setLibrary(compiled);
+      const adjacencyProblem = terrainWfcAdjacencyProblem(compiled);
+      if (adjacencyProblem) throw new Error(adjacencyProblem);
       setOutput(generateTerrainWfcOutput(compiled, { width, height, seed: nextSeed }));
       setSeed(nextSeed);
     } catch (caught) {
@@ -110,7 +113,8 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
         <div>
           <h3 className="text-sm font-semibold">WFC preview</h3>
           <p className="text-xs text-muted-foreground">
-            Compile painted samples into overlapping {terrainWfcPatternSize}×{terrainWfcPatternSize} patterns and test their adjacency.
+            Compile painted samples into overlapping {terrainWfcPatternSize}×{terrainWfcPatternSize} patterns. Adjacency matches exact
+            sprites and orientations; roles and tags do not make edges compatible.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">

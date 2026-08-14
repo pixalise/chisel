@@ -46,6 +46,8 @@ The preview compiler extracts every overlapping 3×3 pattern from each fully pai
 
 Patterns fit when their overlapping sprite identities and orientations match. That means cliffs, shores, map edges, and other transitions are learned from the arrangements painted into the source samples. The seeded preview solver exposes contradictions and directional dead ends before runtime export.
 
+A 3×3 sample yields one 3×3 pattern before rotations and reflections. It can only grow when its two-cell borders match another pattern exactly. Prefer 4×4 or 5×5 exemplars with deliberately repeated overlaps and cycles for ordinary terrain textures; roles and tags describe semantics but never loosen sprite-level adjacency.
+
 ## Tileset deletion
 
 Deleting an unused tileset removes its tile bindings. Samples that contain it are also removed when no biome profile uses them. If a biome profile reaches the tileset through one of its samples, deletion is refused and reports the blocking profile and sample.

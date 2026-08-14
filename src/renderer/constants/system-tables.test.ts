@@ -22,6 +22,7 @@ describe("system tables", () => {
     expect(SYSTEM_TERRAIN_TABLES.map((table) => table.id)).toContain(TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID);
     expect(SYSTEM_TERRAIN_TABLES).toHaveLength(6);
     expect(TERRAIN_TILE_BINDING_COLUMNS.tileset.assetCategory).toBe(AssetCategoryEnum.tileset);
+    expect(TERRAIN_TILE_BINDING_COLUMNS.tags.required).toBe(false);
   });
 
   it("defines the input bindings schema without seed rows", () => {

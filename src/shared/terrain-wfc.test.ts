@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TerrainSample, TerrainTileRef } from "./terrain-authoring";
-import { compileTerrainWfcLibrary, generateTerrainWfcOutput } from "./terrain-wfc";
+import { compileTerrainWfcLibrary, generateTerrainWfcOutput, terrainWfcAdjacencyProblem } from "./terrain-wfc";
 
 function tile(localId: number): TerrainTileRef {
   return { tilesetId: "TERRAIN", localId, orientation: 0 };
@@ -76,5 +76,18 @@ describe("native terrain overlapping WFC", () => {
     const incomplete = sample("INCOMPLETE", 3, 3, Array(9).fill(1));
     incomplete.cells[4] = null;
     expect(() => compileTerrainWfcLibrary({ samples: [incomplete] })).toThrow("fully painted");
+  });
+
+  it("explains when isolated 3x3 samples teach no compatible neighbors", () => {
+    const first = sample("FIRST", 3, 3, [1, 1, 2, 3, 1, 1, 2, 3, 3]);
+    const second = sample("SECOND", 3, 3, [3, 4, 3, 1, 2, 1, 2, 3, 2]);
+    first.allowRotations = true;
+    first.allowReflections = true;
+    second.allowRotations = true;
+    second.allowReflections = true;
+    const library = compileTerrainWfcLibrary({ samples: [first, second] });
+
+    expect(terrainWfcAdjacencyProblem(library)).toContain("matches exact sprite ids and orientations, not tile roles or tags");
+    expect(() => generateTerrainWfcOutput(library, { width: 20, height: 20, seed: 1 })).toThrow("author a 4×4 or 5×5 sample");
   });
 });

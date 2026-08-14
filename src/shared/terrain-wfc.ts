@@ -188,6 +188,13 @@ export function compileTerrainWfcLibrary(workspace: Pick<TerrainWorkspaceView, "
   };
 }
 
+export function terrainWfcAdjacencyProblem(library: TerrainWfcLibrary): string | undefined {
+  const emptyDirections = directions.filter((direction) => library.adjacency[direction].every((neighbors) => neighbors.length === 0));
+  if (emptyDirections.length === 0) return undefined;
+  const labels = emptyDirections.map((direction) => direction[0].toUpperCase()).join(", ");
+  return `No compatible pattern overlaps were learned for ${labels}. WFC matches exact sprite ids and orientations, not tile roles or tags. A 3×3 sample contributes only one pattern, so author a 4×4 or 5×5 sample containing repeated overlaps that form usable cycles, or add 3×3 samples whose two-cell borders overlap exactly.`;
+}
+
 function randomGenerator(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
@@ -320,6 +327,8 @@ export function generateTerrainWfcOutput(
     throw new Error(`WFC preview must be at least ${library.patternSize}×${library.patternSize} cells`);
   }
   if (library.patterns.length === 0) throw new Error("The WFC library contains no patterns");
+  const adjacencyProblem = terrainWfcAdjacencyProblem(library);
+  if (adjacencyProblem) throw new Error(adjacencyProblem);
   const maxAttempts = options.maxAttempts ?? 20;
   let lastError: unknown;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {

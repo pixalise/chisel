@@ -78,7 +78,7 @@ export const TERRAIN_TILE_BINDING_COLUMNS = {
   tileSlug: column("terrain_binding_slug", "tile_slug", ColumnType.string),
   role: column("terrain_binding_role", "role", ColumnType.ref, { refTableId: TERRAIN_ROLES_TABLE_ID }),
   blocking: column("terrain_binding_block", "blocking", ColumnType.boolean),
-  tags: column("terrain_binding_tags", "tags", ColumnType.enumArray, { defaultValue: [] })
+  tags: column("terrain_binding_tags", "tags", ColumnType.enumArray, { defaultValue: [], required: false })
 } as const;
 
 export const TERRAIN_WFC_SAMPLE_COLUMNS = {
