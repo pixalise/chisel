@@ -237,7 +237,7 @@ export function terrainWfcAdjacencyProblem(library: TerrainWfcLibrary): string |
   const emptyDirections = directions.filter((direction) => library.adjacency[direction].every((neighbors) => neighbors.length === 0));
   if (emptyDirections.length === 0) return undefined;
   const labels = emptyDirections.map((direction) => direction[0].toUpperCase()).join(", ");
-  return `No compatible pattern overlaps were learned for ${labels}. WFC matches complete layered cells by exact sprite ids and orientations, not tile roles or tags. Paint a larger representative sample containing recurring overlaps, or add 3×3 samples whose two-cell borders overlap exactly.`;
+  return `No compatible pattern overlaps were learned for ${labels}. WFC matches complete layered cells by exact sprite ids and orientations, not semantic tags. Paint a larger representative sample containing recurring overlaps, or add 3×3 samples whose two-cell borders overlap exactly.`;
 }
 
 function randomGenerator(seed: number): () => number {

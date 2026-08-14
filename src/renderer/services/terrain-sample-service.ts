@@ -6,8 +6,6 @@ import { dataTableRowSchema, type DataColumnDefinition, type DataTableRow, type 
 import {
   TERRAIN_BIOME_PROFILE_COLUMNS,
   TERRAIN_BIOME_PROFILES_TABLE_ID,
-  TERRAIN_ROLE_COLUMNS,
-  TERRAIN_ROLES_TABLE_ID,
   TERRAIN_TILE_BINDING_COLUMNS,
   TERRAIN_TILE_BINDINGS_TABLE_ID,
   TERRAIN_WFC_SAMPLE_CELL_COLUMNS,
@@ -16,11 +14,9 @@ import {
   TERRAIN_WFC_SAMPLES_TABLE_ID
 } from "../../shared/terrain-tables";
 import {
-  terrainRoleSchema,
   terrainSampleSchema,
   terrainTileBindingSchema,
   terrainTileKey,
-  type TerrainRole,
   type TerrainTileBinding,
   type TerrainTilesetView,
   type TerrainWorkspaceView
@@ -73,9 +69,8 @@ class TerrainSampleService {
   }
 
   public async load(): Promise<TerrainWorkspaceView> {
-    const [assets, rolesTable, bindingsTable, samplesTable, cellsTable] = await Promise.all([
+    const [assets, bindingsTable, samplesTable, cellsTable] = await Promise.all([
       assetService.getAllAssets(),
-      this.systemTable(TERRAIN_ROLES_TABLE_ID),
       this.systemTable(TERRAIN_TILE_BINDINGS_TABLE_ID),
       this.systemTable(TERRAIN_WFC_SAMPLES_TABLE_ID),
       this.systemTable(TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID)
@@ -97,13 +92,6 @@ class TerrainSampleService {
           imagePath: `${projectPath}/${asset.relativePath}`
         };
       });
-    const roles = rolesTable.rows.map((entry) =>
-      terrainRoleSchema.parse({
-        id: entry.slug,
-        label: stringCell(entry, TERRAIN_ROLE_COLUMNS.label),
-        color: stringCell(entry, TERRAIN_ROLE_COLUMNS.color)
-      })
-    );
     const tileBindings: Record<string, TerrainTileBinding> = {};
     for (const entry of bindingsTable.rows) {
       const tilesetId = stringCell(entry, TERRAIN_TILE_BINDING_COLUMNS.tileset);
@@ -114,7 +102,6 @@ class TerrainSampleService {
       }
       tileBindings[terrainTileKey(tilesetId, localId)] = terrainTileBindingSchema.parse({
         slug: stringCell(entry, TERRAIN_TILE_BINDING_COLUMNS.tileSlug),
-        roleId: stringCell(entry, TERRAIN_TILE_BINDING_COLUMNS.role),
         blocking: booleanCell(entry, TERRAIN_TILE_BINDING_COLUMNS.blocking),
         tags
       });
@@ -165,13 +152,11 @@ class TerrainSampleService {
         orientation: 0
       };
     }
-    const roleIds = new Set(roles.map((role) => role.id));
     const bindingSlugs = new Map<string, number>();
     for (const [key, binding] of Object.entries(tileBindings)) {
       const [tilesetId, localIdText] = key.split(":");
       const tileset = tilesets.find((entry) => entry.id === tilesetId);
       if (!tileset || Number(localIdText) >= tileset.tileCount) problems.push(`Tile binding '${key}' is orphaned`);
-      if (!roleIds.has(binding.roleId)) problems.push(`Tile '${binding.slug}' uses missing role '${binding.roleId}'`);
       bindingSlugs.set(binding.slug, (bindingSlugs.get(binding.slug) ?? 0) + 1);
     }
     for (const [slug, count] of bindingSlugs) {
@@ -190,20 +175,7 @@ class TerrainSampleService {
         }
       }
     }
-    return { roles, tilesets, tileBindings, samples, problems };
-  }
-
-  public async saveRoles(roles: TerrainRole[]): Promise<TerrainWorkspaceView> {
-    const parsed = roles.map((role) => terrainRoleSchema.parse(role));
-    const current = await this.systemTable(TERRAIN_ROLES_TABLE_ID);
-    const ids = new Map(current.rows.map((entry) => [entry.slug, entry.id]));
-    await tableService.saveSystemTableRows(
-      TERRAIN_ROLES_TABLE_ID,
-      parsed.map((role) =>
-        row(role.id, [rowValue(TERRAIN_ROLE_COLUMNS.label, role.label), rowValue(TERRAIN_ROLE_COLUMNS.color, role.color)], ids.get(role.id))
-      )
-    );
-    return this.load();
+    return { tilesets, tileBindings, samples, problems };
   }
 
   public async save(workspace: TerrainWorkspaceView): Promise<TerrainWorkspaceView> {
@@ -237,7 +209,6 @@ class TerrainSampleService {
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.tileset, tilesetId),
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.localId, localId),
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.tileSlug, parsed.slug),
-          rowValue(TERRAIN_TILE_BINDING_COLUMNS.role, parsed.roleId),
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.blocking, parsed.blocking),
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.tags, parsed.tags)
         ],

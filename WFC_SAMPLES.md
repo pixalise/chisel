@@ -4,7 +4,7 @@ Chisel owns the complete terrain-authoring workflow: tileset assets, layered tra
 
 ## What overlapping WFC learns
 
-Overlapping WFC does not place an authored sample as a stamp and does not infer semantic rules from names such as `GROUND`, `PATH`, or `FOLIAGE`. It analyzes the exact layered cells painted into a sample.
+Overlapping WFC does not place an authored sample as a stamp and does not infer semantic rules from tags such as `WALKABLE`, `WATER`, or `FOLIAGE`. It analyzes the exact layered cells painted into a sample.
 
 Chisel currently uses a fixed 3×3 analysis window:
 
@@ -63,7 +63,7 @@ new terrain assembled from observed local relationships
 This has three important consequences:
 
 1. WFC can recombine local relationships into a map that was never painted, but it cannot invent a local relationship it never observed.
-2. Two sprites with the same role are still different symbols. Roles describe meaning to later systems; exact sprite stacks determine WFC compatibility.
+2. Two sprites with the same tags are still different symbols. Tags describe meaning to later systems; exact sprite stacks determine WFC compatibility.
 3. The quality of the output is mostly determined by the coverage and balance of the examples, not by the number of tags attached to the tiles.
 
 A useful test while painting is: _if a 3×3 camera moved one cell at a time over this feature, has it seen every way the feature is allowed to begin, continue, turn, touch something else, and end?_
@@ -83,11 +83,10 @@ A sample may reference multiple tilesets. This is how a base terrain sheet, a tr
 The palette can enrich a sprite with:
 
 - a stable semantic tile slug;
-- a role;
 - a movement-blocking flag;
 - optional tags.
 
-Metadata is not required for overlapping-pattern matching. The compiler compares exact layered cell contents. Roles and tags are available to biome setup and runtime enrichment, but they never make two different sprites overlap-compatible.
+Metadata is not required for overlapping-pattern matching. The compiler compares exact layered cell contents. Tags such as `WALKABLE`, `WATER`, `SHORE`, `FOLIAGE`, or project-specific concepts are available to biome setup and runtime enrichment, but they never make two different sprites overlap-compatible.
 
 ## Paint large layered samples
 
@@ -449,7 +448,6 @@ The library is highly constrained or contains incompatible sub-languages. Add sh
 
 Terrain authoring uses normalized system tables:
 
-- `terrain_roles`
 - `terrain_tile_bindings`
 - `terrain_wfc_samples`
 - `terrain_wfc_sample_cells`

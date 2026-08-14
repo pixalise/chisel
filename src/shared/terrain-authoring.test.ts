@@ -53,9 +53,8 @@ describe("native terrain authoring contract", () => {
   });
 
   it("keeps blocking and tags in the per-tile binding", () => {
-    expect(terrainTileBindingSchema.parse({ slug: "CLIFF", roleId: "GROUND", blocking: true, tags: ["MAP_EDGE"] })).toEqual({
+    expect(terrainTileBindingSchema.parse({ slug: "CLIFF", blocking: true, tags: ["MAP_EDGE"] })).toEqual({
       slug: "CLIFF",
-      roleId: "GROUND",
       blocking: true,
       tags: ["MAP_EDGE"]
     });

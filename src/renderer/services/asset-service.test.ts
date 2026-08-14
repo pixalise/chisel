@@ -76,7 +76,6 @@ function terrainTables(withProfile: boolean): AnyDataTable[] {
     value(TERRAIN_TILE_BINDING_COLUMNS.tileset, "TERRAIN"),
     value(TERRAIN_TILE_BINDING_COLUMNS.localId, 0),
     value(TERRAIN_TILE_BINDING_COLUMNS.tileSlug, "GROUND"),
-    value(TERRAIN_TILE_BINDING_COLUMNS.role, "GROUND"),
     value(TERRAIN_TILE_BINDING_COLUMNS.blocking, false),
     value(TERRAIN_TILE_BINDING_COLUMNS.tags, [])
   ]);

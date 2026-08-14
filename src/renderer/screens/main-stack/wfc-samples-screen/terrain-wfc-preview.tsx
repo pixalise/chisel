@@ -115,7 +115,7 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
           <h3 className="text-sm font-semibold">WFC preview</h3>
           <p className="text-xs text-muted-foreground">
             Compile large painted examples into overlapping {terrainWfcPatternSize}×{terrainWfcPatternSize} patterns. Adjacency matches
-            complete layered cells by exact sprites and orientations; roles and tags do not make edges compatible.
+            complete layered cells by exact sprites and orientations; semantic tags do not make edges compatible.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">

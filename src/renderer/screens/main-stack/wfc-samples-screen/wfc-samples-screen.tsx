@@ -3,7 +3,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TerrainProblemList } from "@/screens/main-stack/wfc-samples-screen/terrain-problem-list";
-import { TerrainRoleEditor } from "@/screens/main-stack/wfc-samples-screen/terrain-role-editor";
 import { TerrainSampleInspector, type TerrainSampleCreation } from "@/screens/main-stack/wfc-samples-screen/terrain-sample-inspector";
 import { TerrainSamplePainter } from "@/screens/main-stack/wfc-samples-screen/terrain-sample-painter";
 import { TerrainTileCatalog } from "@/screens/main-stack/wfc-samples-screen/terrain-tile-catalog";
@@ -49,20 +48,6 @@ export const WfcSamplesScreen: FC = () => {
 
   function mutateWorkspace(update: (current: TerrainWorkspaceView) => TerrainWorkspaceView): void {
     setWorkspace((current) => (current ? update(current) : current));
-  }
-
-  async function saveRoles(): Promise<void> {
-    if (!workspace) return;
-    setIsBusy(true);
-    setError("");
-    try {
-      setWorkspace(await terrainSampleService.saveRoles(workspace.roles));
-      setMessage("Saved project tile roles.");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setIsBusy(false);
-    }
   }
 
   async function saveWorkspace(): Promise<void> {
@@ -123,12 +108,6 @@ export const WfcSamplesScreen: FC = () => {
         {message && !error && <p className="text-sm text-muted-foreground">{message}</p>}
         {workspace && (
           <>
-            <TerrainRoleEditor
-              disabled={isBusy}
-              onChange={(roles) => mutateWorkspace((current) => ({ ...current, roles }))}
-              onSave={() => void saveRoles()}
-              roles={workspace.roles}
-            />
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3">
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">{workspace.tilesets.length} tilesets</Badge>

@@ -6,15 +6,6 @@ export const terrainSlugSchema = z
   .max(96)
   .regex(/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/, "Use CONSTANT_CASE");
 
-export const terrainRoleSchema = z
-  .object({
-    id: terrainSlugSchema,
-    label: z.string().trim().min(1),
-    color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use a six-digit hex color")
-  })
-  .strict();
-export type TerrainRole = z.infer<typeof terrainRoleSchema>;
-
 export const terrainTileRefSchema = z
   .object({
     tilesetId: terrainSlugSchema,
@@ -34,7 +25,6 @@ export type TerrainSampleCell = z.infer<typeof terrainSampleCellSchema>;
 export const terrainTileBindingSchema = z
   .object({
     slug: terrainSlugSchema,
-    roleId: terrainSlugSchema,
     blocking: z.boolean(),
     tags: z.array(terrainSlugSchema)
   })
@@ -90,7 +80,6 @@ export interface TerrainTilesetView {
 }
 
 export interface TerrainWorkspaceView {
-  roles: TerrainRole[];
   tilesets: TerrainTilesetView[];
   tileBindings: Record<string, TerrainTileBinding>;
   samples: TerrainSample[];

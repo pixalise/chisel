@@ -20,8 +20,8 @@ interface TerrainTileCatalogProps {
   workspace: TerrainWorkspaceView;
 }
 
-function defaultBinding(tilesetId: string, localId: number, roleId: string): TerrainTileBinding {
-  return { slug: `${tilesetId}_${localId}`, roleId, blocking: false, tags: [] };
+function defaultBinding(tilesetId: string, localId: number): TerrainTileBinding {
+  return { slug: `${tilesetId}_${localId}`, blocking: false, tags: [] };
 }
 
 export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
@@ -70,16 +70,15 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
   }, [emptyTileKeys, onSelectTile, selectedTile]);
 
   function updateSelected(update: Partial<TerrainTileBinding>): void {
-    if (!selected || workspace.roles.length === 0) return;
-    const binding = selectedBinding ?? defaultBinding(selected.tileset.id, selected.localId, workspace.roles[0].id);
+    if (!selected) return;
+    const binding = selectedBinding ?? defaultBinding(selected.tileset.id, selected.localId);
     onBindingsChange({ ...workspace.tileBindings, [selected.key]: { ...binding, ...update } });
   }
 
   function initializeAll(): void {
-    if (workspace.roles.length === 0) return;
     const bindings = { ...workspace.tileBindings };
     for (const tile of tiles) {
-      if (!emptyTileKeys.has(tile.key)) bindings[tile.key] ??= defaultBinding(tile.tileset.id, tile.localId, workspace.roles[0].id);
+      if (!emptyTileKeys.has(tile.key)) bindings[tile.key] ??= defaultBinding(tile.tileset.id, tile.localId);
     }
     onBindingsChange(bindings);
   }
@@ -97,13 +96,7 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
               <Switch checked={showEmptyTiles} onCheckedChange={setShowEmptyTiles} />
               Show empty tiles
             </Label>
-            <Button
-              disabled={workspace.roles.length === 0 || tiles.length === 0 || isScanningEmptyTiles}
-              onClick={initializeAll}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
+            <Button disabled={tiles.length === 0 || isScanningEmptyTiles} onClick={initializeAll} size="sm" type="button" variant="outline">
               Initialize unbound
             </Button>
           </div>
@@ -185,23 +178,7 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
               Blocks movement
             </Label>
             <div className="space-y-1">
-              <Label htmlFor="tile-role">Required role</Label>
-              <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                id="tile-role"
-                onChange={(event) => updateSelected({ roleId: event.target.value })}
-                value={selectedBinding?.roleId ?? ""}
-              >
-                <option value="">Choose role</option>
-                {workspace.roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="tile-tags">Optional tags</Label>
+              <Label htmlFor="tile-tags">Semantic tags</Label>
               <Input
                 id="tile-tags"
                 onChange={(event) =>
@@ -217,7 +194,7 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
                       .filter(Boolean)
                   })
                 }
-                placeholder="SHORE, WALKABLE"
+                placeholder="WALKABLE, WATER, SHORE, FOLIAGE"
                 value={selectedBinding?.tags.join(", ") ?? ""}
               />
             </div>

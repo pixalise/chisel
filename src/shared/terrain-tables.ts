@@ -1,7 +1,6 @@
 import type { DataColumnDefinition, DataTableRow, SystemDataTable } from "./schemas";
 import { AssetCategoryEnum, ColumnType } from "./types";
 
-export const TERRAIN_ROLES_TABLE_ID = "terrain_roles";
 export const TERRAIN_TILE_BINDINGS_TABLE_ID = "terrain_tile_bindings";
 export const TERRAIN_WFC_SAMPLES_TABLE_ID = "terrain_wfc_samples";
 export const TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID = "terrain_wfc_sample_cells";
@@ -48,10 +47,6 @@ function column(seed: string, name: string, type: ColumnType, options: SystemCol
   };
 }
 
-function value(columnDefinition: DataColumnDefinition, cellValue: DataTableRow["values"][number]["value"]): DataTableRow["values"][number] {
-  return { columnId: columnDefinition.id, type: columnDefinition.type, value: cellValue } as DataTableRow["values"][number];
-}
-
 function table(id: string, name: string, description: string, columns: DataColumnDefinition[], rows: DataTableRow[] = []): SystemDataTable {
   return {
     id,
@@ -67,16 +62,10 @@ function table(id: string, name: string, description: string, columns: DataColum
   };
 }
 
-export const TERRAIN_ROLE_COLUMNS = {
-  label: column("terrain_role_label", "label", ColumnType.string),
-  color: column("terrain_role_color", "color", ColumnType.color)
-} as const;
-
 export const TERRAIN_TILE_BINDING_COLUMNS = {
   tileset: column("terrain_binding_tileset", "tileset", ColumnType.assetRef, { assetCategory: AssetCategoryEnum.tileset }),
   localId: column("terrain_binding_local", "local_id", ColumnType.integer, { min: 0 }),
   tileSlug: column("terrain_binding_slug", "tile_slug", ColumnType.string),
-  role: column("terrain_binding_role", "role", ColumnType.ref, { refTableId: TERRAIN_ROLES_TABLE_ID }),
   blocking: column("terrain_binding_block", "blocking", ColumnType.boolean),
   tags: column("terrain_binding_tags", "tags", ColumnType.enumArray, { defaultValue: [], required: false })
 } as const;
@@ -110,31 +99,10 @@ export const TERRAIN_BIOME_PROFILE_COLUMNS = {
   weight: column("terrain_profile_weight", "weight", ColumnType.decimal, { defaultValue: 1, min: 0 })
 } as const;
 
-const defaultRoleRows: DataTableRow[] = [
-  {
-    id: terrainSystemId("terrain_role_ground"),
-    slug: "GROUND",
-    values: [value(TERRAIN_ROLE_COLUMNS.label, "Ground"), value(TERRAIN_ROLE_COLUMNS.color, "#8B9D5C")]
-  },
-  {
-    id: terrainSystemId("terrain_role_foliage"),
-    slug: "FOLIAGE",
-    values: [value(TERRAIN_ROLE_COLUMNS.label, "Foliage"), value(TERRAIN_ROLE_COLUMNS.color, "#4E9B61")]
-  }
-];
-
-export const TERRAIN_ROLES_TABLE = table(
-  TERRAIN_ROLES_TABLE_ID,
-  "Terrain Roles",
-  "Semantic roles available to tileset tile bindings.",
-  Object.values(TERRAIN_ROLE_COLUMNS),
-  defaultRoleRows
-);
-
 export const TERRAIN_TILE_BINDINGS_TABLE = table(
   TERRAIN_TILE_BINDINGS_TABLE_ID,
   "Terrain Tile Bindings",
-  "Semantic metadata for tileset sprites, authored in WFC Samples.",
+  "Stable slugs, collision flags, and semantic tags for tileset sprites.",
   Object.values(TERRAIN_TILE_BINDING_COLUMNS)
 );
 
@@ -167,7 +135,6 @@ export const TERRAIN_BIOME_PROFILES_TABLE = table(
 );
 
 export const SYSTEM_TERRAIN_TABLES = [
-  TERRAIN_ROLES_TABLE,
   TERRAIN_TILE_BINDINGS_TABLE,
   TERRAIN_WFC_SAMPLES_TABLE,
   TERRAIN_WFC_SAMPLE_CELLS_TABLE,
@@ -175,4 +142,4 @@ export const SYSTEM_TERRAIN_TABLES = [
   TERRAIN_BIOME_PROFILES_TABLE
 ];
 
-export const EDITABLE_TERRAIN_TABLE_IDS = new Set([TERRAIN_ROLES_TABLE_ID, TERRAIN_BIOMES_TABLE_ID, TERRAIN_BIOME_PROFILES_TABLE_ID]);
+export const EDITABLE_TERRAIN_TABLE_IDS = new Set([TERRAIN_BIOMES_TABLE_ID, TERRAIN_BIOME_PROFILES_TABLE_ID]);
