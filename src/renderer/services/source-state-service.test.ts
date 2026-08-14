@@ -24,11 +24,7 @@ const mocks = vi.hoisted(() => {
       }
     ],
     tiled: {
-      config: {
-        schemaVersion: 1,
-        roles: [{ id: "GROUND", label: "Ground", color: "#8B9D5C" }],
-        boards: []
-      },
+      config: { schemaVersion: 2, boards: [] },
       files: [],
       images: []
     },

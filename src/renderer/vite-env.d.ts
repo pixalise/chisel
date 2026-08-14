@@ -4,10 +4,11 @@ import type { ConvertImages, ConvertedImage, ImportAssetInput, ReplaceAssetSourc
 import type {
   TiledBoardInput,
   TiledBoardView,
+  TiledDeleteTilesetInput,
   TiledImportBoardInput,
   TiledProjectInput,
-  TiledSaveConfigInput,
-  TiledSaveEnrichmentInput,
+  TiledSaveAuthoringInput,
+  TiledSaveRolesInput,
   TiledSourceSnapshot,
   TiledWorkspaceView
 } from "../shared/tiled-samples";
@@ -45,9 +46,10 @@ declare global {
       createImageConversionPreview: (inputPath: string) => Promise<string>;
       loadTiledWorkspace: (input: TiledProjectInput) => Promise<TiledWorkspaceView>;
       importTiledBoard: (input: TiledImportBoardInput) => Promise<TiledWorkspaceView>;
+      deleteTiledTileset: (input: TiledDeleteTilesetInput) => Promise<TiledWorkspaceView>;
       reloadTiledBoard: (input: TiledBoardInput) => Promise<TiledBoardView>;
-      saveTiledConfig: (input: TiledSaveConfigInput) => Promise<TiledWorkspaceView>;
-      saveTiledEnrichment: (input: TiledSaveEnrichmentInput) => Promise<TiledBoardView>;
+      saveTiledRoles: (input: TiledSaveRolesInput) => Promise<TiledWorkspaceView>;
+      saveTiledAuthoring: (input: TiledSaveAuthoringInput) => Promise<TiledBoardView>;
       snapshotTiledWorkspace: (input: TiledProjectInput) => Promise<TiledSourceSnapshot>;
       restoreTiledWorkspace: (input: TiledProjectInput & { snapshot: TiledSourceSnapshot }) => Promise<TiledWorkspaceView>;
       getPathForFile: (file: File) => string;

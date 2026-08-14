@@ -12,7 +12,7 @@ function boardWithSamples(data: number[], width: number, height: number, samples
     tileHeight: 16,
     layers: [{ id: 1, name: "Terrain", visible: true, opacity: 1, data }],
     tilesets: [],
-    enrichment: { schemaVersion: 3, tileBindings: {}, samples },
+    authoring: { tileBindings: {}, samples },
     problems: []
   };
 }

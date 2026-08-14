@@ -7,20 +7,22 @@ import { convertImagesToPng, createImageConversionPreview } from "./image-conver
 import { getFileMetadata } from "./file-metadata";
 import {
   importTiledBoard,
+  deleteTiledTileset,
   loadTiledWorkspace,
   reloadTiledBoard,
   restoreTiledWorkspace,
-  saveTiledConfig,
-  saveTiledEnrichment,
+  saveTiledAuthoring,
+  saveTiledRoles,
   snapshotTiledWorkspace
 } from "./tiled-sample-board";
 import type { ConvertImages, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas";
 import type {
   TiledBoardInput,
+  TiledDeleteTilesetInput,
   TiledImportBoardInput,
   TiledProjectInput,
-  TiledSaveConfigInput,
-  TiledSaveEnrichmentInput,
+  TiledSaveAuthoringInput,
+  TiledSaveRolesInput,
   TiledSourceSnapshot
 } from "../shared/tiled-samples";
 
@@ -233,9 +235,10 @@ function registerIpc(): void {
   ipcMain.handle("image:conversion-preview", (_event, inputPath: string) => createImagePreview(inputPath));
   ipcMain.handle("tiled:load-workspace", (_event, input: TiledProjectInput) => loadTiledWorkspace(input));
   ipcMain.handle("tiled:import-board", (_event, input: TiledImportBoardInput) => importTiledBoard(input));
+  ipcMain.handle("tiled:delete-tileset", (_event, input: TiledDeleteTilesetInput) => deleteTiledTileset(input));
   ipcMain.handle("tiled:reload-board", (_event, input: TiledBoardInput) => reloadTiledBoard(input));
-  ipcMain.handle("tiled:save-config", (_event, input: TiledSaveConfigInput) => saveTiledConfig(input));
-  ipcMain.handle("tiled:save-enrichment", (_event, input: TiledSaveEnrichmentInput) => saveTiledEnrichment(input));
+  ipcMain.handle("tiled:save-roles", (_event, input: TiledSaveRolesInput) => saveTiledRoles(input));
+  ipcMain.handle("tiled:save-authoring", (_event, input: TiledSaveAuthoringInput) => saveTiledAuthoring(input));
   ipcMain.handle("tiled:snapshot", (_event, input: TiledProjectInput) => snapshotTiledWorkspace(input));
   ipcMain.handle("tiled:restore", (_event, input: TiledProjectInput & { snapshot: TiledSourceSnapshot }) => restoreTiledWorkspace(input));
 }

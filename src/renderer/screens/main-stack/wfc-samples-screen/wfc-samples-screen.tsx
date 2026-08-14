@@ -23,7 +23,7 @@ export const WfcSamplesScreen: FC = () => {
   const [message, setMessage] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const board = useMemo(() => workspace?.boards.find((entry) => entry.id === selectedBoardId), [selectedBoardId, workspace]);
-  const sample = board?.enrichment.samples.find((entry) => entry.slug === selectedSampleSlug);
+  const sample = board?.authoring.samples.find((entry) => entry.slug === selectedSampleSlug);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,7 +33,7 @@ export const WfcSamplesScreen: FC = () => {
       .then((loaded) => {
         if (cancelled) return;
         setWorkspace(loaded);
-        setRoles(loaded.config.roles);
+        setRoles(loaded.roles);
         setSelectedBoardId(undefined);
         setSelectedSampleSlug(undefined);
       })
@@ -64,7 +64,7 @@ export const WfcSamplesScreen: FC = () => {
     setIsBusy(true);
     setError("");
     try {
-      const loaded = await tiledSampleService.saveConfig({ ...workspace.config, roles });
+      const loaded = await tiledSampleService.saveRoles(roles);
       setWorkspace(loaded);
       setMessage("Saved project tile roles.");
     } catch (caught) {
@@ -79,9 +79,9 @@ export const WfcSamplesScreen: FC = () => {
     setIsBusy(true);
     setError("");
     try {
-      const saved = await tiledSampleService.saveEnrichment(board);
+      const saved = await tiledSampleService.saveAuthoring(board);
       replaceBoard(saved);
-      setMessage(saved.problems.length === 0 ? "Saved enrichment metadata." : "Saved metadata; blocking validation problems remain.");
+      setMessage(saved.problems.length === 0 ? "Saved terrain tables." : "Saved terrain tables; blocking validation problems remain.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -96,7 +96,7 @@ export const WfcSamplesScreen: FC = () => {
     try {
       const loaded = await tiledSampleService.reloadBoard(board.id);
       replaceBoard(loaded);
-      setSelectedSampleSlug((current) => (loaded.enrichment.samples.some((entry) => entry.slug === current) ? current : undefined));
+      setSelectedSampleSlug((current) => (loaded.authoring.samples.some((entry) => entry.slug === current) ? current : undefined));
       setMessage(
         loaded.problems.length === 0
           ? "Reloaded the managed Tiled board."
@@ -111,8 +111,8 @@ export const WfcSamplesScreen: FC = () => {
 
   function createSample(bounds: { x: number; y: number; width: number; height: number }): void {
     if (!board) return;
-    let index = board.enrichment.samples.length + 1;
-    while (board.enrichment.samples.some((entry) => entry.slug === `SAMPLE_${index}`)) index += 1;
+    let index = board.authoring.samples.length + 1;
+    while (board.authoring.samples.some((entry) => entry.slug === `SAMPLE_${index}`)) index += 1;
     const next: TiledSample = {
       slug: `SAMPLE_${index}`,
       layerIds: board.layers.map((layer) => layer.id),
@@ -120,7 +120,7 @@ export const WfcSamplesScreen: FC = () => {
       allowRotations: false,
       allowReflections: false
     };
-    mutateBoard((current) => ({ ...current, enrichment: { ...current.enrichment, samples: [...current.enrichment.samples, next] } }));
+    mutateBoard((current) => ({ ...current, authoring: { ...current.authoring, samples: [...current.authoring.samples, next] } }));
     setSelectedSampleSlug(next.slug);
   }
 
@@ -129,9 +129,9 @@ export const WfcSamplesScreen: FC = () => {
     const previousSlug = sample.slug;
     mutateBoard((current) => ({
       ...current,
-      enrichment: {
-        ...current.enrichment,
-        samples: current.enrichment.samples.map((entry) => (entry.slug === previousSlug ? next : entry))
+      authoring: {
+        ...current.authoring,
+        samples: current.authoring.samples.map((entry) => (entry.slug === previousSlug ? next : entry))
       }
     }));
     setSelectedSampleSlug(next.slug);
@@ -148,7 +148,7 @@ export const WfcSamplesScreen: FC = () => {
           onError={setError}
           onImported={(loaded) => {
             setWorkspace(loaded);
-            setRoles(loaded.config.roles);
+            setRoles(loaded.roles);
             setSelectedBoardId(loaded.boards.at(-1)?.id);
             setMessage("Imported and validated a managed Tiled board.");
           }}
@@ -213,7 +213,7 @@ export const WfcSamplesScreen: FC = () => {
                 </Button>
                 <Button disabled={isBusy} onClick={() => void saveBoard()} type="button">
                   <Save className="size-4" />
-                  Save enrichment
+                  Save terrain tables
                 </Button>
               </div>
             </div>
@@ -231,9 +231,9 @@ export const WfcSamplesScreen: FC = () => {
                 onDelete={() => {
                   mutateBoard((current) => ({
                     ...current,
-                    enrichment: {
-                      ...current.enrichment,
-                      samples: current.enrichment.samples.filter((entry) => entry.slug !== sample?.slug)
+                    authoring: {
+                      ...current.authoring,
+                      samples: current.authoring.samples.filter((entry) => entry.slug !== sample?.slug)
                     }
                   }));
                   setSelectedSampleSlug(undefined);
@@ -245,7 +245,20 @@ export const WfcSamplesScreen: FC = () => {
             <TiledWfcPreview board={board} />
             <TiledTileCatalog
               board={board}
-              onChange={(tileBindings) => mutateBoard((current) => ({ ...current, enrichment: { ...current.enrichment, tileBindings } }))}
+              onChange={(tileBindings) => mutateBoard((current) => ({ ...current, authoring: { ...current.authoring, tileBindings } }))}
+              onDeleteTileset={(tilesetId) => {
+                setIsBusy(true);
+                setError("");
+                void tiledSampleService
+                  .deleteTileset(board.id, tilesetId)
+                  .then((loaded) => {
+                    setWorkspace(loaded);
+                    setRoles(loaded.roles);
+                    setMessage(`Deleted unused tileset '${tilesetId}'.`);
+                  })
+                  .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : String(caught)))
+                  .finally(() => setIsBusy(false));
+              }}
               roles={roles}
             />
           </div>

@@ -1,11 +1,10 @@
 import appStore from "@/stores/app-store";
 import {
-  tiledBoardEnrichmentSchema,
-  tiledWorkspaceConfigSchema,
+  tiledBoardAuthoringSchema,
   type TiledBoardView,
   type TiledImportBoardInput,
   type TiledSourceSnapshot,
-  type TiledWorkspaceConfig,
+  type TiledRole,
   type TiledWorkspaceView
 } from "../../shared/tiled-samples";
 
@@ -22,19 +21,23 @@ class TiledSampleService {
     return window.electron.importTiledBoard({ ...input, projectPath: this.projectPath() });
   }
 
+  public async deleteTileset(boardId: string, tilesetId: string): Promise<TiledWorkspaceView> {
+    return window.electron.deleteTiledTileset({ projectPath: this.projectPath(), boardId, tilesetId });
+  }
+
   public async reloadBoard(boardId: string): Promise<TiledBoardView> {
     return window.electron.reloadTiledBoard({ projectPath: this.projectPath(), boardId });
   }
 
-  public async saveConfig(config: TiledWorkspaceConfig): Promise<TiledWorkspaceView> {
-    return window.electron.saveTiledConfig({ projectPath: this.projectPath(), config: tiledWorkspaceConfigSchema.parse(config) });
+  public async saveRoles(roles: TiledRole[]): Promise<TiledWorkspaceView> {
+    return window.electron.saveTiledRoles({ projectPath: this.projectPath(), roles });
   }
 
-  public async saveEnrichment(board: TiledBoardView): Promise<TiledBoardView> {
-    return window.electron.saveTiledEnrichment({
+  public async saveAuthoring(board: TiledBoardView): Promise<TiledBoardView> {
+    return window.electron.saveTiledAuthoring({
       projectPath: this.projectPath(),
       boardId: board.id,
-      enrichment: tiledBoardEnrichmentSchema.parse(board.enrichment)
+      authoring: tiledBoardAuthoringSchema.parse(board.authoring)
     });
   }
 

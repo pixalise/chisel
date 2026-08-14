@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { anyDataTableSchema } from "../../shared/schemas";
 import { ColumnType, InputKeyEnum } from "../../shared/types";
+import { SYSTEM_TERRAIN_TABLES } from "../../shared/terrain-tables";
 import { INPUT_BINDINGS_TABLE, SYSTEM_INPUT_TABLES, SYSTEM_TABLES } from "./system-tables";
 
 describe("system tables", () => {
-  it("registers only the input bindings system table", () => {
-    expect(SYSTEM_TABLES).toEqual([INPUT_BINDINGS_TABLE]);
+  it("registers input and terrain system tables", () => {
+    expect(SYSTEM_TABLES).toEqual([INPUT_BINDINGS_TABLE, ...SYSTEM_TERRAIN_TABLES]);
     expect(SYSTEM_INPUT_TABLES).toEqual([INPUT_BINDINGS_TABLE]);
   });
 

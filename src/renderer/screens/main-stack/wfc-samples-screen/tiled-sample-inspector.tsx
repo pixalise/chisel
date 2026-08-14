@@ -21,17 +21,17 @@ export const TiledSampleInspector: FC<TiledSampleInspectorProps> = (props) => {
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-2">
           <Label htmlFor="wfc-sample-selection">Samples</Label>
-          <span className="text-xs text-muted-foreground">{board.enrichment.samples.length}</span>
+          <span className="text-xs text-muted-foreground">{board.authoring.samples.length}</span>
         </div>
         <select
           className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-          disabled={board.enrichment.samples.length === 0}
+          disabled={board.authoring.samples.length === 0}
           id="wfc-sample-selection"
           onChange={(event) => onSelect(event.target.value || undefined)}
           value={sample?.slug ?? ""}
         >
           <option value="">Choose a sample…</option>
-          {board.enrichment.samples.map((entry) => (
+          {board.authoring.samples.map((entry) => (
             <option key={entry.slug} value={entry.slug}>
               {entry.slug} — {entry.x},{entry.y} · {entry.width}×{entry.height}
             </option>

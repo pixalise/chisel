@@ -1,14 +1,25 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { nanoid } from "nanoid";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  deleteTiledTileset,
   importTiledBoard,
   loadTiledWorkspace,
   restoreTiledWorkspace,
-  saveTiledEnrichment,
+  saveTiledAuthoring,
   snapshotTiledWorkspace
 } from "./tiled-sample-board";
+import { readTerrainTable, writeTerrainTableRows } from "./terrain-table-store";
+import { dataTableRowSchema, type DataColumnDefinition, type DataTableRow } from "../shared/schemas";
+import {
+  TERRAIN_BIOME_COLUMNS,
+  TERRAIN_BIOME_PROFILE_COLUMNS,
+  TERRAIN_BIOME_PROFILES_TABLE,
+  TERRAIN_BIOMES_TABLE,
+  TERRAIN_TILESETS_TABLE
+} from "../shared/terrain-tables";
 
 const temporaryDirectories: string[] = [];
 const onePixelPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
@@ -19,13 +30,8 @@ async function temporaryDirectory(prefix: string): Promise<string> {
   return directory;
 }
 
-async function writeJson(filePath: string, value: unknown): Promise<void> {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-}
-
 async function sourceBoard(
-  options: { infinite?: boolean; inlineTileset?: boolean; mapExtension?: string; tilesetExtension?: string } = {}
+  options: { data?: string; infinite?: boolean; inlineTileset?: boolean; mapExtension?: string; tilesetExtension?: string } = {}
 ): Promise<{
   directory: string;
   mapPath: string;
@@ -52,7 +58,7 @@ async function sourceBoard(
 <map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="2" height="1" tilewidth="1" tileheight="1" infinite="${options.infinite ? 1 : 0}">
  ${tileset}
  <layer id="1" name="Ground" width="2" height="1">
-  <data encoding="csv">1,2147483649</data>
+  <data encoding="csv">${options.data ?? "1,2147483649"}</data>
  </layer>
 </map>
 `,
@@ -61,12 +67,20 @@ async function sourceBoard(
   return { directory, mapPath };
 }
 
+function rowValue(column: DataColumnDefinition, value: unknown): DataTableRow["values"][number] {
+  return { columnId: column.id, type: column.type, value } as DataTableRow["values"][number];
+}
+
+function tableRow(slug: string, values: DataTableRow["values"]): DataTableRow {
+  return dataTableRowSchema.parse({ id: nanoid(), slug, values });
+}
+
 afterEach(async () => {
   await Promise.all(temporaryDirectories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })));
 });
 
 describe("managed Tiled sample boards", () => {
-  it("imports external spritesheets, rewrites paths, and preserves enrichment on reload", async () => {
+  it("imports external spritesheets and persists authoring in system tables", async () => {
     const projectPath = await temporaryDirectory("chisel-tiled-project-");
     const source = await sourceBoard();
     const imported = await importTiledBoard({ projectPath, sourcePath: source.mapPath, boardId: "FOREST_SAMPLES", name: "Forest Samples" });
@@ -83,11 +97,10 @@ describe("managed Tiled sample boards", () => {
     expect(managedMap).toContain('source="tilesets/TERRAIN.tsx"');
     expect(managedTileset).toContain('source="../images/TERRAIN/TERRAIN.png"');
 
-    const saved = await saveTiledEnrichment({
+    const saved = await saveTiledAuthoring({
       projectPath,
       boardId: board.id,
-      enrichment: {
-        schemaVersion: 3,
+      authoring: {
         tileBindings: { "TERRAIN:0": { slug: "GRASS", roleId: "GROUND", blocking: false, tags: ["WALKABLE"] } },
         samples: [
           {
@@ -104,7 +117,7 @@ describe("managed Tiled sample boards", () => {
       }
     });
     expect(saved.problems).toEqual([]);
-    await expect(loadTiledWorkspace({ projectPath })).resolves.toMatchObject({ boards: [{ enrichment: saved.enrichment }] });
+    await expect(loadTiledWorkspace({ projectPath })).resolves.toMatchObject({ boards: [{ authoring: saved.authoring }] });
   });
 
   it("rejects maps outside the deliberately strict supported subset", async () => {
@@ -120,18 +133,18 @@ describe("managed Tiled sample boards", () => {
     );
   });
 
-  it("restores committed TMX, TSX, and JSON while retaining and hash-checking managed images", async () => {
+  it("restores committed TMX and TSX while retaining and hash-checking managed images", async () => {
     const projectPath = await temporaryDirectory("chisel-tiled-project-");
     const source = await sourceBoard();
     await importTiledBoard({ projectPath, sourcePath: source.mapPath, boardId: "BOARD", name: "Board" });
     const snapshot = await snapshotTiledWorkspace({ projectPath });
     const imagePath = path.join(projectPath, ".chisel", "tiled", "BOARD", "images", "TERRAIN", "TERRAIN.png");
-    const enrichmentPath = path.join(projectPath, ".chisel", "tiled", "BOARD", "enrichment.json");
-    await writeJson(enrichmentPath, { schemaVersion: 3, tileBindings: {}, samples: [] });
+    const mapPath = path.join(projectPath, ".chisel", "tiled", "BOARD", "map.tmx");
+    await fs.writeFile(mapPath, "<broken/>", "utf8");
 
     await restoreTiledWorkspace({ projectPath, snapshot });
     await expect(fs.readFile(imagePath)).resolves.toEqual(onePixelPng);
-    expect(await fs.readFile(enrichmentPath, "utf8")).toBe(snapshot.files.find((file) => file.path.endsWith("enrichment.json"))?.content);
+    expect(await fs.readFile(mapPath, "utf8")).toBe(snapshot.files.find((file) => file.path.endsWith("map.tmx"))?.content);
 
     await fs.writeFile(imagePath, Buffer.from("changed"));
     await expect(restoreTiledWorkspace({ projectPath, snapshot })).rejects.toThrow("has changed since this commit");
@@ -158,6 +171,68 @@ describe("managed Tiled sample boards", () => {
     expect(imported.boards[0]).toMatchObject({ width: 2, height: 1, tilesets: [{ id: "TERRAIN", tileCount: 1 }] });
     await expect(fs.readFile(path.join(projectPath, ".chisel", "tiled", "NATIVE", "images", "TERRAIN", "TERRAIN.png"))).resolves.toEqual(
       onePixelPng
+    );
+  });
+
+  it("deletes an unused managed tileset and rejects one still used by map cells", async () => {
+    const usedProject = await temporaryDirectory("chisel-tiled-project-");
+    const usedSource = await sourceBoard();
+    await importTiledBoard({ projectPath: usedProject, sourcePath: usedSource.mapPath, boardId: "USED", name: "Used" });
+    await expect(deleteTiledTileset({ projectPath: usedProject, boardId: "USED", tilesetId: "TERRAIN" })).rejects.toThrow(
+      "still used by cells"
+    );
+
+    const unusedProject = await temporaryDirectory("chisel-tiled-project-");
+    const unusedSource = await sourceBoard({ data: "0,0" });
+    const imported = await importTiledBoard({
+      projectPath: unusedProject,
+      sourcePath: unusedSource.mapPath,
+      boardId: "UNUSED",
+      name: "Unused"
+    });
+    expect(imported.boards[0].tilesets).toHaveLength(1);
+    const deleted = await deleteTiledTileset({ projectPath: unusedProject, boardId: "UNUSED", tilesetId: "TERRAIN" });
+    expect(deleted.boards[0].tilesets).toEqual([]);
+    await expect(fs.access(path.join(unusedProject, ".chisel", "tiled", "UNUSED", "tilesets", "TERRAIN.tsx"))).rejects.toThrow();
+    expect((await readTerrainTable(unusedProject, TERRAIN_TILESETS_TABLE)).rows).toEqual([]);
+  });
+
+  it("blocks tileset deletion when a biome profile uses a sample containing it", async () => {
+    const projectPath = await temporaryDirectory("chisel-tiled-project-");
+    const source = await sourceBoard();
+    await importTiledBoard({ projectPath, sourcePath: source.mapPath, boardId: "BOARD", name: "Board" });
+    await saveTiledAuthoring({
+      projectPath,
+      boardId: "BOARD",
+      authoring: {
+        tileBindings: {},
+        samples: [
+          {
+            slug: "SHORE",
+            layerIds: [1],
+            x: 0,
+            y: 0,
+            width: 2,
+            height: 1,
+            allowRotations: false,
+            allowReflections: false
+          }
+        ]
+      }
+    });
+    await writeTerrainTableRows(projectPath, TERRAIN_BIOMES_TABLE, [
+      tableRow("COAST", [rowValue(TERRAIN_BIOME_COLUMNS.label, "Coast"), rowValue(TERRAIN_BIOME_COLUMNS.description, "")])
+    ]);
+    await writeTerrainTableRows(projectPath, TERRAIN_BIOME_PROFILES_TABLE, [
+      tableRow("COAST_SHORE", [
+        rowValue(TERRAIN_BIOME_PROFILE_COLUMNS.biome, "COAST"),
+        rowValue(TERRAIN_BIOME_PROFILE_COLUMNS.sample, "BOARD_SHORE"),
+        rowValue(TERRAIN_BIOME_PROFILE_COLUMNS.weight, 1)
+      ])
+    ]);
+
+    await expect(deleteTiledTileset({ projectPath, boardId: "BOARD", tilesetId: "TERRAIN" })).rejects.toThrow(
+      "used by biome profile COAST"
     );
   });
 });

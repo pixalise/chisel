@@ -156,7 +156,7 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
     }
     context.stroke();
 
-    for (const sample of board.enrichment.samples) {
+    for (const sample of board.authoring.samples) {
       context.fillStyle = sample.slug === selectedSampleSlug ? "rgba(251,191,36,0.25)" : "rgba(59,130,246,0.18)";
       context.strokeStyle = sample.slug === selectedSampleSlug ? "#fbbf24" : "#60a5fa";
       context.lineWidth = 2;
@@ -216,7 +216,7 @@ export const TiledBoardCanvas: FC<TiledBoardCanvasProps> = (props) => {
       };
       return;
     }
-    const sample = [...board.enrichment.samples]
+    const sample = [...board.authoring.samples]
       .reverse()
       .find((entry) => cell.x >= entry.x && cell.x < entry.x + entry.width && cell.y >= entry.y && cell.y < entry.y + entry.height);
     if (sample) {

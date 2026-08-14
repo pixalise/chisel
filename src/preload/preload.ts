@@ -3,10 +3,11 @@ import type { ConvertImages, ConvertedImage, ImportAssetInput, ReplaceAssetSourc
 import type {
   TiledBoardInput,
   TiledBoardView,
+  TiledDeleteTilesetInput,
   TiledImportBoardInput,
   TiledProjectInput,
-  TiledSaveConfigInput,
-  TiledSaveEnrichmentInput,
+  TiledSaveAuthoringInput,
+  TiledSaveRolesInput,
   TiledSourceSnapshot,
   TiledWorkspaceView
 } from "../shared/tiled-samples";
@@ -48,12 +49,14 @@ contextBridge.exposeInMainWorld("electron", {
     ipcRenderer.invoke("tiled:load-workspace", input) as Promise<TiledWorkspaceView>,
   importTiledBoard: (input: TiledImportBoardInput): Promise<TiledWorkspaceView> =>
     ipcRenderer.invoke("tiled:import-board", input) as Promise<TiledWorkspaceView>,
+  deleteTiledTileset: (input: TiledDeleteTilesetInput): Promise<TiledWorkspaceView> =>
+    ipcRenderer.invoke("tiled:delete-tileset", input) as Promise<TiledWorkspaceView>,
   reloadTiledBoard: (input: TiledBoardInput): Promise<TiledBoardView> =>
     ipcRenderer.invoke("tiled:reload-board", input) as Promise<TiledBoardView>,
-  saveTiledConfig: (input: TiledSaveConfigInput): Promise<TiledWorkspaceView> =>
-    ipcRenderer.invoke("tiled:save-config", input) as Promise<TiledWorkspaceView>,
-  saveTiledEnrichment: (input: TiledSaveEnrichmentInput): Promise<TiledBoardView> =>
-    ipcRenderer.invoke("tiled:save-enrichment", input) as Promise<TiledBoardView>,
+  saveTiledRoles: (input: TiledSaveRolesInput): Promise<TiledWorkspaceView> =>
+    ipcRenderer.invoke("tiled:save-roles", input) as Promise<TiledWorkspaceView>,
+  saveTiledAuthoring: (input: TiledSaveAuthoringInput): Promise<TiledBoardView> =>
+    ipcRenderer.invoke("tiled:save-authoring", input) as Promise<TiledBoardView>,
   snapshotTiledWorkspace: (input: TiledProjectInput): Promise<TiledSourceSnapshot> =>
     ipcRenderer.invoke("tiled:snapshot", input) as Promise<TiledSourceSnapshot>,
   restoreTiledWorkspace: (input: TiledProjectInput & { snapshot: TiledSourceSnapshot }): Promise<TiledWorkspaceView> =>

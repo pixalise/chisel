@@ -3,7 +3,7 @@
 Tiled and Chisel have deliberately separate jobs:
 
 - **Tiled** assembles visual sample boards from ordinary tile layers and external spritesheet tilesets.
-- **Chisel** manages a project-local copy, validates the supported Tiled subset, assigns semantic tile metadata, and defines weighted WFC sample rectangles.
+- **Chisel** manages a project-local copy, validates the supported Tiled subset, assigns semantic tile metadata, and defines WFC sample rectangles in system data tables.
 - **Chisel's preview compiler** extracts fixed `3×3` overlapping patterns, deduplicates exact multi-layer arrangements, derives directional adjacency, and runs seeded test generations.
 - **The game/runtime** will eventually consume an exported form of the same compiled library. Runtime export is not part of this slice.
 
@@ -12,10 +12,16 @@ Tiled and Chisel have deliberately separate jobs:
 ```text
 .chisel/
   tiled.json
+  tables/system/
+    terrain_tilesets.json
+    terrain_roles.json
+    terrain_tile_bindings.json
+    terrain_wfc_samples.json
+    terrain_biomes.json
+    terrain_biome_profiles.json
   tiled/
     FOREST_SAMPLES/
       map.tmx
-      enrichment.json
       tilesets/
         TERRAIN.tsx
       images/
@@ -23,9 +29,9 @@ Tiled and Chisel have deliberately separate jobs:
           terrain.png
 ```
 
-`tiled.json` owns project roles and the board registry. Each board owns its managed native Tiled XML, PNG spritesheets, and a separate `enrichment.json`. Import accepts only a `.tmx` map referencing external `.tsx` tilesets, then rewrites their internal paths into this managed structure. Reload reads the managed files explicitly and preserves enrichment when its identities still resolve.
+`tiled.json` owns only the board registry. Each board owns its managed native Tiled XML and PNG spritesheets. All Chisel-authored terrain metadata lives in the registered terrain system tables, which are visible under Data Tables and are committed with every other table. Import accepts only a `.tmx` map referencing external `.tsx` tilesets, then rewrites their internal paths into this managed structure.
 
-Tiles are identified as `<MANAGED_TILESET_ID>:<LOCAL_TILE_ID>`. Map GIDs are never persisted in enrichment because Tiled may change `firstgid` values when a map changes.
+Tiles are identified as `<MANAGED_TILESET_ID>:<LOCAL_TILE_ID>`. Map GIDs are never persisted in tile-binding rows because Tiled may change `firstgid` values when a map changes.
 
 ## Supported Tiled subset
 
@@ -41,7 +47,9 @@ Multiple tile layers and tilesets are supported. Orthogonal horizontal, vertical
 
 In Tiled, choose **Tiled tileset files** and save each external tileset as `.tsx`; choose **Tiled map files** and save the map as `.tmx`. These are the only supported Tiled document formats. JSON `.tsj`/`.tmj` and Lua exports are deliberately unsupported.
 
-## Enrichment contract
+## Terrain system-table contract
+
+The specialized WFC Samples screen and the generic Data Tables screen read the same terrain rows. There is no parallel board metadata document. Managed tileset rows are read-only outside the Tiled workflow; role, biome, and biome-profile rows can also be edited in Data Tables. Spatial tile-binding and WFC-sample rows are edited through WFC Samples so their board coordinates remain validated.
 
 Every tileset sprite receives:
 
@@ -53,6 +61,8 @@ Every tileset sprite receives:
 A board may contain many non-overlapping, grid-aligned samples. Each sample has a stable slug, included layer ids, grid bounds, and rotation/reflection permissions. Biome-specific properties such as selection weight do not belong to the sample; a future biome editor will select sample slugs and configure their terrain-generation behavior.
 
 Movement blocking belongs to the generated contents. Terrain tiles contribute their binding's blocking flag, future feature stamps will contribute explicit footprint masks, and decorative scatter can remain non-blocking.
+
+Deleting a tileset is a managed operation. Chisel refuses deletion when a biome profile selects a sample containing that tileset or while any TMX layer cell still uses one of its GIDs. Once unused, deletion removes the map reference, managed TSX and PNG files, tileset row, and its tile-binding rows together.
 
 ## WFC adjacency contract
 
@@ -75,4 +85,4 @@ Biome boundaries use the same mechanism. A boundary sample visibly contains both
 
 ## Source commits
 
-Chisel commits the workspace registry, native `.tmx`/`.tsx` XML, enrichment JSON, managed image paths, and SHA-256 image hashes. Rollback restores the authored state while retaining managed PNGs and blocks if an expected image is missing or has changed.
+Chisel commits the workspace registry, native `.tmx`/`.tsx` XML, terrain system tables, managed image paths, and SHA-256 image hashes. Rollback restores the authored state while retaining managed PNGs and blocks if an expected image is missing or has changed.

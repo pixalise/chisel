@@ -166,7 +166,7 @@ function patternsFit(left: TiledWfcPattern, right: TiledWfcPattern, direction: T
 }
 
 export function compileTiledWfcLibrary(board: TiledBoardView): TiledWfcLibrary {
-  const samples = board.enrichment.samples;
+  const samples = board.authoring.samples;
   if (samples.length === 0) throw new Error("Create at least one WFC sample before compiling a preview");
   const layerIds = [...samples[0].layerIds].sort((left, right) => left - right);
   const layerById = new Map(board.layers.map((layer) => [layer.id, layer]));

@@ -3,21 +3,32 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { parseTiledXml, renderTiledMapXml, renderTiledTilesetXml } from "./tiled-xml";
 import {
+  biomeProfilesForSamples,
+  readBoardAuthoring,
+  readTerrainRoles,
+  registerBoardTilesets,
+  removeTilesetTableRows,
+  sampleRowSlug,
+  saveBoardAuthoring,
+  saveTerrainRoles
+} from "./terrain-table-store";
+import {
   defaultTiledWorkspaceConfig,
-  emptyTiledBoardEnrichment,
-  tiledBoardEnrichmentSchema,
   tiledBoardInputSchema,
+  tiledDeleteTilesetInputSchema,
   tiledImportBoardInputSchema,
   tiledProjectInputSchema,
-  tiledSaveConfigInputSchema,
-  tiledSaveEnrichmentInputSchema,
+  tiledSaveAuthoringInputSchema,
+  tiledSaveRolesInputSchema,
   tiledWorkspaceConfigSchema,
-  type TiledBoardEnrichment,
+  type TiledBoardAuthoring,
   type TiledBoardView,
+  type TiledDeleteTilesetInput,
   type TiledImportBoardInput,
   type TiledLayerView,
-  type TiledSaveConfigInput,
-  type TiledSaveEnrichmentInput,
+  type TiledRole,
+  type TiledSaveAuthoringInput,
+  type TiledSaveRolesInput,
   type TiledSourceSnapshot,
   type TiledTilesetView,
   type TiledWorkspaceConfig,
@@ -192,19 +203,6 @@ async function readConfig(projectPath: string): Promise<TiledWorkspaceConfig> {
   }
 }
 
-async function readEnrichment(projectPath: string, boardId: string): Promise<TiledBoardEnrichment> {
-  const filePath = path.join(boardRoot(projectPath, boardId), "enrichment.json");
-  try {
-    return tiledBoardEnrichmentSchema.parse(await readJson(filePath));
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Missing required file:")) {
-      await writeJson(filePath, emptyTiledBoardEnrichment);
-      return structuredClone(emptyTiledBoardEnrichment);
-    }
-    throw error;
-  }
-}
-
 function validateMapHeader(raw: JsonObject): { width: number; height: number; tileWidth: number; tileHeight: number } {
   if (raw.type !== "map") {
     throw new Error("Tiled board must have type 'map'");
@@ -361,28 +359,28 @@ function validateGids(layers: TiledLayerView[], tilesets: TiledTilesetView[]): v
   }
 }
 
-function enrichmentProblems(
-  enrichment: TiledBoardEnrichment,
-  config: TiledWorkspaceConfig,
+function authoringProblems(
+  authoring: TiledBoardAuthoring,
+  roles: TiledRole[],
   board: Pick<TiledBoardView, "width" | "height" | "layers" | "tilesets">
 ): string[] {
   const problems: string[] = [];
-  const roleIds = new Set(config.roles.map((entry) => entry.id));
+  const roleIds = new Set(roles.map((entry) => entry.id));
   const layerIds = new Set(board.layers.map((entry) => entry.id));
   const tileKeys = new Set(
     board.tilesets.flatMap((tileset) => Array.from({ length: tileset.tileCount }, (_, id) => `${tileset.id}:${id}`))
   );
   const slugs = new Set<string>();
   for (const key of tileKeys) {
-    if (!enrichment.tileBindings[key]) problems.push(`Tile '${key}' needs a slug and role`);
+    if (!authoring.tileBindings[key]) problems.push(`Tile '${key}' needs a slug and role`);
   }
-  for (const [key, binding] of Object.entries(enrichment.tileBindings)) {
+  for (const [key, binding] of Object.entries(authoring.tileBindings)) {
     if (!tileKeys.has(key)) problems.push(`Tile binding '${key}' is orphaned`);
     if (!roleIds.has(binding.roleId)) problems.push(`Tile '${binding.slug}' uses missing role '${binding.roleId}'`);
     if (slugs.has(binding.slug)) problems.push(`Tile slug '${binding.slug}' is duplicated`);
     slugs.add(binding.slug);
   }
-  for (const sample of enrichment.samples) {
+  for (const sample of authoring.samples) {
     if (sample.x + sample.width > board.width || sample.y + sample.height > board.height) {
       problems.push(`Sample '${sample.slug}' extends outside the board`);
     }
@@ -390,10 +388,10 @@ function enrichmentProblems(
       if (!layerIds.has(layerId)) problems.push(`Sample '${sample.slug}' uses missing layer ${layerId}`);
     }
   }
-  for (let left = 0; left < enrichment.samples.length; left += 1) {
-    for (let right = left + 1; right < enrichment.samples.length; right += 1) {
-      const a = enrichment.samples[left];
-      const b = enrichment.samples[right];
+  for (let left = 0; left < authoring.samples.length; left += 1) {
+    for (let right = left + 1; right < authoring.samples.length; right += 1) {
+      const a = authoring.samples[left];
+      const b = authoring.samples[right];
       const overlaps = a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
       if (overlaps) problems.push(`Samples '${a.slug}' and '${b.slug}' overlap`);
     }
@@ -401,14 +399,11 @@ function enrichmentProblems(
   return problems;
 }
 
-async function loadBoard(projectPath: string, entry: { id: string; name: string }, config: TiledWorkspaceConfig): Promise<TiledBoardView> {
+async function loadBoard(projectPath: string, entry: { id: string; name: string }, roles: TiledRole[]): Promise<TiledBoardView> {
   const directory = boardRoot(projectPath, entry.id);
   const raw = await readTiledXmlDocument(path.join(directory, "map.tmx"));
   const header = validateMapHeader(raw);
   const mapTilesets = array(raw.tilesets, "map.tilesets");
-  if (mapTilesets.length === 0) {
-    throw new Error(`Board '${entry.id}' has no tilesets`);
-  }
   const managedTilesets = await Promise.all(
     mapTilesets.map((value, index) => parseTileset(directory, object(value, `map.tilesets[${index}]`), header.tileWidth, header.tileHeight))
   );
@@ -418,9 +413,9 @@ async function loadBoard(projectPath: string, entry: { id: string; name: string 
   }
   const layers = parseLayers(raw, header.width, header.height);
   validateGids(layers, tilesets);
-  const enrichment = await readEnrichment(projectPath, entry.id);
-  const board: TiledBoardView = { ...entry, ...header, layers, tilesets, enrichment, problems: [] };
-  board.problems = enrichmentProblems(enrichment, config, board);
+  const authoring = await readBoardAuthoring(projectPath, entry.id);
+  const board: TiledBoardView = { ...entry, ...header, layers, tilesets, authoring, problems: [] };
+  board.problems = authoringProblems(authoring, roles, board);
   return board;
 }
 
@@ -447,6 +442,7 @@ async function readSourceTilesets(
 export async function importTiledBoard(input: TiledImportBoardInput): Promise<TiledWorkspaceView> {
   const request = tiledImportBoardInputSchema.parse(input);
   const config = await readConfig(request.projectPath);
+  const roles = await readTerrainRoles(request.projectPath);
   if (config.boards.some((entry) => entry.id === request.boardId)) {
     throw new Error(`Board '${request.boardId}' already exists`);
   }
@@ -458,6 +454,7 @@ export async function importTiledBoard(input: TiledImportBoardInput): Promise<Ti
   const destination = boardRoot(request.projectPath, request.boardId);
   let destinationCreated = false;
   let configWritten = false;
+  let tilesetsRegistered = false;
   try {
     await fs.access(destination);
     throw new Error(`Managed board directory '${request.boardId}' already exists but is not registered`);
@@ -487,14 +484,15 @@ export async function importTiledBoard(input: TiledImportBoardInput): Promise<Ti
       await fs.copyFile(sourceTileset.imagePath, imageDestination);
     }
     await fs.writeFile(path.join(staging, "map.tmx"), renderTiledMapXml(managedMap), "utf8");
-    await writeJson(path.join(staging, "enrichment.json"), emptyTiledBoardEnrichment);
     await fs.rename(staging, destination);
     destinationCreated = true;
     const nextConfig = tiledWorkspaceConfigSchema.parse({
       ...config,
       boards: [...config.boards, { id: request.boardId, name: request.name }]
     });
-    await loadBoard(request.projectPath, { id: request.boardId, name: request.name }, nextConfig);
+    const importedBoard = await loadBoard(request.projectPath, { id: request.boardId, name: request.name }, roles);
+    await registerBoardTilesets(request.projectPath, request.boardId, importedBoard.tilesets);
+    tilesetsRegistered = true;
     await writeJson(configPath(request.projectPath), nextConfig);
     configWritten = true;
     return loadTiledWorkspace({ projectPath: request.projectPath });
@@ -502,6 +500,7 @@ export async function importTiledBoard(input: TiledImportBoardInput): Promise<Ti
     await fs.rm(staging, { recursive: true, force: true });
     if (destinationCreated) await fs.rm(destination, { recursive: true, force: true });
     if (configWritten) await writeJson(configPath(request.projectPath), config);
+    if (tilesetsRegistered) await registerBoardTilesets(request.projectPath, request.boardId, []);
     throw error;
   }
 }
@@ -509,37 +508,89 @@ export async function importTiledBoard(input: TiledImportBoardInput): Promise<Ti
 export async function loadTiledWorkspace(input: { projectPath: string }): Promise<TiledWorkspaceView> {
   const request = tiledProjectInputSchema.parse(input);
   const config = await readConfig(request.projectPath);
-  const boards = await Promise.all(config.boards.map((entry) => loadBoard(request.projectPath, entry, config)));
-  return { config, boards };
+  const roles = await readTerrainRoles(request.projectPath);
+  const boards = await Promise.all(config.boards.map((entry) => loadBoard(request.projectPath, entry, roles)));
+  return { config, roles, boards };
 }
 
 export async function reloadTiledBoard(input: { projectPath: string; boardId: string }): Promise<TiledBoardView> {
   const request = tiledBoardInputSchema.parse(input);
   const config = await readConfig(request.projectPath);
+  const roles = await readTerrainRoles(request.projectPath);
   const entry = config.boards.find((board) => board.id === request.boardId);
   if (!entry) throw new Error(`Board '${request.boardId}' does not exist`);
-  return loadBoard(request.projectPath, entry, config);
+  return loadBoard(request.projectPath, entry, roles);
 }
 
-export async function saveTiledConfig(input: TiledSaveConfigInput): Promise<TiledWorkspaceView> {
-  const request = tiledSaveConfigInputSchema.parse(input);
-  const existing = await readConfig(request.projectPath);
-  const existingIds = new Set(existing.boards.map((entry) => entry.id));
-  const nextIds = new Set(request.config.boards.map((entry) => entry.id));
-  if (existingIds.size !== nextIds.size || [...existingIds].some((id) => !nextIds.has(id))) {
-    throw new Error("Board registry entries are managed by board import and cannot be changed in role settings");
-  }
-  await writeJson(configPath(request.projectPath), request.config);
+export async function saveTiledRoles(input: TiledSaveRolesInput): Promise<TiledWorkspaceView> {
+  const request = tiledSaveRolesInputSchema.parse(input);
+  await saveTerrainRoles(request.projectPath, request.roles);
   return loadTiledWorkspace({ projectPath: request.projectPath });
 }
 
-export async function saveTiledEnrichment(input: TiledSaveEnrichmentInput): Promise<TiledBoardView> {
-  const request = tiledSaveEnrichmentInputSchema.parse(input);
+export async function saveTiledAuthoring(input: TiledSaveAuthoringInput): Promise<TiledBoardView> {
+  const request = tiledSaveAuthoringInputSchema.parse(input);
   const config = await readConfig(request.projectPath);
   const entry = config.boards.find((board) => board.id === request.boardId);
   if (!entry) throw new Error(`Board '${request.boardId}' does not exist`);
-  await writeJson(path.join(boardRoot(request.projectPath, request.boardId), "enrichment.json"), request.enrichment);
-  return loadBoard(request.projectPath, entry, config);
+  await saveBoardAuthoring(request.projectPath, request.boardId, request.authoring);
+  return loadBoard(request.projectPath, entry, await readTerrainRoles(request.projectPath));
+}
+
+function gidBelongsToTileset(encodedGid: number, tileset: TiledTilesetView): boolean {
+  const gid = (encodedGid >>> 0) & gidMask;
+  return gid >= tileset.firstGid && gid < tileset.firstGid + tileset.tileCount;
+}
+
+export async function deleteTiledTileset(input: TiledDeleteTilesetInput): Promise<TiledWorkspaceView> {
+  const request = tiledDeleteTilesetInputSchema.parse(input);
+  const config = await readConfig(request.projectPath);
+  const entry = config.boards.find((board) => board.id === request.boardId);
+  if (!entry) throw new Error(`Board '${request.boardId}' does not exist`);
+  const roles = await readTerrainRoles(request.projectPath);
+  const board = await loadBoard(request.projectPath, entry, roles);
+  const tileset = board.tilesets.find((candidate) => candidate.id === request.tilesetId);
+  if (!tileset) throw new Error(`Tileset '${request.tilesetId}' does not exist on board '${request.boardId}'`);
+
+  const samplesUsingTileset = board.authoring.samples.filter((sample) =>
+    sample.layerIds.some((layerId) => {
+      const layer = board.layers.find((candidate) => candidate.id === layerId);
+      if (!layer) return false;
+      for (let y = sample.y; y < sample.y + sample.height; y += 1) {
+        for (let x = sample.x; x < sample.x + sample.width; x += 1) {
+          if (gidBelongsToTileset(layer.data[y * board.width + x] ?? 0, tileset)) return true;
+        }
+      }
+      return false;
+    })
+  );
+  const profileUses = await biomeProfilesForSamples(
+    request.projectPath,
+    new Set(samplesUsingTileset.map((sample) => sampleRowSlug(request.boardId, sample.slug)))
+  );
+  if (profileUses.length > 0) {
+    throw new Error(`Tileset '${request.tilesetId}' is used by biome profile ${profileUses.join(", ")}`);
+  }
+  const layerUse = board.layers.find((layer) => layer.data.some((gid) => gidBelongsToTileset(gid, tileset)));
+  if (layerUse) {
+    throw new Error(`Tileset '${request.tilesetId}' is still used by cells on layer '${layerUse.name}'`);
+  }
+
+  const directory = boardRoot(request.projectPath, request.boardId);
+  const mapPath = path.join(directory, "map.tmx");
+  const raw = await readTiledXmlDocument(mapPath);
+  const entries = array(raw.tilesets, "map.tilesets");
+  const matches = entries.filter((value, index) => {
+    const source = string(object(value, `map.tilesets[${index}]`).source, `map.tilesets[${index}].source`);
+    return slug(path.basename(source, path.extname(source)), `Tileset '${source}'`) === request.tilesetId;
+  });
+  if (matches.length !== 1) throw new Error(`Managed map does not contain exactly one tileset '${request.tilesetId}'`);
+  raw.tilesets = entries.filter((entryValue) => entryValue !== matches[0]);
+  await fs.writeFile(mapPath, renderTiledMapXml(raw), "utf8");
+  await removeTilesetTableRows(request.projectPath, request.boardId, request.tilesetId);
+  await fs.rm(path.join(directory, "tilesets", `${request.tilesetId}.tsx`), { force: true });
+  await fs.rm(path.join(directory, "images", request.tilesetId), { recursive: true, force: true });
+  return loadTiledWorkspace({ projectPath: request.projectPath });
 }
 
 async function listFiles(directory: string): Promise<string[]> {
@@ -564,7 +615,7 @@ export async function snapshotTiledWorkspace(input: { projectPath: string }): Pr
   const config = await readConfig(request.projectPath);
   const root = path.join(projectRoot(request.projectPath), ".chisel");
   const files = await listFiles(tiledRoot(request.projectPath));
-  const sourceFiles = files.filter((file) => [".tmx", ".tsx", ".json"].includes(path.extname(file).toLowerCase())).sort();
+  const sourceFiles = files.filter((file) => [".tmx", ".tsx"].includes(path.extname(file).toLowerCase())).sort();
   const images = files.filter((file) => path.extname(file).toLowerCase() === ".png").sort();
   return {
     config,

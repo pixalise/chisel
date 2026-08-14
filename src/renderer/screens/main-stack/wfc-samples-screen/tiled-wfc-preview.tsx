@@ -37,7 +37,7 @@ export const TiledWfcPreview: FC<TiledWfcPreviewProps> = (props) => {
     setLibrary(undefined);
     setOutput(undefined);
     setError("");
-  }, [board.enrichment.samples, board.layers]);
+  }, [board.authoring.samples, board.layers]);
 
   useEffect(() => {
     imagesRef.current.clear();
@@ -179,12 +179,12 @@ export const TiledWfcPreview: FC<TiledWfcPreviewProps> = (props) => {
               value={seed}
             />
           </div>
-          <Button disabled={board.enrichment.samples.length === 0} onClick={() => generate(seed)} type="button">
+          <Button disabled={board.authoring.samples.length === 0} onClick={() => generate(seed)} type="button">
             <Play className="size-4" />
             Generate
           </Button>
           <Button
-            disabled={board.enrichment.samples.length === 0}
+            disabled={board.authoring.samples.length === 0}
             onClick={() => generate((seed + 1) >>> 0)}
             type="button"
             variant="outline"
@@ -194,7 +194,7 @@ export const TiledWfcPreview: FC<TiledWfcPreviewProps> = (props) => {
           </Button>
         </div>
       </div>
-      {board.enrichment.samples.length === 0 && (
+      {board.authoring.samples.length === 0 && (
         <p className="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
           Draw at least one sample of 3×3 cells or larger to enable the compiler.
         </p>

@@ -26,28 +26,20 @@ export type TiledBoardRegistryEntry = z.infer<typeof tiledBoardRegistryEntrySche
 
 export const tiledWorkspaceConfigSchema = z
   .object({
-    schemaVersion: z.literal(1),
-    roles: z.array(tiledRoleSchema),
+    schemaVersion: z.literal(2),
     boards: z.array(tiledBoardRegistryEntrySchema)
   })
   .strict()
   .superRefine((value, context) => {
-    for (const field of ["roles", "boards"] as const) {
-      const duplicate = value[field].find((entry, index) => value[field].findIndex((other) => other.id === entry.id) !== index);
-      if (duplicate) {
-        context.addIssue({ code: "custom", message: `Duplicate ${field} id '${duplicate.id}'`, path: [field] });
-      }
+    const duplicate = value.boards.find((entry, index) => value.boards.findIndex((other) => other.id === entry.id) !== index);
+    if (duplicate) {
+      context.addIssue({ code: "custom", message: `Duplicate boards id '${duplicate.id}'`, path: ["boards"] });
     }
   });
 export type TiledWorkspaceConfig = z.infer<typeof tiledWorkspaceConfigSchema>;
 
 export const defaultTiledWorkspaceConfig = {
-  schemaVersion: 1,
-  roles: [
-    { id: "GROUND", label: "Ground", color: "#8B9D5C" },
-    { id: "WATER", label: "Water", color: "#4D8FC4" },
-    { id: "FOLIAGE", label: "Foliage", color: "#4E9B61" }
-  ],
+  schemaVersion: 2,
   boards: []
 } satisfies TiledWorkspaceConfig;
 
@@ -75,9 +67,8 @@ export const tiledSampleSchema = z
   .strict();
 export type TiledSample = z.infer<typeof tiledSampleSchema>;
 
-export const tiledBoardEnrichmentSchema = z
+export const tiledBoardAuthoringSchema = z
   .object({
-    schemaVersion: z.literal(3),
     tileBindings: z.record(z.string(), tiledTileBindingSchema),
     samples: z.array(tiledSampleSchema)
   })
@@ -90,13 +81,12 @@ export const tiledBoardEnrichmentSchema = z
       sampleSlugs.add(sample.slug);
     }
   });
-export type TiledBoardEnrichment = z.infer<typeof tiledBoardEnrichmentSchema>;
+export type TiledBoardAuthoring = z.infer<typeof tiledBoardAuthoringSchema>;
 
-export const emptyTiledBoardEnrichment = {
-  schemaVersion: 3,
+export const emptyTiledBoardAuthoring = {
   tileBindings: {},
   samples: []
-} satisfies TiledBoardEnrichment;
+} satisfies TiledBoardAuthoring;
 
 export const tiledImportBoardInputSchema = z
   .object({
@@ -110,12 +100,14 @@ export type TiledImportBoardInput = z.infer<typeof tiledImportBoardInputSchema>;
 
 export const tiledProjectInputSchema = z.object({ projectPath: z.string().min(1) }).strict();
 export const tiledBoardInputSchema = tiledProjectInputSchema.extend({ boardId: constantSlugSchema }).strict();
-export const tiledSaveConfigInputSchema = tiledProjectInputSchema.extend({ config: tiledWorkspaceConfigSchema }).strict();
-export const tiledSaveEnrichmentInputSchema = tiledBoardInputSchema.extend({ enrichment: tiledBoardEnrichmentSchema }).strict();
+export const tiledSaveRolesInputSchema = tiledProjectInputSchema.extend({ roles: z.array(tiledRoleSchema) }).strict();
+export const tiledSaveAuthoringInputSchema = tiledBoardInputSchema.extend({ authoring: tiledBoardAuthoringSchema }).strict();
+export const tiledDeleteTilesetInputSchema = tiledBoardInputSchema.extend({ tilesetId: constantSlugSchema }).strict();
 export type TiledProjectInput = z.infer<typeof tiledProjectInputSchema>;
 export type TiledBoardInput = z.infer<typeof tiledBoardInputSchema>;
-export type TiledSaveConfigInput = z.infer<typeof tiledSaveConfigInputSchema>;
-export type TiledSaveEnrichmentInput = z.infer<typeof tiledSaveEnrichmentInputSchema>;
+export type TiledSaveRolesInput = z.infer<typeof tiledSaveRolesInputSchema>;
+export type TiledSaveAuthoringInput = z.infer<typeof tiledSaveAuthoringInputSchema>;
+export type TiledDeleteTilesetInput = z.infer<typeof tiledDeleteTilesetInputSchema>;
 
 export interface TiledLayerView {
   id: number;
@@ -150,12 +142,13 @@ export interface TiledBoardView {
   tileHeight: number;
   layers: TiledLayerView[];
   tilesets: TiledTilesetView[];
-  enrichment: TiledBoardEnrichment;
+  authoring: TiledBoardAuthoring;
   problems: string[];
 }
 
 export interface TiledWorkspaceView {
   config: TiledWorkspaceConfig;
+  roles: TiledRole[];
   boards: TiledBoardView[];
 }
 

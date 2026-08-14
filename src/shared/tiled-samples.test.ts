@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tiledBoardEnrichmentSchema, tiledSampleSchema, tiledTileBindingSchema } from "./tiled-samples";
+import { tiledBoardAuthoringSchema, tiledSampleSchema, tiledTileBindingSchema } from "./tiled-samples";
 
 const sample = {
   slug: "FOREST_EDGE",
@@ -12,7 +12,7 @@ const sample = {
   allowReflections: false
 };
 
-describe("current Tiled enrichment contract", () => {
+describe("current Tiled table authoring contract", () => {
   it("keeps biome properties outside samples", () => {
     expect(tiledSampleSchema.parse(sample)).toEqual(sample);
     expect(() => tiledSampleSchema.parse({ ...sample, id: "FOREST_EDGE" })).toThrow();
@@ -29,8 +29,8 @@ describe("current Tiled enrichment contract", () => {
     expect(() => tiledTileBindingSchema.parse({ slug: "GRASS", roleId: "GROUND", tags: [] })).toThrow();
   });
 
-  it("accepts only the current enrichment version", () => {
-    expect(tiledBoardEnrichmentSchema.parse({ schemaVersion: 3, tileBindings: {}, samples: [] }).schemaVersion).toBe(3);
-    expect(() => tiledBoardEnrichmentSchema.parse({ schemaVersion: 2, tileBindings: {}, samples: [] })).toThrow();
+  it("stores board authoring without a parallel file schema version", () => {
+    expect(tiledBoardAuthoringSchema.parse({ tileBindings: {}, samples: [] })).toEqual({ tileBindings: {}, samples: [] });
+    expect(() => tiledBoardAuthoringSchema.parse({ schemaVersion: 3, tileBindings: {}, samples: [] })).toThrow();
   });
 });

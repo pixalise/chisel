@@ -9,6 +9,7 @@ import type { TiledBoardView, TiledRole, TiledTileBinding } from "../../../../sh
 interface TiledTileCatalogProps {
   board: TiledBoardView;
   onChange: (bindings: Record<string, TiledTileBinding>) => void;
+  onDeleteTileset: (tilesetId: string) => void;
   roles: TiledRole[];
 }
 
@@ -17,7 +18,7 @@ function defaultBinding(tilesetId: string, localId: number, roleId: string): Til
 }
 
 export const TiledTileCatalog: FC<TiledTileCatalogProps> = (props) => {
-  const { board, onChange, roles } = props;
+  const { board, onChange, onDeleteTileset, roles } = props;
   const [selectedKey, setSelectedKey] = useState<string>();
   const tiles = useMemo(
     () =>
@@ -27,17 +28,17 @@ export const TiledTileCatalog: FC<TiledTileCatalogProps> = (props) => {
     [board]
   );
   const selected = tiles.find((tile) => tile.key === selectedKey) ?? tiles[0];
-  const selectedBinding = selected ? board.enrichment.tileBindings[selected.key] : undefined;
+  const selectedBinding = selected ? board.authoring.tileBindings[selected.key] : undefined;
 
   function updateSelected(update: Partial<TiledTileBinding>): void {
     if (!selected || roles.length === 0) return;
     const binding = selectedBinding ?? defaultBinding(selected.tileset.id, selected.localId, roles[0].id);
-    onChange({ ...board.enrichment.tileBindings, [selected.key]: { ...binding, ...update } });
+    onChange({ ...board.authoring.tileBindings, [selected.key]: { ...binding, ...update } });
   }
 
   function initializeAll(): void {
     if (roles.length === 0) return;
-    const bindings = { ...board.enrichment.tileBindings };
+    const bindings = { ...board.authoring.tileBindings };
     for (const tile of tiles) bindings[tile.key] ??= defaultBinding(tile.tileset.id, tile.localId, roles[0].id);
     onChange(bindings);
   }
@@ -54,12 +55,31 @@ export const TiledTileCatalog: FC<TiledTileCatalogProps> = (props) => {
             Initialize unbound
           </Button>
         </div>
+        <div className="flex flex-wrap gap-2">
+          {board.tilesets.map((tileset) => (
+            <div className="flex items-center gap-2 rounded border border-border px-2 py-1" key={tileset.id}>
+              <span className="font-mono text-xs">{tileset.id}</span>
+              <Button
+                onClick={() => {
+                  if (window.confirm(`Delete unused tileset '${tileset.id}' and its managed TSX and PNG files?`)) {
+                    onDeleteTileset(tileset.id);
+                  }
+                }}
+                size="sm"
+                type="button"
+                variant="destructive"
+              >
+                Delete unused
+              </Button>
+            </div>
+          ))}
+        </div>
         <div className="flex max-h-72 flex-wrap gap-2 overflow-y-auto rounded bg-muted/40 p-2">
           {tiles.map((tile) => {
             const scale = 48 / Math.max(tile.tileset.tileWidth, tile.tileset.tileHeight);
             const column = tile.localId % tile.tileset.columns;
             const row = Math.floor(tile.localId / tile.tileset.columns);
-            const bound = board.enrichment.tileBindings[tile.key];
+            const bound = board.authoring.tileBindings[tile.key];
             return (
               <button
                 className={cn(
