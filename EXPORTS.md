@@ -57,7 +57,7 @@ local portrait = AssetManager.image(AssetManager.UI.HUMAN_MALE)
 local font = AssetManager.font(AssetManager.FONT.BODY, 18, 1)
 ```
 
-The manager validates each loader against the authored category and caches resources only after first use. It supports managed images, linear data images, fonts, shaders, audio sources, text data, validated paths, cache cleanup, and category namespaces such as `UI`, `IMAGE`, `FONT`, `SHADER`, and `AUDIO`. `AssetManager.destroy()` releases every loaded LÖVE resource.
+The manager validates each loader against the authored category and caches resources only after first use. It supports managed images, linear data images, fonts, shaders, audio sources, text data, validated paths, cache cleanup, and category namespaces such as `TILESET`, `UI`, `IMAGE`, `FONT`, `SHADER`, and `AUDIO`. Tileset PNGs use the ordinary lazy image loader. `AssetManager.destroy()` releases every loaded LÖVE resource.
 
 `UI` is the interface-image category and stores files in `.chisel/assets/UI`. Project data must already use the current category and layout. Replacing an asset source preserves its stable slug, so game code continues using the same generated ID without path changes.
 

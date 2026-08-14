@@ -4,7 +4,6 @@ import assetService from "@/services/asset-service";
 import fileService from "@/services/file-service";
 import localizationService from "@/services/localization-service";
 import tableService from "@/services/table-service";
-import tiledSampleService from "@/services/tiled-sample-service";
 import appStore from "@/stores/app-store";
 import { zodParse } from "@/utils/zod-parse";
 import { assetsJsonSchema, projectFileSchema, type Project } from "../../shared/schemas";
@@ -30,11 +29,10 @@ class SourceStateService extends BaseService {
 
   public async commitDraft(): Promise<CommittedSourceSnapshot> {
     const project = appStore.getState().computed.project;
-    const [tables, assets, localization, tiled] = await Promise.all([
+    const [tables, assets, localization] = await Promise.all([
       tableService.listAllTables(),
       assetService.getAllAssets(),
-      localizationService.readLocalization(),
-      tiledSampleService.snapshot()
+      localizationService.readLocalization()
     ]);
     const commit = zodParse(committedSourceSnapshotSchema, {
       id: nanoid(),
@@ -45,12 +43,11 @@ class SourceStateService extends BaseService {
         schemaVersion: 1,
         assets
       }),
-      localization,
-      tiled
+      localization
     });
     const sourceState = await this.readSourceState();
     await this.writeSourceState({
-      schemaVersion: 2,
+      schemaVersion: 3,
       commits: [commit, ...sourceState.commits].slice(0, maxCommitCount)
     });
     return commit;
@@ -82,7 +79,6 @@ class SourceStateService extends BaseService {
     );
     await fileService.writeAssetsJson(restoredProject, commit.assets);
     await fileService.writeLocalizationJson(restoredProject, commit.localization);
-    await tiledSampleService.restore(commit.tiled);
     appStore.getState().setProject(restoredProject);
 
     return commit;

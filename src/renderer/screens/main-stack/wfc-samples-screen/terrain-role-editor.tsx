@@ -2,28 +2,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type FC } from "react";
-import type { TiledRole } from "../../../../shared/tiled-samples";
+import type { TerrainRole } from "../../../../shared/terrain-authoring";
 
-interface TiledRoleEditorProps {
+interface TerrainRoleEditorProps {
   disabled: boolean;
-  onChange: (roles: TiledRole[]) => void;
+  onChange: (roles: TerrainRole[]) => void;
   onSave: () => void;
-  roles: TiledRole[];
+  roles: TerrainRole[];
 }
 
 function roleId(index: number): string {
   return `ROLE_${index + 1}`;
 }
 
-export const TiledRoleEditor: FC<TiledRoleEditorProps> = (props) => {
+export const TerrainRoleEditor: FC<TerrainRoleEditorProps> = (props) => {
   const { disabled, onChange, onSave, roles } = props;
-
   return (
     <div className="space-y-3 rounded-md border border-border p-3">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold">Project tile roles</h3>
-          <p className="text-xs text-muted-foreground">Generic semantic roles used by every managed sample board.</p>
+          <h3 className="text-sm font-semibold">Tile roles</h3>
+          <p className="text-xs text-muted-foreground">Semantic roles shared by every tileset.</p>
         </div>
         <div className="flex gap-2">
           <Button

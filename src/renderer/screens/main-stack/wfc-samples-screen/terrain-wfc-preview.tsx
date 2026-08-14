@@ -3,33 +3,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dices, Play } from "lucide-react";
 import { type FC, useEffect, useRef, useState } from "react";
-import type { TiledBoardView } from "../../../../shared/tiled-samples";
+import type { TerrainWorkspaceView } from "../../../../shared/terrain-authoring";
 import {
-  compileTiledWfcLibrary,
-  generateTiledWfcOutput,
-  type TiledWfcLibrary,
-  type TiledWfcOutput,
-  tiledWfcPatternSize
-} from "../../../../shared/tiled-wfc";
+  compileTerrainWfcLibrary,
+  generateTerrainWfcOutput,
+  terrainWfcPatternSize,
+  type TerrainWfcLibrary,
+  type TerrainWfcOutput
+} from "../../../../shared/terrain-wfc";
+import { drawTerrainTile } from "./terrain-rendering";
 
-interface TiledWfcPreviewProps {
-  board: TiledBoardView;
+interface TerrainWfcPreviewProps {
+  workspace: TerrainWorkspaceView;
 }
 
-const gidMask = 0x0fffffff;
-const horizontalFlipFlag = 0x80000000;
-const verticalFlipFlag = 0x40000000;
-const diagonalFlipFlag = 0x20000000;
+const previewCellSize = 48;
 
-export const TiledWfcPreview: FC<TiledWfcPreviewProps> = (props) => {
-  const { board } = props;
+export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
+  const { workspace } = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef(new Map<string, HTMLImageElement>());
   const [width, setWidth] = useState(20);
   const [height, setHeight] = useState(20);
   const [seed, setSeed] = useState(1);
-  const [library, setLibrary] = useState<TiledWfcLibrary>();
-  const [output, setOutput] = useState<TiledWfcOutput>();
+  const [library, setLibrary] = useState<TerrainWfcLibrary>();
+  const [output, setOutput] = useState<TerrainWfcOutput>();
   const [error, setError] = useState("");
   const [imageRevision, setImageRevision] = useState(0);
 
@@ -37,12 +35,12 @@ export const TiledWfcPreview: FC<TiledWfcPreviewProps> = (props) => {
     setLibrary(undefined);
     setOutput(undefined);
     setError("");
-  }, [board.authoring.samples, board.layers]);
+  }, [workspace.samples]);
 
   useEffect(() => {
     imagesRef.current.clear();
     let cancelled = false;
-    for (const tileset of board.tilesets) {
+    for (const tileset of workspace.tilesets) {
       const image = new Image();
       image.onload = () => {
         if (!cancelled) setImageRevision((value) => value + 1);
@@ -56,67 +54,42 @@ export const TiledWfcPreview: FC<TiledWfcPreviewProps> = (props) => {
     return () => {
       cancelled = true;
     };
-  }, [board.tilesets]);
+  }, [workspace.tilesets]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !output) return;
-    canvas.width = output.width * board.tileWidth;
-    canvas.height = output.height * board.tileHeight;
+    canvas.width = output.width * previewCellSize;
+    canvas.height = output.height * previewCellSize;
     const context = canvas.getContext("2d");
     if (!context) return;
     context.imageSmoothingEnabled = false;
-    context.fillStyle = "#164e63";
+    context.fillStyle = "#151515";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    const orderedTilesets = [...board.tilesets].sort((left, right) => left.firstGid - right.firstGid);
-    for (const layer of output.layers) {
-      context.globalAlpha = board.layers.find((entry) => entry.id === layer.id)?.opacity ?? 1;
-      layer.data.forEach((encodedGid, cellIndex) => {
-        const unsigned = encodedGid >>> 0;
-        const gid = unsigned & gidMask;
-        if (gid === 0) return;
-        const tileset = [...orderedTilesets].reverse().find((entry) => entry.firstGid <= gid);
-        if (!tileset) return;
-        const image = imagesRef.current.get(tileset.id);
-        if (!image?.complete || image.naturalWidth === 0 || image.naturalHeight === 0) return;
-        const localId = gid - tileset.firstGid;
-        const sourceX = tileset.margin + (localId % tileset.columns) * (tileset.tileWidth + tileset.spacing);
-        const sourceY = tileset.margin + Math.floor(localId / tileset.columns) * (tileset.tileHeight + tileset.spacing);
-        const destinationX = (cellIndex % output.width) * board.tileWidth;
-        const destinationY = Math.floor(cellIndex / output.width) * board.tileHeight;
-        context.save();
-        context.translate(destinationX + board.tileWidth / 2, destinationY + board.tileHeight / 2);
-        if ((unsigned & diagonalFlipFlag) !== 0) context.transform(0, 1, 1, 0, 0, 0);
-        context.scale((unsigned & horizontalFlipFlag) !== 0 ? -1 : 1, (unsigned & verticalFlipFlag) !== 0 ? -1 : 1);
-        context.drawImage(
-          image,
-          sourceX,
-          sourceY,
-          tileset.tileWidth,
-          tileset.tileHeight,
-          -board.tileWidth / 2,
-          -board.tileHeight / 2,
-          board.tileWidth,
-          board.tileHeight
-        );
-        context.restore();
-      });
-    }
-    context.globalAlpha = 1;
-  }, [board.layers, board.tileHeight, board.tileWidth, board.tilesets, imageRevision, output]);
+    output.cells.forEach((tile, index) =>
+      drawTerrainTile(
+        context,
+        tile,
+        workspace.tilesets,
+        imagesRef.current,
+        (index % output.width) * previewCellSize,
+        Math.floor(index / output.width) * previewCellSize,
+        previewCellSize
+      )
+    );
+  }, [imageRevision, output, workspace.tilesets]);
 
   function generate(nextSeed: number): void {
     setError("");
     setOutput(undefined);
-    let compiled: TiledWfcLibrary | undefined;
+    let compiled: TerrainWfcLibrary | undefined;
     try {
-      if (width < tiledWfcPatternSize || width > 64 || height < tiledWfcPatternSize || height > 64) {
-        throw new Error(`Preview dimensions must be between ${tiledWfcPatternSize} and 64 cells`);
+      if (width < terrainWfcPatternSize || width > 64 || height < terrainWfcPatternSize || height > 64) {
+        throw new Error(`Preview dimensions must be between ${terrainWfcPatternSize} and 64 cells`);
       }
-      compiled = compileTiledWfcLibrary(board);
+      compiled = compileTerrainWfcLibrary(workspace);
       setLibrary(compiled);
-      const generated = generateTiledWfcOutput(compiled, { width, height, seed: nextSeed });
-      setOutput(generated);
+      setOutput(generateTerrainWfcOutput(compiled, { width, height, seed: nextSeed }));
       setSeed(nextSeed);
     } catch (caught) {
       if (!compiled) setLibrary(undefined);
@@ -137,7 +110,7 @@ export const TiledWfcPreview: FC<TiledWfcPreviewProps> = (props) => {
         <div>
           <h3 className="text-sm font-semibold">WFC preview</h3>
           <p className="text-xs text-muted-foreground">
-            Compile every authored sample into overlapping {tiledWfcPatternSize}×{tiledWfcPatternSize} patterns and test their adjacency.
+            Compile painted samples into overlapping {terrainWfcPatternSize}×{terrainWfcPatternSize} patterns and test their adjacency.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -148,7 +121,7 @@ export const TiledWfcPreview: FC<TiledWfcPreviewProps> = (props) => {
             <Input
               id="wfc-preview-width"
               max="64"
-              min={tiledWfcPatternSize}
+              min={terrainWfcPatternSize}
               onChange={(event) => setWidth(Number(event.target.value))}
               type="number"
               value={width}
@@ -161,7 +134,7 @@ export const TiledWfcPreview: FC<TiledWfcPreviewProps> = (props) => {
             <Input
               id="wfc-preview-height"
               max="64"
-              min={tiledWfcPatternSize}
+              min={terrainWfcPatternSize}
               onChange={(event) => setHeight(Number(event.target.value))}
               type="number"
               value={height}
@@ -179,24 +152,19 @@ export const TiledWfcPreview: FC<TiledWfcPreviewProps> = (props) => {
               value={seed}
             />
           </div>
-          <Button disabled={board.authoring.samples.length === 0} onClick={() => generate(seed)} type="button">
+          <Button disabled={workspace.samples.length === 0} onClick={() => generate(seed)} type="button">
             <Play className="size-4" />
             Generate
           </Button>
-          <Button
-            disabled={board.authoring.samples.length === 0}
-            onClick={() => generate((seed + 1) >>> 0)}
-            type="button"
-            variant="outline"
-          >
+          <Button disabled={workspace.samples.length === 0} onClick={() => generate((seed + 1) >>> 0)} type="button" variant="outline">
             <Dices className="size-4" />
             Next seed
           </Button>
         </div>
       </div>
-      {board.authoring.samples.length === 0 && (
+      {workspace.samples.length === 0 && (
         <p className="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-          Draw at least one sample of 3×3 cells or larger to enable the compiler.
+          Create and paint at least one sample to enable the compiler.
         </p>
       )}
       {error && <p className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">{error}</p>}
@@ -213,11 +181,9 @@ export const TiledWfcPreview: FC<TiledWfcPreviewProps> = (props) => {
         </div>
       )}
       {output && (
-        <>
-          <div className="overflow-auto rounded-md border border-border bg-slate-950 p-2">
-            <canvas className="h-auto max-h-[40rem] max-w-full [image-rendering:pixelated]" ref={canvasRef} />
-          </div>
-        </>
+        <div className="overflow-auto rounded-md border border-border bg-slate-950 p-2">
+          <canvas className="h-auto max-h-[40rem] max-w-full [image-rendering:pixelated]" ref={canvasRef} />
+        </div>
       )}
     </div>
   );

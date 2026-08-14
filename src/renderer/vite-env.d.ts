@@ -1,17 +1,6 @@
 /// <reference types="vite/client" />
 
 import type { ConvertImages, ConvertedImage, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas";
-import type {
-  TiledBoardInput,
-  TiledBoardView,
-  TiledDeleteTilesetInput,
-  TiledImportBoardInput,
-  TiledProjectInput,
-  TiledSaveAuthoringInput,
-  TiledSaveRolesInput,
-  TiledSourceSnapshot,
-  TiledWorkspaceView
-} from "../shared/tiled-samples";
 import type { Asset, FileMetadata } from "../shared/types";
 
 type OpenFileDialogOptions = {
@@ -44,14 +33,6 @@ declare global {
       replaceAssetReferences: (projectPath: string, assetIdChanges: Record<string, string>) => Promise<boolean>;
       convertImages: (input: ConvertImages) => Promise<ConvertedImage[]>;
       createImageConversionPreview: (inputPath: string) => Promise<string>;
-      loadTiledWorkspace: (input: TiledProjectInput) => Promise<TiledWorkspaceView>;
-      importTiledBoard: (input: TiledImportBoardInput) => Promise<TiledWorkspaceView>;
-      deleteTiledTileset: (input: TiledDeleteTilesetInput) => Promise<TiledWorkspaceView>;
-      reloadTiledBoard: (input: TiledBoardInput) => Promise<TiledBoardView>;
-      saveTiledRoles: (input: TiledSaveRolesInput) => Promise<TiledWorkspaceView>;
-      saveTiledAuthoring: (input: TiledSaveAuthoringInput) => Promise<TiledBoardView>;
-      snapshotTiledWorkspace: (input: TiledProjectInput) => Promise<TiledSourceSnapshot>;
-      restoreTiledWorkspace: (input: TiledProjectInput & { snapshot: TiledSourceSnapshot }) => Promise<TiledWorkspaceView>;
       getPathForFile: (file: File) => string;
       toAssetUrl: (filePath: string) => string;
     };

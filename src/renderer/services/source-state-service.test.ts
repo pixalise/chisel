@@ -23,12 +23,6 @@ const mocks = vi.hoisted(() => {
         width: 64
       }
     ],
-    tiled: {
-      config: { schemaVersion: 2, boards: [] },
-      files: [],
-      images: []
-    },
-    restoreTiled: vi.fn(),
     localization: {
       schemaVersion: 2,
       defaultLocale: "en",
@@ -140,20 +134,12 @@ vi.mock("@/services/localization-service", () => ({
   }
 }));
 
-vi.mock("@/services/tiled-sample-service", () => ({
-  default: {
-    snapshot: vi.fn(async () => mocks.tiled),
-    restore: mocks.restoreTiled
-  }
-}));
-
 const { default: sourceStateService } = await import("./source-state-service");
 
 describe("source state service", () => {
   beforeEach(() => {
     mocks.sourceState = undefined;
     mocks.setProject.mockReset();
-    mocks.restoreTiled.mockReset();
     mocks.tryReadSourceStateJson.mockReset();
     mocks.writeAssetsJson.mockReset();
     mocks.writeChiselJson.mockReset();
@@ -172,14 +158,13 @@ describe("source state service", () => {
     await expect(sourceStateService.listCommits()).resolves.toEqual([]);
   });
 
-  it("commits draft tables, assets, localization, and Tiled samples", async () => {
+  it("commits draft tables, assets, and localization", async () => {
     const commit = await sourceStateService.commitDraft();
 
     expect(commit.project).toEqual({ id: mocks.project.id, name: mocks.project.name });
     expect(commit.tables).toHaveLength(2);
     expect(commit.assets.assets[0]).toMatchObject({ id: "UNIT_ICON", category: AssetCategoryEnum.image });
     expect(commit.localization).toEqual(mocks.localization);
-    expect(commit.tiled).toEqual(mocks.tiled);
     expect(mocks.sourceState?.commits[0]?.id).toBe(commit.id);
   });
 
@@ -199,7 +184,6 @@ describe("source state service", () => {
     expect(mocks.writeSystemTableDataJson).toHaveBeenCalledWith(expect.anything(), "input_bindings", expect.anything());
     expect(mocks.writeAssetsJson).toHaveBeenCalledWith(expect.anything(), commit.assets);
     expect(mocks.writeLocalizationJson).toHaveBeenCalledWith(expect.anything(), commit.localization);
-    expect(mocks.restoreTiled).toHaveBeenCalledWith(commit.tiled);
     expect(mocks.setProject).toHaveBeenCalledWith(expect.objectContaining({ path: mocks.project.path }));
   });
 

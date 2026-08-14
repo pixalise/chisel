@@ -156,6 +156,27 @@ describe("LÖVE export", () => {
     expect(love2dAssetExportPath(asset)).toBe("gamedata/assets/audio/blade_swing.wav");
   });
 
+  it("exports tilesets as managed image assets", () => {
+    const asset = assetSchema.parse({
+      category: AssetCategoryEnum.tileset,
+      extension: "png",
+      height: 384,
+      id: "FOREST_TILES",
+      name: "FOREST_TILES",
+      relativePath: ".chisel/assets/TILESET/FOREST_TILES.png",
+      sizeBytes: 100,
+      tileSize: 64,
+      width: 1024
+    });
+    const project: Project = { id: nanoid(), name: "DarkTorch", path: "/tmp/darktorch" };
+    const bundle = createLove2dExportBundle(project, [], "2026-01-01", [asset], emptyLocalizationDocument);
+    const assetsFile = bundle.files.find((entry) => entry.path === "gamedata/asset_manager.lua");
+
+    expect(love2dAssetExportPath(asset)).toBe("gamedata/assets/tileset/forest_tiles.png");
+    expect(assetsFile?.content).toContain("TILESET = true");
+    expect(assetsFile?.content).toContain("FOREST_TILES = 1");
+  });
+
   it("rejects JSON null rather than emitting a lossy Lua table hole", () => {
     const metadataId = nanoid();
     const table = dataTableSchema.parse({

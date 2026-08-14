@@ -42,6 +42,7 @@ export const AssetPreview: FC<AssetPreviewProps> = (props) => {
         </div>
         <PreviewFact label="size" value={asset.formattedBytes} />
         <PreviewFact label="dimensions" value={asset.width > 0 ? `${asset.width}x${asset.height}` : "-"} />
+        {asset.category === AssetCategoryEnum.tileset && <PreviewFact label="tile size" value={`${asset.tileSize}px`} />}
       </dl>
       <Separator />
       <code className="block truncate text-xs text-muted-foreground">{asset.relativePath}</code>

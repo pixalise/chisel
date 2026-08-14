@@ -1,16 +1,17 @@
 import type { DataColumnDefinition, DataTableRow, SystemDataTable } from "./schemas";
-import { ColumnType } from "./types";
+import { AssetCategoryEnum, ColumnType } from "./types";
 
-export const TERRAIN_TILESETS_TABLE_ID = "terrain_tilesets";
 export const TERRAIN_ROLES_TABLE_ID = "terrain_roles";
 export const TERRAIN_TILE_BINDINGS_TABLE_ID = "terrain_tile_bindings";
 export const TERRAIN_WFC_SAMPLES_TABLE_ID = "terrain_wfc_samples";
+export const TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID = "terrain_wfc_sample_cells";
 export const TERRAIN_BIOMES_TABLE_ID = "terrain_biomes";
 export const TERRAIN_BIOME_PROFILES_TABLE_ID = "terrain_biome_profiles";
 
 const SYSTEM_TABLE_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
 interface SystemColumnOptions {
+  assetCategory?: AssetCategoryEnum;
   defaultValue?: DataColumnDefinition["defaultValue"];
   min?: number;
   refTableId?: string;
@@ -30,7 +31,6 @@ function defaultValue(type: ColumnType): DataColumnDefinition["defaultValue"] {
   if (type === ColumnType.boolean) return false;
   if (type === ColumnType.color) return "#000000";
   if (type === ColumnType.enumArray) return [];
-  if (type === ColumnType.json) return {};
   return "";
 }
 
@@ -43,7 +43,8 @@ function column(seed: string, name: string, type: ColumnType, options: SystemCol
     required: options.required ?? true,
     unique: options.unique ?? false,
     ...(typeof options.min === "number" ? { min: options.min } : {}),
-    ...(options.refTableId ? { refTableId: options.refTableId } : {})
+    ...(options.refTableId ? { refTableId: options.refTableId } : {}),
+    ...(options.assetCategory ? { assetCategory: options.assetCategory } : {})
   };
 }
 
@@ -66,20 +67,13 @@ function table(id: string, name: string, description: string, columns: DataColum
   };
 }
 
-export const TERRAIN_TILESET_COLUMNS = {
-  boardId: column("terrain_tileset_board", "board_id", ColumnType.string),
-  tilesetId: column("terrain_tileset_id", "tileset_id", ColumnType.string),
-  name: column("terrain_tileset_name", "name", ColumnType.string)
-} as const;
-
 export const TERRAIN_ROLE_COLUMNS = {
   label: column("terrain_role_label", "label", ColumnType.string),
   color: column("terrain_role_color", "color", ColumnType.color)
 } as const;
 
 export const TERRAIN_TILE_BINDING_COLUMNS = {
-  boardId: column("terrain_binding_board", "board_id", ColumnType.string),
-  tileset: column("terrain_binding_tileset", "tileset", ColumnType.ref, { refTableId: TERRAIN_TILESETS_TABLE_ID }),
+  tileset: column("terrain_binding_tileset", "tileset", ColumnType.assetRef, { assetCategory: AssetCategoryEnum.tileset }),
   localId: column("terrain_binding_local", "local_id", ColumnType.integer, { min: 0 }),
   tileSlug: column("terrain_binding_slug", "tile_slug", ColumnType.string),
   role: column("terrain_binding_role", "role", ColumnType.ref, { refTableId: TERRAIN_ROLES_TABLE_ID }),
@@ -88,15 +82,18 @@ export const TERRAIN_TILE_BINDING_COLUMNS = {
 } as const;
 
 export const TERRAIN_WFC_SAMPLE_COLUMNS = {
-  boardId: column("terrain_sample_board", "board_id", ColumnType.string),
-  sampleSlug: column("terrain_sample_slug", "sample_slug", ColumnType.string),
-  layerIds: column("terrain_sample_layers", "layer_ids", ColumnType.json, { defaultValue: [] }),
-  x: column("terrain_sample_x", "x", ColumnType.integer, { min: 0 }),
-  y: column("terrain_sample_y", "y", ColumnType.integer, { min: 0 }),
-  width: column("terrain_sample_width", "width", ColumnType.integer, { min: 1 }),
-  height: column("terrain_sample_height", "height", ColumnType.integer, { min: 1 }),
+  width: column("terrain_sample_width", "width", ColumnType.integer, { min: 3 }),
+  height: column("terrain_sample_height", "height", ColumnType.integer, { min: 3 }),
   allowRotations: column("terrain_sample_rotate", "allow_rotations", ColumnType.boolean),
   allowReflections: column("terrain_sample_reflect", "allow_reflections", ColumnType.boolean)
+} as const;
+
+export const TERRAIN_WFC_SAMPLE_CELL_COLUMNS = {
+  sample: column("terrain_cell_sample", "sample", ColumnType.ref, { refTableId: TERRAIN_WFC_SAMPLES_TABLE_ID }),
+  x: column("terrain_cell_x", "x", ColumnType.integer, { min: 0 }),
+  y: column("terrain_cell_y", "y", ColumnType.integer, { min: 0 }),
+  tileset: column("terrain_cell_tileset", "tileset", ColumnType.assetRef, { assetCategory: AssetCategoryEnum.tileset }),
+  localId: column("terrain_cell_local", "local_id", ColumnType.integer, { min: 0 })
 } as const;
 
 export const TERRAIN_BIOME_COLUMNS = {
@@ -117,28 +114,16 @@ const defaultRoleRows: DataTableRow[] = [
     values: [value(TERRAIN_ROLE_COLUMNS.label, "Ground"), value(TERRAIN_ROLE_COLUMNS.color, "#8B9D5C")]
   },
   {
-    id: terrainSystemId("terrain_role_water"),
-    slug: "WATER",
-    values: [value(TERRAIN_ROLE_COLUMNS.label, "Water"), value(TERRAIN_ROLE_COLUMNS.color, "#4D8FC4")]
-  },
-  {
     id: terrainSystemId("terrain_role_foliage"),
     slug: "FOLIAGE",
     values: [value(TERRAIN_ROLE_COLUMNS.label, "Foliage"), value(TERRAIN_ROLE_COLUMNS.color, "#4E9B61")]
   }
 ];
 
-export const TERRAIN_TILESETS_TABLE = table(
-  TERRAIN_TILESETS_TABLE_ID,
-  "Terrain Tilesets",
-  "Managed external TSX tilesets. Rows are owned by Tiled board import and deletion.",
-  Object.values(TERRAIN_TILESET_COLUMNS)
-);
-
 export const TERRAIN_ROLES_TABLE = table(
   TERRAIN_ROLES_TABLE_ID,
   "Terrain Roles",
-  "Semantic roles available to tile bindings on every terrain board.",
+  "Semantic roles available to tileset tile bindings.",
   Object.values(TERRAIN_ROLE_COLUMNS),
   defaultRoleRows
 );
@@ -146,15 +131,22 @@ export const TERRAIN_ROLES_TABLE = table(
 export const TERRAIN_TILE_BINDINGS_TABLE = table(
   TERRAIN_TILE_BINDINGS_TABLE_ID,
   "Terrain Tile Bindings",
-  "Semantic metadata for a managed tileset tile, authored in WFC Samples.",
+  "Semantic metadata for tileset sprites, authored in WFC Samples.",
   Object.values(TERRAIN_TILE_BINDING_COLUMNS)
 );
 
 export const TERRAIN_WFC_SAMPLES_TABLE = table(
   TERRAIN_WFC_SAMPLES_TABLE_ID,
   "Terrain WFC Samples",
-  "Grid-aligned sample regions authored on managed Tiled boards.",
+  "Native Chisel WFC sample definitions.",
   Object.values(TERRAIN_WFC_SAMPLE_COLUMNS)
+);
+
+export const TERRAIN_WFC_SAMPLE_CELLS_TABLE = table(
+  TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID,
+  "Terrain WFC Sample Cells",
+  "Painted tileset cells belonging to native Chisel WFC samples.",
+  Object.values(TERRAIN_WFC_SAMPLE_CELL_COLUMNS)
 );
 
 export const TERRAIN_BIOMES_TABLE = table(
@@ -172,10 +164,10 @@ export const TERRAIN_BIOME_PROFILES_TABLE = table(
 );
 
 export const SYSTEM_TERRAIN_TABLES = [
-  TERRAIN_TILESETS_TABLE,
   TERRAIN_ROLES_TABLE,
   TERRAIN_TILE_BINDINGS_TABLE,
   TERRAIN_WFC_SAMPLES_TABLE,
+  TERRAIN_WFC_SAMPLE_CELLS_TABLE,
   TERRAIN_BIOMES_TABLE,
   TERRAIN_BIOME_PROFILES_TABLE
 ];

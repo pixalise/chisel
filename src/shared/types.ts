@@ -15,6 +15,7 @@ export interface FileMetadata {
 }
 
 export enum AssetCategoryEnum {
+  tileset = "TILESET",
   terrainTexture = "TERRAIN_TEXTURE",
   hdri = "HDRI",
   ui = "UI",
@@ -27,6 +28,7 @@ export enum AssetCategoryEnum {
   other = "OTHER"
 }
 export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
+  [AssetCategoryEnum.tileset]: "Tileset",
   [AssetCategoryEnum.terrainTexture]: "Terrain Texture",
   [AssetCategoryEnum.hdri]: "HDRI",
   [AssetCategoryEnum.ui]: "UI",
@@ -77,6 +79,9 @@ export function isMeshExtension(extension: string): boolean {
 
 export function isAssetExtensionAllowed(category: AssetCategoryEnum, extension: string): boolean {
   const normalizedExtension = extension.replace(/^\./, "");
+  if (category === AssetCategoryEnum.tileset) {
+    return normalizedExtension.toLowerCase() === "png";
+  }
   if (category === AssetCategoryEnum.ui || category === AssetCategoryEnum.image) {
     return isImageExtension(normalizedExtension);
   }

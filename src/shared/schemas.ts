@@ -86,10 +86,32 @@ const assetInputFields = {
   sizeBytes: z.number(),
   width: z.number(),
   height: z.number(),
+  tileSize: z.int().positive().optional(),
   extension: z.string()
 };
 
-const assetInputSchema = z.object(assetInputFields);
+function validateTilesetAsset(
+  asset: { category: AssetCategoryEnum; extension: string; height: number; tileSize?: number; width: number },
+  context: z.RefinementCtx
+): void {
+  if (asset.category !== AssetCategoryEnum.tileset) return;
+  if (asset.extension.replace(/^\./, "").toLowerCase() !== "png") {
+    context.addIssue({ code: "custom", message: "Tilesets must use PNG images", path: ["extension"] });
+  }
+  if (!asset.tileSize) {
+    context.addIssue({ code: "custom", message: "Tile size is required", path: ["tileSize"] });
+    return;
+  }
+  if (asset.width <= 0 || asset.height <= 0) {
+    context.addIssue({ code: "custom", message: "Tileset image dimensions must be available", path: ["width"] });
+    return;
+  }
+  if (asset.width % asset.tileSize !== 0 || asset.height % asset.tileSize !== 0) {
+    context.addIssue({ code: "custom", message: "Image dimensions must be divisible by tile size", path: ["tileSize"] });
+  }
+}
+
+const assetInputSchema = z.object(assetInputFields).superRefine(validateTilesetAsset);
 
 const assetDocumentSchema = z
   .object({
@@ -98,6 +120,7 @@ const assetDocumentSchema = z
     name: z.string().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
     relativePath: z.string()
   })
+  .superRefine(validateTilesetAsset)
   .transform((asset) => {
     const slug = assetSlugSchema.parse(assetSlug(asset.name));
     return {
@@ -164,7 +187,8 @@ export const importAssetSchema = z.object({
   sourcePath: filePathSchema,
   name: assetSlugSchema,
   category: assetCategorySchema,
-  note: z.string().optional()
+  note: z.string().optional(),
+  tileSize: z.int().positive().optional()
 });
 export type ImportAssetInput = z.infer<typeof importAssetSchema>;
 

@@ -248,7 +248,7 @@ function renderAssetManager(assets: Asset[]): Love2dExportFile {
     "local definitions = {",
     ...definitions,
     "}",
-    "local imageCategories = { UI = true, IMAGE = true, HDRI = true }",
+    "local imageCategories = { TILESET = true, UI = true, IMAGE = true, HDRI = true }",
     "local caches = { images = {}, dataImages = {}, fonts = {}, shaders = {}, audio = {}, text = {} }",
     "",
     "local AssetManager = {",

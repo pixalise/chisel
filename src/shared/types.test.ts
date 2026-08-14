@@ -22,6 +22,7 @@ describe("asset categories", () => {
     expect(assetCategoryLabelMap[AssetCategoryEnum.mesh]).toBe("Mesh");
     expect(assetCategoryOptionValues).toContainEqual({ label: "Mesh", value: AssetCategoryEnum.mesh });
     expect(assetCategoryOptionValues).toContainEqual({ label: "Shader", value: AssetCategoryEnum.shader });
+    expect(assetCategoryOptionValues).toContainEqual({ label: "Tileset", value: AssetCategoryEnum.tileset });
   });
 
   it("recognizes HDRI file extensions without stealing terrain texture extensions", () => {
@@ -55,5 +56,7 @@ describe("asset categories", () => {
     expect(isFontExtension("png")).toBe(false);
     expect(isAssetExtensionAllowed(AssetCategoryEnum.ui, "png")).toBe(true);
     expect(isAssetExtensionAllowed(AssetCategoryEnum.ui, "txt")).toBe(false);
+    expect(isAssetExtensionAllowed(AssetCategoryEnum.tileset, "png")).toBe(true);
+    expect(isAssetExtensionAllowed(AssetCategoryEnum.tileset, "webp")).toBe(false);
   });
 });

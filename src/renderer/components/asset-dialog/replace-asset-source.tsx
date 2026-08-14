@@ -23,7 +23,7 @@ function acceptedSourceTypes(category: AssetCategoryEnum): string | undefined {
   if (category === AssetCategoryEnum.shader) {
     return ".glsl";
   }
-  if (category === AssetCategoryEnum.image || category === AssetCategoryEnum.ui) {
+  if (category === AssetCategoryEnum.image || category === AssetCategoryEnum.ui || category === AssetCategoryEnum.tileset) {
     return "image/*";
   }
   return undefined;

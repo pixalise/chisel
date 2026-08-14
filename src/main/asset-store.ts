@@ -197,6 +197,7 @@ export async function importAsset(input: ImportAssetInput): Promise<Asset> {
     width: dimensions.width,
     height: dimensions.height,
     note: request.note,
+    tileSize: request.tileSize,
     extension: extension.replace(/^\./, "")
   });
   const assets = [...document.assets.filter((entry) => entry.id !== asset.id && entry.relativePath !== asset.relativePath), asset];

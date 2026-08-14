@@ -1,31 +1,32 @@
-import type { TiledBoardView, TiledLayerView } from "./tiled-samples";
+import type { TerrainSample, TerrainTileRef, TerrainWorkspaceView } from "./terrain-authoring";
 
-export const tiledWfcPatternSize = 3;
+export const terrainWfcPatternSize = 3;
 
-export type TiledWfcDirection = "north" | "east" | "south" | "west";
+export type TerrainWfcDirection = "north" | "east" | "south" | "west";
 
-export interface TiledWfcPattern {
-  cells: number[];
+export interface TerrainWfcPattern {
+  cells: TerrainTileRef[];
   id: number;
   sampleOccurrences: Record<string, number>;
   weight: number;
 }
 
-export interface TiledWfcLibrary {
-  adjacency: Record<TiledWfcDirection, number[][]>;
-  layerIds: number[];
+export interface TerrainWfcLibrary {
+  adjacency: Record<TerrainWfcDirection, number[][]>;
   patternSize: number;
-  patterns: TiledWfcPattern[];
+  patterns: TerrainWfcPattern[];
   sampleSlugs: string[];
 }
 
-export interface TiledWfcOutput {
+export interface TerrainWfcOutput {
   attempts: number;
+  cells: TerrainTileRef[];
   height: number;
-  layers: TiledLayerView[];
   seed: number;
   width: number;
 }
+
+type Matrix = readonly [number, number, number, number];
 
 interface GridTransform {
   matrix: Matrix;
@@ -33,17 +34,11 @@ interface GridTransform {
   reflected: boolean;
 }
 
-type Matrix = readonly [number, number, number, number];
-
-const gidMask = 0x0fffffff;
-const horizontalFlipFlag = 0x80000000;
-const verticalFlipFlag = 0x40000000;
-const diagonalFlipFlag = 0x20000000;
 const identityMatrix: Matrix = [1, 0, 0, 1];
 const clockwiseMatrix: Matrix = [0, -1, 1, 0];
 const horizontalReflectionMatrix: Matrix = [-1, 0, 0, 1];
-const directions: TiledWfcDirection[] = ["north", "east", "south", "west"];
-const directionOffsets: Record<TiledWfcDirection, readonly [number, number]> = {
+const directions: TerrainWfcDirection[] = ["north", "east", "south", "west"];
+const directionOffsets: Record<TerrainWfcDirection, readonly [number, number]> = {
   north: [0, -1],
   east: [1, 0],
   south: [0, 1],
@@ -69,34 +64,21 @@ function matrixKey(matrix: Matrix): string {
   return matrix.join(",");
 }
 
-const orientationEntries = [
-  { flags: 0, matrix: identityMatrix },
-  { flags: horizontalFlipFlag, matrix: [-1, 0, 0, 1] as Matrix },
-  { flags: verticalFlipFlag, matrix: [1, 0, 0, -1] as Matrix },
-  { flags: (horizontalFlipFlag | verticalFlipFlag) >>> 0, matrix: [-1, 0, 0, -1] as Matrix },
-  { flags: diagonalFlipFlag, matrix: [0, 1, 1, 0] as Matrix },
-  { flags: (diagonalFlipFlag | horizontalFlipFlag) >>> 0, matrix: [0, 1, -1, 0] as Matrix },
-  { flags: (diagonalFlipFlag | verticalFlipFlag) >>> 0, matrix: [0, -1, 1, 0] as Matrix },
-  { flags: (diagonalFlipFlag | horizontalFlipFlag | verticalFlipFlag) >>> 0, matrix: [0, -1, -1, 0] as Matrix }
+const orientationMatrices: Matrix[] = [
+  identityMatrix,
+  matrixPower(clockwiseMatrix, 1),
+  matrixPower(clockwiseMatrix, 2),
+  matrixPower(clockwiseMatrix, 3),
+  horizontalReflectionMatrix,
+  multiplyMatrix(matrixPower(clockwiseMatrix, 1), horizontalReflectionMatrix),
+  multiplyMatrix(matrixPower(clockwiseMatrix, 2), horizontalReflectionMatrix),
+  multiplyMatrix(matrixPower(clockwiseMatrix, 3), horizontalReflectionMatrix)
 ];
-const flagsByMatrix = new Map(orientationEntries.map((entry) => [matrixKey(entry.matrix), entry.flags]));
+const orientationByMatrix = new Map(orientationMatrices.map((matrix, index) => [matrixKey(matrix), index]));
 
-function transformEncodedGid(encodedGid: number, transform: GridTransform): number {
-  const unsigned = encodedGid >>> 0;
-  const gid = unsigned & gidMask;
-  if (gid === 0) return 0;
-  const flags = (unsigned & ~gidMask) >>> 0;
-  const orientation = orientationEntries.find((entry) => entry.flags === flags);
-  if (!orientation) throw new Error(`Unsupported Tiled tile orientation flags 0x${flags.toString(16)}`);
-  const transformed = multiplyMatrix(transform.matrix, orientation.matrix);
-  const transformedFlags = flagsByMatrix.get(matrixKey(transformed));
-  if (transformedFlags === undefined) throw new Error("Could not encode transformed Tiled tile orientation");
-  return (gid | transformedFlags) >>> 0;
-}
-
-function sampleTransforms(allowRotations: boolean, allowReflections: boolean): GridTransform[] {
-  const quarterTurns = allowRotations ? [0, 1, 2, 3] : [0];
-  const reflectedStates = allowReflections ? [false, true] : [false];
+function sampleTransforms(sample: TerrainSample): GridTransform[] {
+  const quarterTurns = sample.allowRotations ? [0, 1, 2, 3] : [0];
+  const reflectedStates = sample.allowReflections ? [false, true] : [false];
   return reflectedStates.flatMap((reflected) =>
     quarterTurns.map((turns) => ({
       reflected,
@@ -117,92 +99,66 @@ function transformPoint(x: number, y: number, size: number, transform: GridTrans
   return [transformedX, transformedY];
 }
 
-function transformPattern(cells: number[], layerCount: number, transform: GridTransform): number[] {
-  const size = tiledWfcPatternSize;
-  const transformed = Array<number>(cells.length).fill(0);
+function transformTile(tile: TerrainTileRef, transform: GridTransform): TerrainTileRef {
+  const transformed = multiplyMatrix(transform.matrix, orientationMatrices[tile.orientation]);
+  const orientation = orientationByMatrix.get(matrixKey(transformed));
+  if (orientation === undefined) throw new Error("Could not encode transformed tile orientation");
+  return { ...tile, orientation };
+}
+
+function transformPattern(cells: TerrainTileRef[], transform: GridTransform): TerrainTileRef[] {
+  const size = terrainWfcPatternSize;
+  const transformed = Array<TerrainTileRef>(cells.length);
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       const [targetX, targetY] = transformPoint(x, y, size, transform);
-      for (let layer = 0; layer < layerCount; layer += 1) {
-        const sourceIndex = (y * size + x) * layerCount + layer;
-        const targetIndex = (targetY * size + targetX) * layerCount + layer;
-        transformed[targetIndex] = transformEncodedGid(cells[sourceIndex], transform);
-      }
+      transformed[targetY * size + targetX] = transformTile(cells[y * size + x], transform);
     }
   }
   return transformed;
 }
 
-function patternCellEquals(
-  left: TiledWfcPattern,
-  leftX: number,
-  leftY: number,
-  right: TiledWfcPattern,
-  rightX: number,
-  rightY: number,
-  layerCount: number
-): boolean {
-  const size = tiledWfcPatternSize;
-  for (let layer = 0; layer < layerCount; layer += 1) {
-    if (left.cells[(leftY * size + leftX) * layerCount + layer] !== right.cells[(rightY * size + rightX) * layerCount + layer]) {
-      return false;
-    }
-  }
-  return true;
+function tileKey(tile: TerrainTileRef): string {
+  return `${tile.tilesetId}:${tile.localId}:${tile.orientation}`;
 }
 
-function patternsFit(left: TiledWfcPattern, right: TiledWfcPattern, direction: TiledWfcDirection, layerCount: number): boolean {
-  const size = tiledWfcPatternSize;
+function patternsFit(left: TerrainWfcPattern, right: TerrainWfcPattern, direction: TerrainWfcDirection): boolean {
+  const size = terrainWfcPatternSize;
   const [offsetX, offsetY] = directionOffsets[direction];
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       const rightX = x - offsetX;
       const rightY = y - offsetY;
       if (rightX < 0 || rightX >= size || rightY < 0 || rightY >= size) continue;
-      if (!patternCellEquals(left, x, y, right, rightX, rightY, layerCount)) return false;
+      if (tileKey(left.cells[y * size + x]) !== tileKey(right.cells[rightY * size + rightX])) return false;
     }
   }
   return true;
 }
 
-export function compileTiledWfcLibrary(board: TiledBoardView): TiledWfcLibrary {
-  const samples = board.authoring.samples;
-  if (samples.length === 0) throw new Error("Create at least one WFC sample before compiling a preview");
-  const layerIds = [...samples[0].layerIds].sort((left, right) => left - right);
-  const layerById = new Map(board.layers.map((layer) => [layer.id, layer]));
-  for (const layerId of layerIds) {
-    if (!layerById.has(layerId)) throw new Error(`WFC sample layer ${layerId} does not exist on board '${board.name}'`);
-  }
-
-  const patterns: TiledWfcPattern[] = [];
-  const patternByKey = new Map<string, TiledWfcPattern>();
-  for (const sample of samples) {
-    const sampleLayerIds = [...sample.layerIds].sort((left, right) => left - right);
-    if (sampleLayerIds.join(",") !== layerIds.join(",")) {
-      throw new Error(`Sample '${sample.slug}' must use the same included layers as '${samples[0].slug}'`);
-    }
-    if (sample.width < tiledWfcPatternSize || sample.height < tiledWfcPatternSize) {
-      throw new Error(`Sample '${sample.slug}' must be at least ${tiledWfcPatternSize}×${tiledWfcPatternSize} cells`);
-    }
-
-    const occurrences: number[][] = [];
-    const transforms = sampleTransforms(sample.allowRotations, sample.allowReflections);
-    for (let patternY = 0; patternY <= sample.height - tiledWfcPatternSize; patternY += 1) {
-      for (let patternX = 0; patternX <= sample.width - tiledWfcPatternSize; patternX += 1) {
-        const cells: number[] = [];
-        for (let y = 0; y < tiledWfcPatternSize; y += 1) {
-          for (let x = 0; x < tiledWfcPatternSize; x += 1) {
-            const boardIndex = (sample.y + patternY + y) * board.width + sample.x + patternX + x;
-            for (const layerId of layerIds) cells.push(layerById.get(layerId)?.data[boardIndex] ?? 0);
+export function compileTerrainWfcLibrary(workspace: Pick<TerrainWorkspaceView, "samples">): TerrainWfcLibrary {
+  if (workspace.samples.length === 0) throw new Error("Create at least one WFC sample before compiling a preview");
+  const patterns: TerrainWfcPattern[] = [];
+  const patternByKey = new Map<string, TerrainWfcPattern>();
+  for (const sample of workspace.samples) {
+    if (sample.cells.some((cell) => cell === null)) throw new Error(`Sample '${sample.slug}' must be fully painted before compiling`);
+    const occurrences: TerrainTileRef[][] = [];
+    for (let patternY = 0; patternY <= sample.height - terrainWfcPatternSize; patternY += 1) {
+      for (let patternX = 0; patternX <= sample.width - terrainWfcPatternSize; patternX += 1) {
+        const cells: TerrainTileRef[] = [];
+        for (let y = 0; y < terrainWfcPatternSize; y += 1) {
+          for (let x = 0; x < terrainWfcPatternSize; x += 1) {
+            const cell = sample.cells[(patternY + y) * sample.width + patternX + x];
+            if (!cell) throw new Error(`Sample '${sample.slug}' must be fully painted before compiling`);
+            cells.push(cell);
           }
         }
-        for (const transform of transforms) occurrences.push(transformPattern(cells, layerIds.length, transform));
+        for (const transform of sampleTransforms(sample)) occurrences.push(transformPattern(cells, transform));
       }
     }
-
     const contribution = 1 / occurrences.length;
     for (const cells of occurrences) {
-      const key = cells.join(",");
+      const key = cells.map(tileKey).join("|");
       let pattern = patternByKey.get(key);
       if (!pattern) {
         pattern = { cells, id: patterns.length, sampleOccurrences: {}, weight: 0 };
@@ -213,25 +169,22 @@ export function compileTiledWfcLibrary(board: TiledBoardView): TiledWfcLibrary {
       pattern.weight += contribution;
     }
   }
-
   const adjacency = Object.fromEntries(directions.map((direction) => [direction, patterns.map(() => [] as number[])])) as Record<
-    TiledWfcDirection,
+    TerrainWfcDirection,
     number[][]
   >;
   for (const direction of directions) {
     for (const left of patterns) {
       for (const right of patterns) {
-        if (patternsFit(left, right, direction, layerIds.length)) adjacency[direction][left.id].push(right.id);
+        if (patternsFit(left, right, direction)) adjacency[direction][left.id].push(right.id);
       }
     }
   }
-
   return {
     adjacency,
-    layerIds,
-    patternSize: tiledWfcPatternSize,
+    patternSize: terrainWfcPatternSize,
     patterns,
-    sampleSlugs: samples.map((sample) => sample.slug)
+    sampleSlugs: workspace.samples.map((sample) => sample.slug)
   };
 }
 
@@ -246,7 +199,7 @@ function randomGenerator(seed: number): () => number {
   };
 }
 
-function weightedChoice(possibilities: Set<number>, library: TiledWfcLibrary, random: () => number): number {
+function weightedChoice(possibilities: Set<number>, library: TerrainWfcLibrary, random: () => number): number {
   const total = [...possibilities].reduce((sum, patternId) => sum + library.patterns[patternId].weight, 0);
   let cursor = random() * total;
   for (const patternId of possibilities) {
@@ -258,7 +211,7 @@ function weightedChoice(possibilities: Set<number>, library: TiledWfcLibrary, ra
   return fallback;
 }
 
-function entropy(possibilities: Set<number>, library: TiledWfcLibrary): number {
+function entropy(possibilities: Set<number>, library: TerrainWfcLibrary): number {
   let sum = 0;
   let weightedLogs = 0;
   for (const patternId of possibilities) {
@@ -269,14 +222,13 @@ function entropy(possibilities: Set<number>, library: TiledWfcLibrary): number {
   return Math.log(sum) - weightedLogs / sum;
 }
 
-function solvePatterns(library: TiledWfcLibrary, width: number, height: number, seed: number): number[] {
+function solvePatterns(library: TerrainWfcLibrary, width: number, height: number, seed: number): number[] {
   const waveWidth = width - library.patternSize + 1;
   const waveHeight = height - library.patternSize + 1;
-  const allPatterns = library.patterns.map((pattern) => pattern.id);
-  const wave = Array.from({ length: waveWidth * waveHeight }, () => new Set(allPatterns));
+  const wave = Array.from({ length: waveWidth * waveHeight }, () => new Set(library.patterns.map((pattern) => pattern.id)));
   const adjacencySets = Object.fromEntries(
     directions.map((direction) => [direction, library.adjacency[direction].map((entries) => new Set(entries))])
-  ) as Record<TiledWfcDirection, Set<number>[]>;
+  ) as Record<TerrainWfcDirection, Set<number>[]>;
   const random = randomGenerator(seed);
 
   function propagate(initialIndices: number[]): void {
@@ -325,11 +277,9 @@ function solvePatterns(library: TiledWfcLibrary, width: number, height: number, 
       }
     }
     if (selectedIndex < 0) break;
-    const selectedPattern = weightedChoice(wave[selectedIndex], library, random);
-    wave[selectedIndex] = new Set([selectedPattern]);
+    wave[selectedIndex] = new Set([weightedChoice(wave[selectedIndex], library, random)]);
     propagate([selectedIndex]);
   }
-
   return wave.map((possibilities) => {
     const patternId = possibilities.values().next().value;
     if (patternId === undefined) throw new Error("WFC completed with an empty cell");
@@ -337,9 +287,9 @@ function solvePatterns(library: TiledWfcLibrary, width: number, height: number, 
   });
 }
 
-function reconstructOutput(library: TiledWfcLibrary, patternIds: number[], width: number, height: number): TiledLayerView[] {
+function reconstructOutput(library: TerrainWfcLibrary, patternIds: number[], width: number, height: number): TerrainTileRef[] {
   const waveWidth = width - library.patternSize + 1;
-  const layerData = library.layerIds.map(() => Array<number | undefined>(width * height).fill(undefined));
+  const cells = Array<TerrainTileRef | undefined>(width * height).fill(undefined);
   for (const [anchorIndex, patternId] of patternIds.entries()) {
     const anchorX = anchorIndex % waveWidth;
     const anchorY = Math.floor(anchorIndex / waveWidth);
@@ -347,28 +297,23 @@ function reconstructOutput(library: TiledWfcLibrary, patternIds: number[], width
     for (let y = 0; y < library.patternSize; y += 1) {
       for (let x = 0; x < library.patternSize; x += 1) {
         const outputIndex = (anchorY + y) * width + anchorX + x;
-        for (let layer = 0; layer < library.layerIds.length; layer += 1) {
-          const value = pattern.cells[(y * library.patternSize + x) * library.layerIds.length + layer];
-          const existing = layerData[layer][outputIndex];
-          if (existing !== undefined && existing !== value) throw new Error("Compatible WFC patterns reconstructed conflicting tiles");
-          layerData[layer][outputIndex] = value;
-        }
+        const value = pattern.cells[y * library.patternSize + x];
+        const existing = cells[outputIndex];
+        if (existing && tileKey(existing) !== tileKey(value)) throw new Error("Compatible WFC patterns reconstructed conflicting tiles");
+        cells[outputIndex] = value;
       }
     }
   }
-  return library.layerIds.map((id, index) => ({
-    id,
-    name: `Layer ${id}`,
-    visible: true,
-    opacity: 1,
-    data: layerData[index].map((value) => value ?? 0)
-  }));
+  return cells.map((cell) => {
+    if (!cell) throw new Error("WFC output contains an unresolved cell");
+    return cell;
+  });
 }
 
-export function generateTiledWfcOutput(
-  library: TiledWfcLibrary,
+export function generateTerrainWfcOutput(
+  library: TerrainWfcLibrary,
   options: { height: number; maxAttempts?: number; seed: number; width: number }
-): TiledWfcOutput {
+): TerrainWfcOutput {
   const width = Math.floor(options.width);
   const height = Math.floor(options.height);
   if (width < library.patternSize || height < library.patternSize) {
@@ -380,12 +325,23 @@ export function generateTiledWfcOutput(
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const seed = (options.seed + Math.imul(attempt, 0x9e3779b1)) >>> 0;
     try {
-      const patternIds = solvePatterns(library, width, height, seed);
-      return { attempts: attempt + 1, height, layers: reconstructOutput(library, patternIds, width, height), seed, width };
+      return {
+        attempts: attempt + 1,
+        cells: reconstructOutput(library, solvePatterns(library, width, height, seed), width, height),
+        height,
+        seed,
+        width
+      };
     } catch (caught) {
       lastError = caught;
     }
   }
   const detail = lastError instanceof Error ? lastError.message : String(lastError);
   throw new Error(`WFC could not produce a ${width}×${height} preview after ${maxAttempts} attempts: ${detail}`);
+}
+
+export function terrainOrientationMatrix(orientation: number): Matrix {
+  const matrix = orientationMatrices[orientation];
+  if (!matrix) throw new Error(`Unknown tile orientation ${orientation}`);
+  return matrix;
 }

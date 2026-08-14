@@ -71,6 +71,42 @@ describe("asset slugs", () => {
     ).toBe(false);
   });
 
+  it("requires native tilesets to be divisible PNG grids", () => {
+    expect(
+      createOrUpdateAssetSchema.safeParse({
+        category: AssetCategoryEnum.tileset,
+        extension: "png",
+        height: 384,
+        name: "FOREST_TILES",
+        sizeBytes: 1024,
+        tileSize: 64,
+        width: 1024
+      }).success
+    ).toBe(true);
+    expect(
+      createOrUpdateAssetSchema.safeParse({
+        category: AssetCategoryEnum.tileset,
+        extension: "png",
+        height: 385,
+        name: "BROKEN_GRID",
+        sizeBytes: 1024,
+        tileSize: 64,
+        width: 1024
+      }).success
+    ).toBe(false);
+    expect(
+      createOrUpdateAssetSchema.safeParse({
+        category: AssetCategoryEnum.tileset,
+        extension: "webp",
+        height: 384,
+        name: "WRONG_FORMAT",
+        sizeBytes: 1024,
+        tileSize: 64,
+        width: 1024
+      }).success
+    ).toBe(false);
+  });
+
   it("keeps HDR files in the HDRI asset category", () => {
     const asset = assetSchema.parse({
       category: AssetCategoryEnum.image,

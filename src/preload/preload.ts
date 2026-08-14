@@ -1,16 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { ConvertImages, ConvertedImage, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas";
-import type {
-  TiledBoardInput,
-  TiledBoardView,
-  TiledDeleteTilesetInput,
-  TiledImportBoardInput,
-  TiledProjectInput,
-  TiledSaveAuthoringInput,
-  TiledSaveRolesInput,
-  TiledSourceSnapshot,
-  TiledWorkspaceView
-} from "../shared/tiled-samples";
 import type { Asset, FileMetadata } from "../shared/types";
 
 function assetUrlFromPath(filePath: string): string {
@@ -45,22 +34,6 @@ contextBridge.exposeInMainWorld("electron", {
     ipcRenderer.invoke("image:convert-to-png", input) as Promise<ConvertedImage[]>,
   createImageConversionPreview: (inputPath: string): Promise<string> =>
     ipcRenderer.invoke("image:conversion-preview", inputPath) as Promise<string>,
-  loadTiledWorkspace: (input: TiledProjectInput): Promise<TiledWorkspaceView> =>
-    ipcRenderer.invoke("tiled:load-workspace", input) as Promise<TiledWorkspaceView>,
-  importTiledBoard: (input: TiledImportBoardInput): Promise<TiledWorkspaceView> =>
-    ipcRenderer.invoke("tiled:import-board", input) as Promise<TiledWorkspaceView>,
-  deleteTiledTileset: (input: TiledDeleteTilesetInput): Promise<TiledWorkspaceView> =>
-    ipcRenderer.invoke("tiled:delete-tileset", input) as Promise<TiledWorkspaceView>,
-  reloadTiledBoard: (input: TiledBoardInput): Promise<TiledBoardView> =>
-    ipcRenderer.invoke("tiled:reload-board", input) as Promise<TiledBoardView>,
-  saveTiledRoles: (input: TiledSaveRolesInput): Promise<TiledWorkspaceView> =>
-    ipcRenderer.invoke("tiled:save-roles", input) as Promise<TiledWorkspaceView>,
-  saveTiledAuthoring: (input: TiledSaveAuthoringInput): Promise<TiledBoardView> =>
-    ipcRenderer.invoke("tiled:save-authoring", input) as Promise<TiledBoardView>,
-  snapshotTiledWorkspace: (input: TiledProjectInput): Promise<TiledSourceSnapshot> =>
-    ipcRenderer.invoke("tiled:snapshot", input) as Promise<TiledSourceSnapshot>,
-  restoreTiledWorkspace: (input: TiledProjectInput & { snapshot: TiledSourceSnapshot }): Promise<TiledWorkspaceView> =>
-    ipcRenderer.invoke("tiled:restore", input) as Promise<TiledWorkspaceView>,
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   toAssetUrl: (filePath: string): string => assetUrlFromPath(filePath)
 });
