@@ -24,7 +24,8 @@ export const terrainTileRefSchema = z
   .strict();
 export type TerrainTileRef = z.infer<typeof terrainTileRefSchema>;
 
-export const terrainSampleLayerCountSchema = z.number().int().min(1).max(4);
+export const terrainSampleLayerCountMax = 4;
+export const terrainSampleLayerCountSchema = z.number().int().min(1).max(terrainSampleLayerCountMax);
 export type TerrainSampleLayerCount = z.infer<typeof terrainSampleLayerCountSchema>;
 
 export const terrainSampleCellSchema = z.array(terrainTileRefSchema.nullable()).min(1).max(4);
@@ -66,6 +67,15 @@ export const terrainSampleSchema = z
     });
   });
 export type TerrainSample = z.infer<typeof terrainSampleSchema>;
+
+export function appendTerrainSampleLayer(sample: TerrainSample): TerrainSample {
+  const layerCount = terrainSampleLayerCountSchema.parse(sample.layerCount + 1);
+  return terrainSampleSchema.parse({
+    ...sample,
+    layerCount,
+    cells: sample.cells.map((cell) => [...cell, null])
+  });
+}
 
 export interface TerrainTilesetView {
   id: string;

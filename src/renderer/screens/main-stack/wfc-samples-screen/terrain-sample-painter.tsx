@@ -1,5 +1,13 @@
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { type FC, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
-import type { TerrainSample, TerrainTileRef, TerrainTilesetView } from "../../../../shared/terrain-authoring";
+import {
+  appendTerrainSampleLayer,
+  terrainSampleLayerCountMax,
+  type TerrainSample,
+  type TerrainTileRef,
+  type TerrainTilesetView
+} from "../../../../shared/terrain-authoring";
 import { drawTerrainCell } from "./terrain-rendering";
 
 interface TerrainSamplePainterProps {
@@ -124,26 +132,46 @@ export const TerrainSamplePainter: FC<TerrainSamplePainterProps> = (props) => {
     lastCellRef.current = -1;
   }
 
+  function addPaintLayer(): void {
+    if (!sample || sample.layerCount >= terrainSampleLayerCountMax) return;
+    const layered = appendTerrainSampleLayer(sample);
+    setActiveLayer(layered.layerCount - 1);
+    onChange(layered);
+  }
+
   return (
     <div className="space-y-2 rounded-md border border-border p-3">
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">Sample painter</h3>
           {sample && (
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              Paint layer
-              <select
-                className="h-8 rounded-md border border-input bg-background px-2 text-foreground"
-                onChange={(event) => setActiveLayer(Number(event.target.value))}
-                value={activeLayer}
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                Paint layer
+                <select
+                  className="h-8 rounded-md border border-input bg-background px-2 text-foreground"
+                  onChange={(event) => setActiveLayer(Number(event.target.value))}
+                  value={activeLayer}
+                >
+                  {Array.from({ length: sample.layerCount }, (_, layer) => (
+                    <option key={layer} value={layer}>
+                      {layer === 0 ? "Base" : `Overlay ${layer}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button
+                disabled={sample.layerCount >= terrainSampleLayerCountMax}
+                onClick={addPaintLayer}
+                size="sm"
+                title={sample.layerCount >= terrainSampleLayerCountMax ? "A sample can have up to four paint layers" : undefined}
+                type="button"
+                variant="outline"
               >
-                {Array.from({ length: sample.layerCount }, (_, layer) => (
-                  <option key={layer} value={layer}>
-                    {layer === 0 ? "Base" : `Overlay ${layer}`}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <Plus className="size-4" />
+                Add paint layer
+              </Button>
+            </div>
           )}
         </div>
         <p className="text-xs text-muted-foreground">

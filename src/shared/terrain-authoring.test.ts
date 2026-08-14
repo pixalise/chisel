@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { terrainSampleSchema, terrainTileBindingSchema } from "./terrain-authoring";
+import { appendTerrainSampleLayer, terrainSampleSchema, terrainTileBindingSchema } from "./terrain-authoring";
 
 describe("native terrain authoring contract", () => {
   it("accepts a fully painted current-format sample", () => {
@@ -31,6 +31,25 @@ describe("native terrain authoring contract", () => {
     });
 
     expect(sample).toMatchObject({ width: 24, height: 32, layerCount: 2, periodicInput: true });
+  });
+
+  it("appends a transparent paint layer without changing painted cells", () => {
+    const base = { tilesetId: "GRASS", localId: 7, orientation: 0 };
+    const sample = terrainSampleSchema.parse({
+      slug: "LAYER_TEST",
+      width: 3,
+      height: 3,
+      layerCount: 1,
+      cells: Array.from({ length: 9 }, () => [base]),
+      periodicInput: false,
+      allowRotations: false,
+      allowReflections: false
+    });
+
+    const layered = appendTerrainSampleLayer(sample);
+
+    expect(layered.layerCount).toBe(2);
+    expect(layered.cells).toEqual(Array.from({ length: 9 }, () => [base, null]));
   });
 
   it("keeps blocking and tags in the per-tile binding", () => {
