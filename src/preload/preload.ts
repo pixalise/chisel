@@ -1,31 +1,17 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import { pathToFileURL } from "node:url";
+import type { ConvertImages, ConvertedImage, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas";
+import { fileUrlFromPath } from "../shared/file-url";
 import type {
-  ConvertImages,
-  ConvertedImage,
-  ImportAssetInput,
-  ReplaceAssetSourceInput,
-  TextureAtlasBuildInput,
-  TextureAtlasBuildResult,
-  TextureAtlasDeleteInput,
-  TextureAtlasDocument,
-  TextureAtlasSaveInput,
-  PackAlbedoHeightTexture,
-  PackNormalRoughnessTexture,
-  PackTexturePackage,
-  AssetsJson
-} from "../shared/schemas";
+  TiledBoardInput,
+  TiledBoardView,
+  TiledImportBoardInput,
+  TiledProjectInput,
+  TiledSaveConfigInput,
+  TiledSaveEnrichmentInput,
+  TiledSourceSnapshot,
+  TiledWorkspaceView
+} from "../shared/tiled-samples";
 import type { Asset, FileMetadata } from "../shared/types";
-
-interface PackedTexturePackageDataUrls {
-  albedoHeight: string;
-  normalRoughness: string;
-}
-
-interface UpgradeAssetLibraryPathsResult {
-  assetIdChanges: Record<string, string>;
-  assetsJson: AssetsJson;
-}
 
 contextBridge.exposeInMainWorld("electron", {
   openFolderDialog: (): Promise<string | null> => ipcRenderer.invoke("project:open-folder-dialog") as Promise<string | null>,
@@ -47,28 +33,26 @@ contextBridge.exposeInMainWorld("electron", {
   importAsset: (input: ImportAssetInput): Promise<Asset> => ipcRenderer.invoke("asset:import", input) as Promise<Asset>,
   replaceAssetSource: (input: ReplaceAssetSourceInput): Promise<Asset> =>
     ipcRenderer.invoke("asset:replace-source", input) as Promise<Asset>,
-  upgradeAssetLibraryPaths: (projectPath: string): Promise<UpgradeAssetLibraryPathsResult> =>
-    ipcRenderer.invoke("asset:upgrade-library-paths", projectPath) as Promise<UpgradeAssetLibraryPathsResult>,
   replaceAssetReferences: (projectPath: string, assetIdChanges: Record<string, string>): Promise<boolean> =>
     ipcRenderer.invoke("asset:replace-references", projectPath, assetIdChanges) as Promise<boolean>,
-  packAlbedoHeightTexture: (input: PackAlbedoHeightTexture): Promise<string> =>
-    ipcRenderer.invoke("texture:pack-albedo-height", input) as Promise<string>,
-  packNormalRoughnessTexture: (input: PackNormalRoughnessTexture): Promise<string> =>
-    ipcRenderer.invoke("texture:pack-normal-roughness", input) as Promise<string>,
-  packTexturePackage: (input: PackTexturePackage): Promise<Asset> => ipcRenderer.invoke("texture:pack-package", input) as Promise<Asset>,
-  unpackTexturePackage: (inputPath: string): Promise<PackedTexturePackageDataUrls> =>
-    ipcRenderer.invoke("texture:unpack-package", inputPath) as Promise<PackedTexturePackageDataUrls>,
   convertImages: (input: ConvertImages): Promise<ConvertedImage[]> =>
     ipcRenderer.invoke("image:convert-to-png", input) as Promise<ConvertedImage[]>,
-  createImageConversionPreview: (inputPath: string, preview?: "albedoHeight" | "normalRoughness"): Promise<string> =>
-    ipcRenderer.invoke("image:conversion-preview", inputPath, preview) as Promise<string>,
-  listTextureAtlases: (projectPath: string): Promise<TextureAtlasDocument[]> =>
-    ipcRenderer.invoke("atlas:list", { projectPath }) as Promise<TextureAtlasDocument[]>,
-  saveTextureAtlas: (input: TextureAtlasSaveInput): Promise<TextureAtlasDocument> =>
-    ipcRenderer.invoke("atlas:save", input) as Promise<TextureAtlasDocument>,
-  deleteTextureAtlas: (input: TextureAtlasDeleteInput): Promise<void> => ipcRenderer.invoke("atlas:delete", input) as Promise<void>,
-  buildTextureAtlas: (input: TextureAtlasBuildInput): Promise<TextureAtlasBuildResult> =>
-    ipcRenderer.invoke("atlas:build", input) as Promise<TextureAtlasBuildResult>,
+  createImageConversionPreview: (inputPath: string): Promise<string> =>
+    ipcRenderer.invoke("image:conversion-preview", inputPath) as Promise<string>,
+  loadTiledWorkspace: (input: TiledProjectInput): Promise<TiledWorkspaceView> =>
+    ipcRenderer.invoke("tiled:load-workspace", input) as Promise<TiledWorkspaceView>,
+  importTiledBoard: (input: TiledImportBoardInput): Promise<TiledWorkspaceView> =>
+    ipcRenderer.invoke("tiled:import-board", input) as Promise<TiledWorkspaceView>,
+  reloadTiledBoard: (input: TiledBoardInput): Promise<TiledBoardView> =>
+    ipcRenderer.invoke("tiled:reload-board", input) as Promise<TiledBoardView>,
+  saveTiledConfig: (input: TiledSaveConfigInput): Promise<TiledWorkspaceView> =>
+    ipcRenderer.invoke("tiled:save-config", input) as Promise<TiledWorkspaceView>,
+  saveTiledEnrichment: (input: TiledSaveEnrichmentInput): Promise<TiledBoardView> =>
+    ipcRenderer.invoke("tiled:save-enrichment", input) as Promise<TiledBoardView>,
+  snapshotTiledWorkspace: (input: TiledProjectInput): Promise<TiledSourceSnapshot> =>
+    ipcRenderer.invoke("tiled:snapshot", input) as Promise<TiledSourceSnapshot>,
+  restoreTiledWorkspace: (input: TiledProjectInput & { snapshot: TiledSourceSnapshot }): Promise<TiledWorkspaceView> =>
+    ipcRenderer.invoke("tiled:restore", input) as Promise<TiledWorkspaceView>,
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
-  toFileUrl: (filePath: string): string => pathToFileURL(filePath).href
+  toFileUrl: (filePath: string): string => fileUrlFromPath(filePath)
 });

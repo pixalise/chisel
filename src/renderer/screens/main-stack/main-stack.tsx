@@ -11,9 +11,8 @@ import { DataTablesScreen } from "@/screens/main-stack/data-tables-screen/data-t
 import { ImageConversionScreen } from "@/screens/main-stack/image-conversion-screen/image-conversion-screen";
 import LocalizationScreen from "@/screens/main-stack/localization-screen/localization-screen";
 import { SettingsScreen } from "@/screens/main-stack/settings-screen";
-import { TexturePackingScreen } from "@/screens/main-stack/texture-packing-screen/texture-packing-screen";
 import TodoScreen from "@/screens/main-stack/todo-screen/todo-screen";
-import { TextureAtlasesScreen } from "@/screens/main-stack/texture-atlases-screen/texture-atlases-screen";
+import { WfcSamplesScreen } from "@/screens/main-stack/wfc-samples-screen/wfc-samples-screen";
 
 const MainStack: FC = () => {
   const { pathname } = useLocation();
@@ -34,9 +33,8 @@ const MainStack: FC = () => {
               <Route element={<AssetLibraryScreen />} path={RouteEnum.assets} />
               <Route element={<DataTablesScreen />} path={RouteEnum.database} />
               <Route element={<LocalizationScreen />} path={RouteEnum.localization} />
+              <Route element={<WfcSamplesScreen />} path={RouteEnum.wfcSamples} />
               <Route element={<ImageConversionScreen />} path={RouteEnum.imageConversion} />
-              <Route element={<TexturePackingScreen />} path={RouteEnum.texturePacking} />
-              <Route element={<TextureAtlasesScreen />} path={RouteEnum.textureAtlases} />
               <Route element={<SettingsScreen />} path={RouteEnum.settings} />
               <Route element={<TodoScreen />} path={RouteEnum.todos} />
               <Route element={<Navigate replace to={RouteEnum.assets} />} path="*" />

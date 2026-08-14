@@ -251,11 +251,11 @@ describe("Godot export", () => {
   it("exports assets by id with Godot asset paths", () => {
     const asset = assetSchema.parse({
       category: AssetCategoryEnum.terrainTexture,
-      extension: "gppt",
+      extension: "tga",
       height: 1024,
       id: "FOREST_SOIL_1",
       name: "FOREST_SOIL_1",
-      relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL_1.gppt",
+      relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL_1.tga",
       sizeBytes: 1024,
       width: 1024
     });
@@ -280,11 +280,7 @@ describe("Godot export", () => {
     expect(assetsFile?.content).toContain("FOREST_SOIL_1 = 0");
     expect(assetsFile?.content).toContain('"category": "terrain_texture"');
     expect(assetsFile?.content).toContain('"name": "forest_soil_1"');
-    expect(assetsFile?.content).toContain('"path": "res://game_data/assets/terrain_texture/forest_soil_1"');
-    expect(assetsFile?.content).toContain('"albedo_height": "res://game_data/assets/terrain_texture/forest_soil_1/albedo_height.png"');
-    expect(assetsFile?.content).toContain(
-      '"normal_roughness": "res://game_data/assets/terrain_texture/forest_soil_1/normal_roughness.png"'
-    );
+    expect(assetsFile?.content).toContain('"path": "res://game_data/assets/terrain_texture/forest_soil_1.tga"');
   });
 
   it("exports HDRI assets under snake case HDRI paths", () => {

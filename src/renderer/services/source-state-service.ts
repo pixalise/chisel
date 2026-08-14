@@ -4,7 +4,7 @@ import assetService from "@/services/asset-service";
 import fileService from "@/services/file-service";
 import localizationService from "@/services/localization-service";
 import tableService from "@/services/table-service";
-import textureAtlasService from "@/services/texture-atlas-service";
+import tiledSampleService from "@/services/tiled-sample-service";
 import appStore from "@/stores/app-store";
 import { zodParse } from "@/utils/zod-parse";
 import { assetsJsonSchema, projectFileSchema, type Project } from "../../shared/schemas";
@@ -30,11 +30,11 @@ class SourceStateService extends BaseService {
 
   public async commitDraft(): Promise<CommittedSourceSnapshot> {
     const project = appStore.getState().computed.project;
-    const [tables, assets, localization, atlases] = await Promise.all([
+    const [tables, assets, localization, tiled] = await Promise.all([
       tableService.listAllTables(),
       assetService.getAllAssets(),
       localizationService.readLocalization(),
-      textureAtlasService.list()
+      tiledSampleService.snapshot()
     ]);
     const commit = zodParse(committedSourceSnapshotSchema, {
       id: nanoid(),
@@ -46,11 +46,11 @@ class SourceStateService extends BaseService {
         assets
       }),
       localization,
-      atlases
+      tiled
     });
     const sourceState = await this.readSourceState();
     await this.writeSourceState({
-      schemaVersion: 1,
+      schemaVersion: 2,
       commits: [commit, ...sourceState.commits].slice(0, maxCommitCount)
     });
     return commit;
@@ -82,9 +82,7 @@ class SourceStateService extends BaseService {
     );
     await fileService.writeAssetsJson(restoredProject, commit.assets);
     await fileService.writeLocalizationJson(restoredProject, commit.localization);
-    const currentAtlases = await textureAtlasService.list();
-    await Promise.all(currentAtlases.map((atlas) => textureAtlasService.delete(atlas.id)));
-    await Promise.all(commit.atlases.map((atlas) => textureAtlasService.save(atlas)));
+    await tiledSampleService.restore(commit.tiled);
     appStore.getState().setProject(restoredProject);
 
     return commit;

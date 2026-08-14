@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { emptyLocalizationDocument, localizationDocumentSchema } from "./localization";
 import { assetSchema, dataTableSchema, type Project } from "./schemas";
 import { AssetCategoryEnum, ColumnType } from "./types";
-import { createHaxeFlixelExportBundle, haxeFlixelAssetExportPath, haxeFlixelPackedTextureExportPaths } from "./haxeflixel-export";
+import { createHaxeFlixelExportBundle } from "./haxeflixel-export";
 
 describe("HaxeFlixel export", () => {
   it("exports typed enum-indexed structure-of-arrays modules", () => {
@@ -104,24 +104,5 @@ describe("HaxeFlixel export", () => {
     expect(localizationFile?.content).toContain("if (localeIndex < 0) {\n\t\t\tthrow 'Unknown locale: $locale';\n\t\t}");
     expect(localizationFile?.content).toContain('public static final VALUES:Array<Array<String>> = [["Unit"]]');
     expect(bundle.files.some((entry) => entry.path === "source/gamedata/ChiselManifest.hx")).toBe(true);
-  });
-
-  it("uses unpacked PNG paths for packed terrain textures", () => {
-    const asset = assetSchema.parse({
-      category: AssetCategoryEnum.terrainTexture,
-      extension: "gppt",
-      height: 16,
-      id: "ignored",
-      name: "GROUND",
-      relativePath: ".chisel/assets/ground.gppt",
-      sizeBytes: 100,
-      width: 16
-    });
-
-    expect(haxeFlixelAssetExportPath(asset)).toBe("assets/chisel/terrain_texture/ground");
-    expect(haxeFlixelPackedTextureExportPaths(asset)).toEqual({
-      albedoHeight: "assets/chisel/terrain_texture/ground/albedo_height.png",
-      normalRoughness: "assets/chisel/terrain_texture/ground/normal_roughness.png"
-    });
   });
 });

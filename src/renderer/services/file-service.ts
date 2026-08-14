@@ -160,11 +160,10 @@ class FileService {
   }
 
   public async tryReadSourceStateJson(path: string): Promise<Nullish<SourceStateJson>> {
-    const data = await this.tryReadJsonFile<SourceStateJson>(this.fullPath(path, FilePathEnum.sourceStateJson));
+    const data = await this.tryReadJsonFile<unknown>(this.fullPath(path, FilePathEnum.sourceStateJson));
     if (isNil(data)) {
       return undefined;
     }
-
     return zodParse(sourceStateJsonSchema, data);
   }
 

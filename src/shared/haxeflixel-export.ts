@@ -2,7 +2,7 @@ import { snakeCase } from "lodash";
 import type { LocalizationDocument } from "./localization";
 import { renderHaxeFlixelInputExport } from "./haxeflixel-input-export";
 import type { AnyDataTable, Asset, DataColumnDefinition, DataTableRow, Project } from "./schemas";
-import { AssetCategoryEnum, ColumnType } from "./types";
+import { ColumnType } from "./types";
 
 export const HAXEFLIXEL_GAME_DATA_EXPORT_ROOT = "source/gamedata";
 export const HAXEFLIXEL_ASSET_EXPORT_ROOT = "assets/chisel";
@@ -15,11 +15,6 @@ export interface HaxeFlixelExportFile {
 
 export interface HaxeFlixelExportBundle {
   files: HaxeFlixelExportFile[];
-}
-
-export interface HaxeFlixelPackedTextureExportPaths {
-  albedoHeight: string;
-  normalRoughness: string;
 }
 
 interface HaxeValueContext {
@@ -148,17 +143,8 @@ function assetFolder(asset: Asset): string {
   return `${HAXEFLIXEL_ASSET_EXPORT_ROOT}/${snakeCase(asset.category)}/${snakeCase(asset.name)}`;
 }
 
-export function isHaxeFlixelPackedTextureAsset(asset: Asset): boolean {
-  return asset.category === AssetCategoryEnum.terrainTexture && asset.extension.toLowerCase() === "gppt";
-}
-
 export function haxeFlixelAssetExportPath(asset: Asset): string {
-  return isHaxeFlixelPackedTextureAsset(asset) ? assetFolder(asset) : `${assetFolder(asset)}.${asset.extension.toLowerCase()}`;
-}
-
-export function haxeFlixelPackedTextureExportPaths(asset: Asset): HaxeFlixelPackedTextureExportPaths {
-  const folder = assetFolder(asset);
-  return { albedoHeight: `${folder}/albedo_height.png`, normalRoughness: `${folder}/normal_roughness.png` };
+  return `${assetFolder(asset)}.${asset.extension.toLowerCase()}`;
 }
 
 function renderAssets(assets: Asset[]): HaxeFlixelExportFile {

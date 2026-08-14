@@ -60,11 +60,11 @@ describe("project content validation", () => {
     const portraitColumnId = nanoid();
     const terrainAsset = assetSchema.parse({
       category: AssetCategoryEnum.terrainTexture,
-      extension: "gppt",
+      extension: "tga",
       height: 1024,
       id: "FOREST_SOIL",
       name: "FOREST_SOIL",
-      relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL.gppt",
+      relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL.tga",
       sizeBytes: 1024,
       width: 1024
     });

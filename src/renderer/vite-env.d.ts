@@ -1,20 +1,16 @@
 /// <reference types="vite/client" />
 
+import type { ConvertImages, ConvertedImage, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas";
 import type {
-  ConvertImages,
-  ConvertedImage,
-  ImportAssetInput,
-  ReplaceAssetSourceInput,
-  TextureAtlasBuildInput,
-  TextureAtlasBuildResult,
-  TextureAtlasDeleteInput,
-  TextureAtlasDocument,
-  TextureAtlasSaveInput,
-  PackAlbedoHeightTexture,
-  PackNormalRoughnessTexture,
-  PackTexturePackage,
-  AssetsJson
-} from "../shared/schemas";
+  TiledBoardInput,
+  TiledBoardView,
+  TiledImportBoardInput,
+  TiledProjectInput,
+  TiledSaveConfigInput,
+  TiledSaveEnrichmentInput,
+  TiledSourceSnapshot,
+  TiledWorkspaceView
+} from "../shared/tiled-samples";
 import type { Asset, FileMetadata } from "../shared/types";
 
 type OpenFileDialogOptions = {
@@ -28,16 +24,6 @@ type OpenFileDialogOptions = {
 };
 
 declare global {
-  interface PackedTexturePackageDataUrls {
-    albedoHeight: string;
-    normalRoughness: string;
-  }
-
-  interface UpgradeAssetLibraryPathsResult {
-    assetIdChanges: Record<string, string>;
-    assetsJson: AssetsJson;
-  }
-
   interface Window {
     electron: {
       openFolderDialog: () => Promise<string | null>;
@@ -54,18 +40,16 @@ declare global {
       getFileMetadata: (sourcePath: string) => Promise<FileMetadata>;
       importAsset: (input: ImportAssetInput) => Promise<Asset>;
       replaceAssetSource: (input: ReplaceAssetSourceInput) => Promise<Asset>;
-      upgradeAssetLibraryPaths: (projectPath: string) => Promise<UpgradeAssetLibraryPathsResult>;
       replaceAssetReferences: (projectPath: string, assetIdChanges: Record<string, string>) => Promise<boolean>;
-      packAlbedoHeightTexture: (input: PackAlbedoHeightTexture) => Promise<string>;
-      packNormalRoughnessTexture: (input: PackNormalRoughnessTexture) => Promise<string>;
-      packTexturePackage: (input: PackTexturePackage) => Promise<Asset>;
-      unpackTexturePackage: (inputPath: string) => Promise<PackedTexturePackageDataUrls>;
       convertImages: (input: ConvertImages) => Promise<ConvertedImage[]>;
-      createImageConversionPreview: (inputPath: string, preview?: "albedoHeight" | "normalRoughness") => Promise<string>;
-      listTextureAtlases: (projectPath: string) => Promise<TextureAtlasDocument[]>;
-      saveTextureAtlas: (input: TextureAtlasSaveInput) => Promise<TextureAtlasDocument>;
-      deleteTextureAtlas: (input: TextureAtlasDeleteInput) => Promise<void>;
-      buildTextureAtlas: (input: TextureAtlasBuildInput) => Promise<TextureAtlasBuildResult>;
+      createImageConversionPreview: (inputPath: string) => Promise<string>;
+      loadTiledWorkspace: (input: TiledProjectInput) => Promise<TiledWorkspaceView>;
+      importTiledBoard: (input: TiledImportBoardInput) => Promise<TiledWorkspaceView>;
+      reloadTiledBoard: (input: TiledBoardInput) => Promise<TiledBoardView>;
+      saveTiledConfig: (input: TiledSaveConfigInput) => Promise<TiledWorkspaceView>;
+      saveTiledEnrichment: (input: TiledSaveEnrichmentInput) => Promise<TiledBoardView>;
+      snapshotTiledWorkspace: (input: TiledProjectInput) => Promise<TiledSourceSnapshot>;
+      restoreTiledWorkspace: (input: TiledProjectInput & { snapshot: TiledSourceSnapshot }) => Promise<TiledWorkspaceView>;
       getPathForFile: (file: File) => string;
       toFileUrl: (filePath: string) => string;
     };

@@ -39,7 +39,7 @@ export const assetCategoryLabelMap: Record<AssetCategoryEnum, string> = {
   [AssetCategoryEnum.other]: "Other"
 };
 
-const terrainTextureExtensions = new Set(["exr", "gppt", "tga", "tif", "tiff"]);
+const terrainTextureExtensions = new Set(["exr", "tga", "tif", "tiff"]);
 const hdriExtensions = new Set(["exr", "hdr"]);
 const meshExtensions = new Set(["blend", "dae", "fbx", "glb", "gltf", "obj"]);
 const audioExtensions = new Set(["flac", "m4a", "mp3", "ogg", "wav"]);

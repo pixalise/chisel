@@ -1,36 +1,15 @@
 import { fork } from "node:child_process";
 import path from "node:path";
-import type { TextureAtlasEntry } from "../shared/schemas";
 
 interface ImageDimensions {
   width: number;
   height: number;
 }
 
-interface RgbaImageResult extends ImageDimensions {
-  data: string;
-}
-
-interface AtlasSpriteResult extends RgbaImageResult {
-  sourceWidth: number;
-  sourceHeight: number;
-}
-
 type SharpWorkerJob =
   | { type: "metadata"; filePath: string }
   | { type: "preview"; inputPath: string }
-  | { type: "convertToPng"; inputPath: string; outputPath: string }
-  | { type: "loadRgba"; filePath: string }
-  | {
-      type: "processAtlasSprite";
-      filePath: string;
-      resizeMode: TextureAtlasEntry["resizeMode"];
-      outputWidth: number | null;
-      outputHeight: number | null;
-      scale: number;
-      trim: boolean;
-    }
-  | { type: "encodeRgbaPng"; data: string; width: number; height: number };
+  | { type: "convertToPng"; inputPath: string; outputPath: string };
 
 type SharpWorkerResponse = { id: number; ok: true; value: unknown } | { id: number; ok: false; error: string };
 
@@ -142,73 +121,4 @@ export async function convertSharpImageToPng(inputPath: string, outputPath: stri
   }
 
   await runSharpWorker<null>({ type: "convertToPng", inputPath, outputPath });
-}
-
-export async function loadSharpRgba(filePath: string): Promise<{ data: Buffer; width: number; height: number }> {
-  if (process.env.VITEST) {
-    const sharp = (await import("sharp")).default;
-    const { data, info } = await sharp(filePath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    if (!info.width || !info.height) {
-      throw new Error(`Could not read image dimensions for ${filePath}`);
-    }
-    return { data, width: info.width, height: info.height };
-  }
-
-  const result = await runSharpWorker<RgbaImageResult>({ type: "loadRgba", filePath });
-  return { data: Buffer.from(result.data, "base64"), width: result.width, height: result.height };
-}
-
-export async function processSharpAtlasSprite(
-  filePath: string,
-  entry: Pick<TextureAtlasEntry, "resizeMode" | "outputWidth" | "outputHeight" | "scale" | "trim">
-): Promise<{ data: Buffer; width: number; height: number; sourceWidth: number; sourceHeight: number }> {
-  if (process.env.VITEST) {
-    const sharp = (await import("sharp")).default;
-    let image = sharp(filePath).ensureAlpha();
-    const metadata = await image.metadata();
-    if (!metadata.width || !metadata.height) {
-      throw new Error(`Could not read image dimensions for ${filePath}`);
-    }
-    if (entry.trim) {
-      image = image.trim({ background: { r: 0, g: 0, b: 0, alpha: 0 } });
-    }
-    if (entry.resizeMode === "scale") {
-      image = image.resize({
-        width: Math.max(1, Math.round(metadata.width * entry.scale)),
-        height: Math.max(1, Math.round(metadata.height * entry.scale)),
-        fit: "fill"
-      });
-    } else if (entry.resizeMode !== "native") {
-      if (entry.outputWidth === null || entry.outputHeight === null) {
-        throw new Error(`${entry.resizeMode} requires output dimensions`);
-      }
-      const fit = entry.resizeMode === "stretch" ? "fill" : entry.resizeMode;
-      image = image.resize({ width: entry.outputWidth, height: entry.outputHeight, fit });
-    }
-    const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
-    return { data, width: info.width, height: info.height, sourceWidth: metadata.width, sourceHeight: metadata.height };
-  }
-
-  const result = await runSharpWorker<AtlasSpriteResult>({
-    type: "processAtlasSprite",
-    filePath,
-    resizeMode: entry.resizeMode,
-    outputWidth: entry.outputWidth,
-    outputHeight: entry.outputHeight,
-    scale: entry.scale,
-    trim: entry.trim
-  });
-  return { ...result, data: Buffer.from(result.data, "base64") };
-}
-
-export async function encodeSharpRgbaPng(data: Buffer, width: number, height: number): Promise<Buffer> {
-  if (process.env.VITEST) {
-    const sharp = (await import("sharp")).default;
-    return sharp(data, { raw: { width, height, channels: 4 } })
-      .png()
-      .toBuffer();
-  }
-
-  const encoded = await runSharpWorker<string>({ type: "encodeRgbaPng", data: data.toString("base64"), width, height });
-  return Buffer.from(encoded, "base64");
 }

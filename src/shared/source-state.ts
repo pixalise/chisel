@@ -1,6 +1,7 @@
 import z from "zod";
 import { emptyLocalizationDocument, localizationDocumentSchema } from "./localization";
-import { assetsJsonSchema, anyDataTableSchema, projectFileSchema, textureAtlasDocumentSchema } from "./schemas";
+import { assetsJsonSchema, anyDataTableSchema, projectFileSchema } from "./schemas";
+import { emptyTiledSourceSnapshot, tiledSourceSnapshotSchema } from "./tiled-samples";
 
 export const committedSourceSnapshotSchema = z
   .object({
@@ -10,20 +11,20 @@ export const committedSourceSnapshotSchema = z
     tables: z.array(anyDataTableSchema),
     assets: assetsJsonSchema,
     localization: localizationDocumentSchema.default(emptyLocalizationDocument),
-    atlases: z.array(textureAtlasDocumentSchema).default([])
+    tiled: tiledSourceSnapshotSchema.default(emptyTiledSourceSnapshot)
   })
   .strict();
 export type CommittedSourceSnapshot = z.infer<typeof committedSourceSnapshotSchema>;
 
 export const sourceStateJsonSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     commits: z.array(committedSourceSnapshotSchema).default([])
   })
   .strict();
 export type SourceStateJson = z.infer<typeof sourceStateJsonSchema>;
 
 export const emptySourceStateJson = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   commits: []
 } satisfies SourceStateJson;

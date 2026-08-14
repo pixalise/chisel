@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { describe, expect, it } from "vitest";
-import { assetSchema, createOrUpdateAssetSchema, dataTableRowSchema, dataTableSchema, rowSlugSchema } from "./schemas";
-import { AssetCategoryEnum, ColumnType } from "./types";
+import { assetSchema, createOrUpdateAssetSchema, dataTableRowSchema, rowSlugSchema } from "./schemas";
+import { AssetCategoryEnum } from "./types";
 
 describe("row slugs", () => {
   it("accepts constant case slugs", () => {
@@ -35,11 +35,11 @@ describe("asset slugs", () => {
   it("uses the asset slug as the asset id", () => {
     const asset = assetSchema.parse({
       category: AssetCategoryEnum.terrainTexture,
-      extension: "gppt",
+      extension: "tga",
       height: 1024,
       id: nanoid(),
       name: "forest_soil_1",
-      relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL_1.gppt",
+      relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL_1.tga",
       sizeBytes: 1024,
       width: 1024
     });
@@ -129,45 +129,5 @@ describe("asset slugs", () => {
     });
 
     expect(asset.category).toBe(AssetCategoryEnum.shader);
-  });
-
-  it("reads legacy UI_ICON documents as UI assets", () => {
-    const asset = assetSchema.parse({
-      category: "UI_ICON",
-      extension: "png",
-      height: 32,
-      id: "ICON_HOME",
-      name: "ICON_HOME",
-      relativePath: ".chisel/assets/UI_ICON/ICON_HOME.png",
-      sizeBytes: 100,
-      width: 32
-    });
-
-    expect(asset.category).toBe(AssetCategoryEnum.ui);
-  });
-
-  it("reads legacy UI_ICON column filters as UI", () => {
-    const table = dataTableSchema.parse({
-      columns: [
-        {
-          assetCategory: "UI_ICON",
-          defaultValue: "",
-          id: nanoid(),
-          name: "portrait",
-          required: true,
-          type: ColumnType.assetRef,
-          unique: false
-        }
-      ],
-      description: "Characters",
-      id: "characters",
-      kind: "user",
-      lastChangeAt: "2026-01-01T00:00:00.000Z",
-      name: "Characters",
-      rows: [],
-      version: 1
-    });
-
-    expect(table.columns[0]?.assetCategory).toBe(AssetCategoryEnum.ui);
   });
 });

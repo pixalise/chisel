@@ -2,9 +2,9 @@ import { nanoid } from "nanoid";
 import { describe, expect, it } from "vitest";
 import { INPUT_BINDINGS_TABLE } from "../renderer/constants/system-tables";
 import { emptyLocalizationDocument } from "./localization";
-import { dataTableSchema, systemDataTableSchema, type Project, type TextureAtlasBuildResult } from "./schemas";
+import { dataTableSchema, systemDataTableSchema, type Project } from "./schemas";
 import { ColumnType, InputKeyEnum } from "./types";
-import { createTealAtlasTextFiles, createTealExportBundle, TEAL_MANIFEST_PATH } from "./teal-export";
+import { createTealExportBundle, TEAL_MANIFEST_PATH } from "./teal-export";
 
 const project: Project = { id: nanoid(), name: "Farbound", path: "/tmp/farbound" };
 
@@ -81,19 +81,5 @@ describe("Teal export", () => {
     expect(localizationFile?.content).toContain("function localization.get(id: integer, locale: string): string");
     expect(manifestFile?.content).toContain('"gamedata/tables/enemies.tl"');
     expect(manifestFile?.content).not.toContain(".lua");
-  });
-
-  it("exports Teal atlas metadata beside its JSON manifest", () => {
-    const build: TextureAtlasBuildResult = {
-      atlasId: "HUD",
-      pages: [{ dataUrl: "data:image/png;base64,ignored", file: "hud_0.png", height: 64, width: 64 }],
-      sprites: {}
-    };
-
-    const files = createTealAtlasTextFiles(build);
-
-    expect(files.map((file) => file.path)).toEqual(["gamedata/atlases/hud.json", "gamedata/atlases/hud.tl"]);
-    expect(files[1]?.content).toContain("local atlas: any = {");
-    expect(files[1]?.content).toContain("return atlas");
   });
 });

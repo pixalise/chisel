@@ -6,17 +6,15 @@ import { File } from "lucide-react";
 
 export interface ImagePreviewProps {
   path?: string;
-  preview?: "albedoHeight" | "normalRoughness";
 }
 
 interface ConvertedPreview {
   path: string;
-  preview?: ImagePreviewProps["preview"];
   source: string | null;
 }
 
 const ImagePreview: FC<ImagePreviewProps> = (props) => {
-  const { path, preview } = props;
+  const { path } = props;
   const [convertedPreview, setConvertedPreview] = useState<ConvertedPreview | null>(null);
   const isDataUrl = path?.startsWith("data:image/") ?? false;
   const [isLoading, setIsLoading] = useState(true);
@@ -32,15 +30,15 @@ const ImagePreview: FC<ImagePreviewProps> = (props) => {
 
     let cancelled = false;
     window.electron
-      .createImageConversionPreview(path, preview)
+      .createImageConversionPreview(path)
       .then((source) => {
         if (!cancelled) {
-          setConvertedPreview({ path, preview, source });
+          setConvertedPreview({ path, source });
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setConvertedPreview({ path, preview, source: null });
+          setConvertedPreview({ path, source: null });
         }
       });
 
@@ -49,10 +47,9 @@ const ImagePreview: FC<ImagePreviewProps> = (props) => {
     return () => {
       cancelled = true;
     };
-  }, [isDataUrl, path, preview]);
+  }, [isDataUrl, path]);
 
-  const convertedSource =
-    convertedPreview && convertedPreview.path === path && convertedPreview.preview === preview ? convertedPreview.source : undefined;
+  const convertedSource = convertedPreview && convertedPreview.path === path ? convertedPreview.source : undefined;
   const source = isDataUrl ? path : convertedSource;
 
   return (

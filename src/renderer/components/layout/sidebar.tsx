@@ -1,4 +1,4 @@
-import { Boxes, Database, Images, Languages, Package, PanelsTopLeft, Settings2, type LucideIcon, ListChecks } from "lucide-react";
+import { Boxes, Database, Grid3X3, Images, Languages, Settings2, type LucideIcon, ListChecks } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -22,8 +22,7 @@ const routeIcons: Record<RouteEnum, LucideIcon> = {
   [RouteEnum.database]: Database,
   [RouteEnum.localization]: Languages,
   [RouteEnum.imageConversion]: Images,
-  [RouteEnum.textureAtlases]: PanelsTopLeft,
-  [RouteEnum.texturePacking]: Package,
+  [RouteEnum.wfcSamples]: Grid3X3,
   [RouteEnum.settings]: Settings2,
   [RouteEnum.todos]: ListChecks
 };

@@ -92,20 +92,12 @@ const assetInputFields = {
 const assetInputSchema = z.object(assetInputFields);
 
 const assetDocumentSchema = z
-  .preprocess(
-    (input) => {
-      if (typeof input !== "object" || input === null || !("category" in input) || input.category !== "UI_ICON") {
-        return input;
-      }
-      return { ...input, category: AssetCategoryEnum.ui };
-    },
-    z.object({
-      ...assetInputFields,
-      id: z.string(),
-      name: z.string().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
-      relativePath: z.string()
-    })
-  )
+  .object({
+    ...assetInputFields,
+    id: z.string(),
+    name: z.string().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
+    relativePath: z.string()
+  })
   .transform((asset) => {
     const slug = assetSlugSchema.parse(assetSlug(asset.name));
     return {
@@ -176,7 +168,6 @@ export const importAssetSchema = z.object({
 });
 export type ImportAssetInput = z.infer<typeof importAssetSchema>;
 
-const pngImagePathSchema = filePathSchema.refine((value) => /\.png$/i.test(value), "Image must be a PNG file");
 const schemaVersionSchema = z.int().min(1);
 export const dataTableIdSchema = z
   .string()
@@ -184,27 +175,6 @@ export const dataTableIdSchema = z
   .min(1)
   .max(96)
   .regex(/^[A-Za-z0-9_-]+$/);
-
-export const packedTextureNameSchema = assetSlugSchema;
-
-export const packAlbedoHeightTextureSchema = z.object({
-  albedo: pngImagePathSchema,
-  height: pngImagePathSchema
-});
-export type PackAlbedoHeightTexture = z.infer<typeof packAlbedoHeightTextureSchema>;
-
-export const packNormalRoughnessTextureSchema = z.object({
-  normal: pngImagePathSchema,
-  roughness: pngImagePathSchema
-});
-export type PackNormalRoughnessTexture = z.infer<typeof packNormalRoughnessTextureSchema>;
-
-export const packTexturePackageSchema = packAlbedoHeightTextureSchema.merge(packNormalRoughnessTextureSchema).extend({
-  name: packedTextureNameSchema,
-  note: z.string().optional(),
-  projectPath: filePathSchema
-});
-export type PackTexturePackage = z.infer<typeof packTexturePackageSchema>;
 
 export const convertImagesSchema = z.object({
   inputPaths: z.array(filePathSchema).min(1, "Choose at least one image"),
@@ -362,21 +332,6 @@ const baseDataTableSchema = z.object({
   rows: z.array(dataTableRowSchema).default([])
 });
 
-function migrateLegacyTableAssetCategories(input: unknown): unknown {
-  if (typeof input !== "object" || input === null || !("columns" in input) || !Array.isArray(input.columns)) {
-    return input;
-  }
-  return {
-    ...input,
-    columns: input.columns.map((column) => {
-      if (typeof column !== "object" || column === null || !("assetCategory" in column) || column.assetCategory !== "UI_ICON") {
-        return column;
-      }
-      return { ...column, assetCategory: AssetCategoryEnum.ui };
-    })
-  };
-}
-
 export const createOrUpdateUserTableSchema = z.object({
   name: z.string(),
   description: z.string(),
@@ -384,27 +339,21 @@ export const createOrUpdateUserTableSchema = z.object({
 });
 export type CreateOrUpdateTable = z.infer<typeof createOrUpdateUserTableSchema>;
 
-export const dataTableSchema = z
-  .preprocess(
-    migrateLegacyTableAssetCategories,
-    baseDataTableSchema.extend({
-      kind: z.literal("user").default("user")
-    })
-  )
+export const dataTableSchema = baseDataTableSchema
+  .extend({
+    kind: z.literal("user").default("user")
+  })
   .transform((t) => ({
     ...t,
     isSystemTable: false
   }));
 export type DataTableSchema = z.infer<typeof dataTableSchema>;
 
-export const systemDataTableSchema = z
-  .preprocess(
-    migrateLegacyTableAssetCategories,
-    baseDataTableSchema.extend({
-      kind: z.literal("system").default("system"),
-      moduleId: z.string()
-    })
-  )
+export const systemDataTableSchema = baseDataTableSchema
+  .extend({
+    kind: z.literal("system").default("system"),
+    moduleId: z.string()
+  })
   .transform((t) => ({
     ...t,
     isSystemTable: true
@@ -491,111 +440,3 @@ export const replaceAssetSourceSchema = z.object({
   sourcePath: filePathSchema
 });
 export type ReplaceAssetSourceInput = z.infer<typeof replaceAssetSourceSchema>;
-
-export const textureAtlasResizeModeSchema = z.enum(["native", "scale", "contain", "cover", "stretch"]);
-export type TextureAtlasResizeMode = z.infer<typeof textureAtlasResizeModeSchema>;
-
-export const textureAtlasTintModeSchema = z.enum(["none", "runtime", "baked"]);
-export type TextureAtlasTintMode = z.infer<typeof textureAtlasTintModeSchema>;
-
-const nullablePositiveIntegerSchema = z.int().positive().nullable();
-
-export const textureAtlasEntrySchema = z
-  .object({
-    assetId: assetSlugSchema,
-    resizeMode: textureAtlasResizeModeSchema,
-    outputWidth: nullablePositiveIntegerSchema,
-    outputHeight: nullablePositiveIntegerSchema,
-    scale: z.number().positive().max(16),
-    trim: z.boolean(),
-    tintMode: textureAtlasTintModeSchema,
-    tint: z.string().regex(/^#[0-9A-Fa-f]{8}$/, "Tint must be #RRGGBBAA"),
-    pivotX: z.number().min(0).max(1),
-    pivotY: z.number().min(0).max(1)
-  })
-  .superRefine((entry, context) => {
-    const needsBounds = entry.resizeMode === "contain" || entry.resizeMode === "cover" || entry.resizeMode === "stretch";
-    if (needsBounds && (entry.outputWidth === null || entry.outputHeight === null)) {
-      context.addIssue({ code: "custom", message: `${entry.resizeMode} requires output width and height` });
-    }
-  });
-export type TextureAtlasEntry = z.infer<typeof textureAtlasEntrySchema>;
-
-export const textureAtlasSettingsSchema = z
-  .object({
-    maxPageWidth: z.int().min(64).max(8192),
-    maxPageHeight: z.int().min(64).max(8192),
-    padding: z.int().min(0).max(64),
-    extrusion: z.int().min(0).max(32),
-    powerOfTwo: z.boolean(),
-    allowRotation: z.boolean()
-  })
-  .superRefine((settings, context) => {
-    if (settings.extrusion > settings.padding) {
-      context.addIssue({ code: "custom", message: "Extrusion cannot exceed padding", path: ["extrusion"] });
-    }
-    const isPowerOfTwo = (value: number): boolean => (value & (value - 1)) === 0;
-    if (settings.powerOfTwo && !isPowerOfTwo(settings.maxPageWidth)) {
-      context.addIssue({ code: "custom", message: "Power-of-two atlases require a power-of-two page width", path: ["maxPageWidth"] });
-    }
-    if (settings.powerOfTwo && !isPowerOfTwo(settings.maxPageHeight)) {
-      context.addIssue({ code: "custom", message: "Power-of-two atlases require a power-of-two page height", path: ["maxPageHeight"] });
-    }
-    if (settings.allowRotation) {
-      context.addIssue({ code: "custom", message: "Atlas rotation is not supported yet", path: ["allowRotation"] });
-    }
-  });
-export type TextureAtlasSettings = z.infer<typeof textureAtlasSettingsSchema>;
-
-export const textureAtlasDocumentSchema = z
-  .object({
-    schemaVersion: z.literal(1),
-    id: assetSlugSchema,
-    name: z.string().trim().min(1).max(96),
-    settings: textureAtlasSettingsSchema,
-    entries: z.array(textureAtlasEntrySchema)
-  })
-  .superRefine((document, context) => {
-    for (const duplicateAssetSlug of duplicateValues(document.entries.map((entry) => entry.assetId))) {
-      context.addIssue({ code: "custom", message: `Duplicate atlas entry "${duplicateAssetSlug}"`, path: ["entries"] });
-    }
-  });
-export type TextureAtlasDocument = z.infer<typeof textureAtlasDocumentSchema>;
-
-export const textureAtlasProjectInputSchema = z.object({ projectPath: filePathSchema });
-export const textureAtlasSaveInputSchema = textureAtlasProjectInputSchema.extend({ document: textureAtlasDocumentSchema });
-export const textureAtlasDeleteInputSchema = textureAtlasProjectInputSchema.extend({ atlasId: assetSlugSchema });
-export const textureAtlasBuildInputSchema = textureAtlasProjectInputSchema.extend({ document: textureAtlasDocumentSchema });
-export type TextureAtlasProjectInput = z.infer<typeof textureAtlasProjectInputSchema>;
-export type TextureAtlasSaveInput = z.infer<typeof textureAtlasSaveInputSchema>;
-export type TextureAtlasDeleteInput = z.infer<typeof textureAtlasDeleteInputSchema>;
-export type TextureAtlasBuildInput = z.infer<typeof textureAtlasBuildInputSchema>;
-
-export interface TextureAtlasSpriteManifest {
-  assetId: AssetSlug;
-  page: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  sourceWidth: number;
-  sourceHeight: number;
-  pivotX: number;
-  pivotY: number;
-  rotated: false;
-  tintMode: TextureAtlasTintMode;
-  tint: string;
-}
-
-export interface TextureAtlasPageBuild {
-  file: string;
-  width: number;
-  height: number;
-  dataUrl: string;
-}
-
-export interface TextureAtlasBuildResult {
-  atlasId: AssetSlug;
-  pages: TextureAtlasPageBuild[];
-  sprites: Record<string, TextureAtlasSpriteManifest>;
-}

@@ -23,22 +23,16 @@ const mocks = vi.hoisted(() => {
         width: 64
       }
     ],
-    atlases: [
-      {
+    tiled: {
+      config: {
         schemaVersion: 1,
-        id: "HUD",
-        name: "HUD",
-        entries: [],
-        settings: {
-          extrusion: 1,
-          maxPageHeight: 1024,
-          maxPageWidth: 1024,
-          padding: 2,
-          powerOfTwo: true,
-          allowRotation: false
-        }
-      }
-    ],
+        roles: [{ id: "GROUND", label: "Ground", color: "#8B9D5C" }],
+        boards: []
+      },
+      files: [],
+      images: []
+    },
+    restoreTiled: vi.fn(),
     localization: {
       schemaVersion: 2,
       defaultLocale: "en",
@@ -150,12 +144,10 @@ vi.mock("@/services/localization-service", () => ({
   }
 }));
 
-vi.mock("@/services/texture-atlas-service", () => ({
+vi.mock("@/services/tiled-sample-service", () => ({
   default: {
-    build: vi.fn(),
-    delete: vi.fn(),
-    list: vi.fn(async () => mocks.atlases),
-    save: vi.fn()
+    snapshot: vi.fn(async () => mocks.tiled),
+    restore: mocks.restoreTiled
   }
 }));
 
@@ -165,6 +157,7 @@ describe("source state service", () => {
   beforeEach(() => {
     mocks.sourceState = undefined;
     mocks.setProject.mockReset();
+    mocks.restoreTiled.mockReset();
     mocks.tryReadSourceStateJson.mockReset();
     mocks.writeAssetsJson.mockReset();
     mocks.writeChiselJson.mockReset();
@@ -183,14 +176,14 @@ describe("source state service", () => {
     await expect(sourceStateService.listCommits()).resolves.toEqual([]);
   });
 
-  it("commits draft tables, assets, localization, and atlases", async () => {
+  it("commits draft tables, assets, localization, and Tiled samples", async () => {
     const commit = await sourceStateService.commitDraft();
 
     expect(commit.project).toEqual({ id: mocks.project.id, name: mocks.project.name });
     expect(commit.tables).toHaveLength(2);
     expect(commit.assets.assets[0]).toMatchObject({ id: "UNIT_ICON", category: AssetCategoryEnum.image });
     expect(commit.localization).toEqual(mocks.localization);
-    expect(commit.atlases).toEqual(mocks.atlases);
+    expect(commit.tiled).toEqual(mocks.tiled);
     expect(mocks.sourceState?.commits[0]?.id).toBe(commit.id);
   });
 
@@ -210,6 +203,7 @@ describe("source state service", () => {
     expect(mocks.writeSystemTableDataJson).toHaveBeenCalledWith(expect.anything(), "input_bindings", expect.anything());
     expect(mocks.writeAssetsJson).toHaveBeenCalledWith(expect.anything(), commit.assets);
     expect(mocks.writeLocalizationJson).toHaveBeenCalledWith(expect.anything(), commit.localization);
+    expect(mocks.restoreTiled).toHaveBeenCalledWith(commit.tiled);
     expect(mocks.setProject).toHaveBeenCalledWith(expect.objectContaining({ path: mocks.project.path }));
   });
 

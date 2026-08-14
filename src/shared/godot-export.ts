@@ -1,5 +1,5 @@
 import { snakeCase } from "lodash";
-import { godotAssetExportFilePath, godotAssetExportFolderPath } from "./asset-paths";
+import { godotAssetExportFilePath } from "./asset-paths";
 import {
   localizationIconSlugsForKey,
   localizationKeyConstant,
@@ -47,11 +47,6 @@ interface GodotGeneratedFileManifestEntry {
   bytes: number;
   hash: string;
   path: string;
-}
-
-export interface GodotPackedTextureExportPaths {
-  albedoHeight: string;
-  normalRoughness: string;
 }
 
 function pascalCase(value: string): string {
@@ -216,24 +211,8 @@ function gdDictionary(record: Record<string, unknown>, depth: number): string {
   return `{\n${lines.join(",\n")}\n${indent}}`;
 }
 
-export function isPackedTerrainTextureAsset(asset: Asset): boolean {
-  return asset.category === AssetCategoryEnum.terrainTexture && asset.extension.toLowerCase() === "gppt";
-}
-
 export function godotAssetExportPath(asset: Asset): string {
-  if (isPackedTerrainTextureAsset(asset)) {
-    return godotAssetExportFolderPath(GAME_DATA_EXPORT_ROOT, asset.category, asset.name);
-  }
-
   return godotAssetExportFilePath(GAME_DATA_EXPORT_ROOT, asset.category, asset.name, asset.extension);
-}
-
-export function godotPackedTextureExportPaths(asset: Asset): GodotPackedTextureExportPaths {
-  const folder = godotAssetExportFolderPath(GAME_DATA_EXPORT_ROOT, asset.category, asset.name);
-  return {
-    albedoHeight: `${folder}/albedo_height.png`,
-    normalRoughness: `${folder}/normal_roughness.png`
-  };
 }
 
 function columnValue(row: DataTableRow, column: DataColumnDefinition): unknown {
@@ -379,12 +358,6 @@ function assetExportRecord(asset: Asset): Record<string, unknown> {
     path: `res://${exportPath}`,
     width: asset.width
   };
-
-  if (isPackedTerrainTextureAsset(asset)) {
-    const packedPaths = godotPackedTextureExportPaths(asset);
-    record.albedo_height = `res://${packedPaths.albedoHeight}`;
-    record.normal_roughness = `res://${packedPaths.normalRoughness}`;
-  }
 
   return record;
 }

@@ -1,30 +1,27 @@
 import { BrowserWindow, app, dialog, ipcMain, nativeImage } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { importAsset, replaceAssetReferences, replaceAssetSource, upgradeAssetLibraryPaths } from "./asset-store";
-import { buildTextureAtlas, deleteTextureAtlas, listTextureAtlases, saveTextureAtlas } from "./texture-atlas";
+import { importAsset, replaceAssetReferences, replaceAssetSource } from "./asset-store";
 import { convertImagesToPng, createImageConversionPreview } from "./image-conversion";
 import { getFileMetadata } from "./file-metadata";
 import {
-  packedTexturePackagePreviewDataUrl,
-  type PackedTexturePackagePreviewKind,
-  packAlbedoHeightTextureInMemory,
-  packNormalRoughnessTextureInMemory,
-  packTexturePackageAsset,
-  unpackPackedTexturePackageDataUrls
-} from "./texture-packing";
+  importTiledBoard,
+  loadTiledWorkspace,
+  reloadTiledBoard,
+  restoreTiledWorkspace,
+  saveTiledConfig,
+  saveTiledEnrichment,
+  snapshotTiledWorkspace
+} from "./tiled-sample-board";
+import type { ConvertImages, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas";
 import type {
-  ConvertImages,
-  ImportAssetInput,
-  ReplaceAssetSourceInput,
-  TextureAtlasBuildInput,
-  TextureAtlasDeleteInput,
-  TextureAtlasProjectInput,
-  TextureAtlasSaveInput,
-  PackAlbedoHeightTexture,
-  PackNormalRoughnessTexture,
-  PackTexturePackage
-} from "../shared/schemas";
+  TiledBoardInput,
+  TiledImportBoardInput,
+  TiledProjectInput,
+  TiledSaveConfigInput,
+  TiledSaveEnrichmentInput,
+  TiledSourceSnapshot
+} from "../shared/tiled-samples";
 
 const APP_NAME = "Chisel";
 const APP_ICON_FILE = "chisel-apple.png";
@@ -121,11 +118,7 @@ async function ensureGitignoreEntry(filePath: string, entry: string): Promise<vo
   await fs.writeFile(filePath, `${prefix}${entry}\n`, "utf8");
 }
 
-async function createImagePreview(inputPath: string, gpptPreview?: PackedTexturePackagePreviewKind): Promise<string> {
-  if (/\.gppt$/i.test(inputPath)) {
-    return packedTexturePackagePreviewDataUrl(await fs.readFile(inputPath), gpptPreview);
-  }
-
+async function createImagePreview(inputPath: string): Promise<string> {
   const image = nativeImage.createFromPath(inputPath);
   if (image.isEmpty()) {
     return createImageConversionPreview(inputPath);
@@ -218,24 +211,18 @@ function registerIpc(): void {
 
   ipcMain.handle("asset:import", (_event, input: ImportAssetInput) => importAsset(input));
   ipcMain.handle("asset:replace-source", (_event, input: ReplaceAssetSourceInput) => replaceAssetSource(input));
-  ipcMain.handle("asset:upgrade-library-paths", (_event, projectPath: string) => upgradeAssetLibraryPaths(projectPath));
   ipcMain.handle("asset:replace-references", (_event, projectPath: string, assetIdChanges: Record<string, string>) =>
     replaceAssetReferences(projectPath, assetIdChanges)
   );
-  ipcMain.handle("texture:pack-albedo-height", (_event, input: PackAlbedoHeightTexture) => packAlbedoHeightTextureInMemory(input));
-  ipcMain.handle("texture:pack-normal-roughness", (_event, input: PackNormalRoughnessTexture) => packNormalRoughnessTextureInMemory(input));
-  ipcMain.handle("texture:pack-package", (_event, input: PackTexturePackage) => packTexturePackageAsset(input));
-  ipcMain.handle("texture:unpack-package", async (_event, inputPath: string) =>
-    unpackPackedTexturePackageDataUrls(await fs.readFile(inputPath))
-  );
   ipcMain.handle("image:convert-to-png", (_event, input: ConvertImages) => convertImagesToPng(input));
-  ipcMain.handle("image:conversion-preview", (_event, inputPath: string, preview?: PackedTexturePackagePreviewKind) =>
-    createImagePreview(inputPath, preview)
-  );
-  ipcMain.handle("atlas:list", (_event, input: TextureAtlasProjectInput) => listTextureAtlases(input));
-  ipcMain.handle("atlas:save", (_event, input: TextureAtlasSaveInput) => saveTextureAtlas(input));
-  ipcMain.handle("atlas:delete", (_event, input: TextureAtlasDeleteInput) => deleteTextureAtlas(input));
-  ipcMain.handle("atlas:build", (_event, input: TextureAtlasBuildInput) => buildTextureAtlas(input));
+  ipcMain.handle("image:conversion-preview", (_event, inputPath: string) => createImagePreview(inputPath));
+  ipcMain.handle("tiled:load-workspace", (_event, input: TiledProjectInput) => loadTiledWorkspace(input));
+  ipcMain.handle("tiled:import-board", (_event, input: TiledImportBoardInput) => importTiledBoard(input));
+  ipcMain.handle("tiled:reload-board", (_event, input: TiledBoardInput) => reloadTiledBoard(input));
+  ipcMain.handle("tiled:save-config", (_event, input: TiledSaveConfigInput) => saveTiledConfig(input));
+  ipcMain.handle("tiled:save-enrichment", (_event, input: TiledSaveEnrichmentInput) => saveTiledEnrichment(input));
+  ipcMain.handle("tiled:snapshot", (_event, input: TiledProjectInput) => snapshotTiledWorkspace(input));
+  ipcMain.handle("tiled:restore", (_event, input: TiledProjectInput & { snapshot: TiledSourceSnapshot }) => restoreTiledWorkspace(input));
 }
 
 app.whenReady().then(() => {

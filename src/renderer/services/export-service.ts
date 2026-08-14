@@ -1,42 +1,23 @@
-import {
-  createGodotExportBundle,
-  GAME_DATA_EXPORT_ROOT,
-  godotAssetExportPath,
-  godotPackedTextureExportPaths,
-  isPackedTerrainTextureAsset
-} from "../../shared/godot-export";
+import { createGodotExportBundle, GAME_DATA_EXPORT_ROOT, godotAssetExportPath } from "../../shared/godot-export";
 import {
   createHaxeFlixelExportBundle,
   HAXEFLIXEL_ASSET_EXPORT_ROOT,
   HAXEFLIXEL_GAME_DATA_EXPORT_ROOT,
-  haxeFlixelAssetExportPath,
-  haxeFlixelPackedTextureExportPaths,
-  isHaxeFlixelPackedTextureAsset
+  haxeFlixelAssetExportPath
 } from "../../shared/haxeflixel-export";
 import {
   createLove2dExportBundle,
-  isLove2dPackedTextureAsset,
   love2dAssetExportPath,
   LOVE2D_GAME_DATA_EXPORT_ROOT,
-  LOVE2D_MANIFEST_PATH,
-  love2dPackedTextureExportPaths
+  LOVE2D_MANIFEST_PATH
 } from "../../shared/love2d-export";
-import { createLove2dAtlasTextFiles, LOVE2D_ATLAS_EXPORT_ROOT } from "../../shared/love2d-atlas-export";
-import {
-  createTealAtlasTextFiles,
-  createTealExportBundle,
-  TEAL_ATLAS_EXPORT_ROOT,
-  TEAL_GAME_DATA_EXPORT_ROOT,
-  TEAL_MANIFEST_PATH
-} from "../../shared/teal-export";
+import { createTealExportBundle, TEAL_GAME_DATA_EXPORT_ROOT, TEAL_MANIFEST_PATH } from "../../shared/teal-export";
 import { LocalizationProblemSeverity, validateLocalizationDocument } from "../../shared/localization";
 import { ProjectValidationSeverity, validateProjectContent } from "../../shared/project-validation";
 import { validatedDataTableSchema, type Asset, type Project } from "../../shared/schemas";
 import appStore from "@/stores/app-store";
 import fileService from "@/services/file-service";
 import sourceStateService from "@/services/source-state-service";
-import textureAtlasService from "@/services/texture-atlas-service";
-import texturePackingService from "@/services/texture-packing-service";
 
 export enum ExportTarget {
   godot = "godot",
@@ -85,10 +66,10 @@ class ExportService {
       return this.exportHaxeFlixel(committedProject, tables, assets, commit.localization, exportedAt);
     }
     if (target === ExportTarget.love2d) {
-      return this.exportLove2d(committedProject, tables, assets, commit.localization, exportedAt, commit.atlases);
+      return this.exportLove2d(committedProject, tables, assets, commit.localization, exportedAt);
     }
     if (target === ExportTarget.teal) {
-      return this.exportTeal(committedProject, tables, assets, commit.localization, exportedAt, commit.atlases);
+      return this.exportTeal(committedProject, tables, assets, commit.localization, exportedAt);
     }
 
     const bundle = createGodotExportBundle(committedProject, tables, exportedAt, assets, commit.localization);
@@ -132,32 +113,15 @@ class ExportService {
     tables: Parameters<typeof createLove2dExportBundle>[1],
     assets: Asset[],
     localization: Parameters<typeof createLove2dExportBundle>[4],
-    exportedAt: string,
-    atlasDocuments: Parameters<typeof textureAtlasService.build>[0][]
+    exportedAt: string
   ): Promise<ExportProjectResult> {
     const bundle = createLove2dExportBundle(project, tables, exportedAt, assets, localization);
-    const committedAssetIds = new Set(assets.map((asset) => asset.id));
-    for (const atlas of atlasDocuments) {
-      for (const entry of atlas.entries) {
-        if (!committedAssetIds.has(entry.assetId)) {
-          throw new Error(`LÖVE export blocked: atlas ${atlas.id} references uncommitted or missing asset ${entry.assetId}.`);
-        }
-      }
-    }
-    const atlasBuilds = await Promise.all(atlasDocuments.map((atlas) => textureAtlasService.build(atlas)));
     await fileService.deleteProjectDirectory(project, LOVE2D_GAME_DATA_EXPORT_ROOT);
     const assetCounts = await Promise.all(assets.map((asset) => this.exportLove2dAsset(project, asset)));
-    const atlasTextFiles = atlasBuilds.flatMap(createLove2dAtlasTextFiles);
-    const atlasPageWrites = atlasBuilds.flatMap((build) =>
-      build.pages.map((page) => fileService.writePngFile(`${project.path}/${LOVE2D_ATLAS_EXPORT_ROOT}/${page.file}`, page.dataUrl))
-    );
     await Promise.all(bundle.files.map((file) => fileService.writeProjectTextFile(project, file.path, file.content)));
-    await Promise.all(atlasTextFiles.map((file) => fileService.writeProjectTextFile(project, file.path, file.content)));
-    await Promise.all(atlasPageWrites);
     return {
       exportedAt,
-      fileCount:
-        bundle.files.length + assetCounts.reduce((total, count) => total + count, 0) + atlasTextFiles.length + atlasPageWrites.length,
+      fileCount: bundle.files.length + assetCounts.reduce((total, count) => total + count, 0),
       manifestPath: LOVE2D_MANIFEST_PATH,
       outputPath: `${project.path}/${LOVE2D_GAME_DATA_EXPORT_ROOT}`,
       target: ExportTarget.love2d
@@ -169,32 +133,15 @@ class ExportService {
     tables: Parameters<typeof createTealExportBundle>[1],
     assets: Asset[],
     localization: Parameters<typeof createTealExportBundle>[4],
-    exportedAt: string,
-    atlasDocuments: Parameters<typeof textureAtlasService.build>[0][]
+    exportedAt: string
   ): Promise<ExportProjectResult> {
     const bundle = createTealExportBundle(project, tables, exportedAt, assets, localization);
-    const committedAssetIds = new Set(assets.map((asset) => asset.id));
-    for (const atlas of atlasDocuments) {
-      for (const entry of atlas.entries) {
-        if (!committedAssetIds.has(entry.assetId)) {
-          throw new Error(`Teal export blocked: atlas ${atlas.id} references uncommitted or missing asset ${entry.assetId}.`);
-        }
-      }
-    }
-    const atlasBuilds = await Promise.all(atlasDocuments.map((atlas) => textureAtlasService.build(atlas)));
     await fileService.deleteProjectDirectory(project, TEAL_GAME_DATA_EXPORT_ROOT);
     const assetCounts = await Promise.all(assets.map((asset) => this.exportLove2dAsset(project, asset)));
-    const atlasTextFiles = atlasBuilds.flatMap(createTealAtlasTextFiles);
-    const atlasPageWrites = atlasBuilds.flatMap((build) =>
-      build.pages.map((page) => fileService.writePngFile(`${project.path}/${TEAL_ATLAS_EXPORT_ROOT}/${page.file}`, page.dataUrl))
-    );
     await Promise.all(bundle.files.map((file) => fileService.writeProjectTextFile(project, file.path, file.content)));
-    await Promise.all(atlasTextFiles.map((file) => fileService.writeProjectTextFile(project, file.path, file.content)));
-    await Promise.all(atlasPageWrites);
     return {
       exportedAt,
-      fileCount:
-        bundle.files.length + assetCounts.reduce((total, count) => total + count, 0) + atlasTextFiles.length + atlasPageWrites.length,
+      fileCount: bundle.files.length + assetCounts.reduce((total, count) => total + count, 0),
       manifestPath: TEAL_MANIFEST_PATH,
       outputPath: `${project.path}/${TEAL_GAME_DATA_EXPORT_ROOT}`,
       target: ExportTarget.teal
@@ -206,43 +153,16 @@ class ExportService {
   }
 
   private async exportGodotAsset(project: Project, asset: Asset): Promise<number> {
-    if (isPackedTerrainTextureAsset(asset)) {
-      const packedTexture = await texturePackingService.unpackPackage(this.assetSourcePath(project, asset));
-      const paths = godotPackedTextureExportPaths(asset);
-      await Promise.all([
-        fileService.writePngFile(`${project.path}/${paths.albedoHeight}`, packedTexture.albedoHeight),
-        fileService.writePngFile(`${project.path}/${paths.normalRoughness}`, packedTexture.normalRoughness)
-      ]);
-      return 2;
-    }
     await fileService.copyProjectFile(project, this.assetSourcePath(project, asset), godotAssetExportPath(asset));
     return 1;
   }
 
   private async exportHaxeFlixelAsset(project: Project, asset: Asset): Promise<number> {
-    if (isHaxeFlixelPackedTextureAsset(asset)) {
-      const packedTexture = await texturePackingService.unpackPackage(this.assetSourcePath(project, asset));
-      const paths = haxeFlixelPackedTextureExportPaths(asset);
-      await Promise.all([
-        fileService.writePngFile(`${project.path}/${paths.albedoHeight}`, packedTexture.albedoHeight),
-        fileService.writePngFile(`${project.path}/${paths.normalRoughness}`, packedTexture.normalRoughness)
-      ]);
-      return 2;
-    }
     await fileService.copyProjectFile(project, this.assetSourcePath(project, asset), haxeFlixelAssetExportPath(asset));
     return 1;
   }
 
   private async exportLove2dAsset(project: Project, asset: Asset): Promise<number> {
-    if (isLove2dPackedTextureAsset(asset)) {
-      const packedTexture = await texturePackingService.unpackPackage(this.assetSourcePath(project, asset));
-      const paths = love2dPackedTextureExportPaths(asset);
-      await Promise.all([
-        fileService.writePngFile(`${project.path}/${paths.albedoHeight}`, packedTexture.albedoHeight),
-        fileService.writePngFile(`${project.path}/${paths.normalRoughness}`, packedTexture.normalRoughness)
-      ]);
-      return 2;
-    }
     await fileService.copyProjectFile(project, this.assetSourcePath(project, asset), love2dAssetExportPath(asset));
     return 1;
   }

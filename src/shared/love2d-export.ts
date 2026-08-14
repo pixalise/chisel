@@ -19,11 +19,6 @@ export interface Love2dExportBundle {
   files: Love2dExportFile[];
 }
 
-export interface Love2dPackedTextureExportPaths {
-  albedoHeight: string;
-  normalRoughness: string;
-}
-
 interface Love2dValueContext {
   assetIdsById: Map<string, number>;
   localizationIdsByPath: Map<string, number>;
@@ -225,23 +220,8 @@ function assetFolder(asset: Asset): string {
   return `${LOVE2D_ASSET_EXPORT_ROOT}/${snakeCase(asset.category)}/${snakeCase(asset.name)}`;
 }
 
-export function isLove2dPackedTextureAsset(asset: Asset): boolean {
-  return asset.category === AssetCategoryEnum.terrainTexture && asset.extension.toLowerCase() === "gppt";
-}
-
 export function love2dAssetExportPath(asset: Asset): string {
-  if (isLove2dPackedTextureAsset(asset)) {
-    return assetFolder(asset);
-  }
   return `${assetFolder(asset)}.${asset.extension.toLowerCase()}`;
-}
-
-export function love2dPackedTextureExportPaths(asset: Asset): Love2dPackedTextureExportPaths {
-  const folder = assetFolder(asset);
-  return {
-    albedoHeight: `${folder}/albedo_height.png`,
-    normalRoughness: `${folder}/normal_roughness.png`
-  };
 }
 
 function renderCategoryIds(assets: Asset[], names: Map<string, string>): string[] {

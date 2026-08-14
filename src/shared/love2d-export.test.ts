@@ -3,12 +3,7 @@ import { describe, expect, it } from "vitest";
 import { emptyLocalizationDocument, localizationDocumentSchema } from "./localization";
 import { assetSchema, dataTableSchema, type Project } from "./schemas";
 import { AssetCategoryEnum, ColumnType } from "./types";
-import {
-  createLove2dExportBundle,
-  love2dAssetExportPath,
-  love2dPackedTextureExportPaths,
-  LOVE2D_GAME_DATA_EXPORT_ROOT
-} from "./love2d-export";
+import { createLove2dExportBundle, love2dAssetExportPath, LOVE2D_GAME_DATA_EXPORT_ROOT } from "./love2d-export";
 
 describe("LÖVE export", () => {
   it("exports 1-based enum-indexed Structure-of-Arrays modules", () => {
@@ -144,25 +139,6 @@ describe("LÖVE export", () => {
     expect(manifestFile?.content).toContain('["units"] = { module = "gamedata.tables.units", count = 1 }');
     expect(manifestFile?.content).toContain('module = "gamedata.asset_manager"');
     expect(manifestFile?.content).toContain("INPUT = { module = nil, enabled = false }");
-  });
-
-  it("uses unpacked PNG paths beneath gamedata for packed terrain textures", () => {
-    const asset = assetSchema.parse({
-      category: AssetCategoryEnum.terrainTexture,
-      extension: "gppt",
-      height: 16,
-      id: "ignored",
-      name: "GROUND",
-      relativePath: ".chisel/assets/ground.gppt",
-      sizeBytes: 100,
-      width: 16
-    });
-
-    expect(love2dAssetExportPath(asset)).toBe("gamedata/assets/terrain_texture/ground");
-    expect(love2dPackedTextureExportPaths(asset)).toEqual({
-      albedoHeight: "gamedata/assets/terrain_texture/ground/albedo_height.png",
-      normalRoughness: "gamedata/assets/terrain_texture/ground/normal_roughness.png"
-    });
   });
 
   it("exports audio assets beneath the generated audio root", () => {

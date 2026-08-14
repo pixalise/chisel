@@ -6,14 +6,12 @@ import {
   love2dTableModuleName,
   type Love2dExportFile
 } from "./love2d-export";
-import { createLove2dAtlasTextFiles } from "./love2d-atlas-export";
-import type { AnyDataTable, DataColumnDefinition, Project, TextureAtlasBuildResult } from "./schemas";
+import type { AnyDataTable, DataColumnDefinition, Project } from "./schemas";
 import { ColumnType } from "./types";
 
 export const TEAL_GAME_DATA_EXPORT_ROOT = LOVE2D_GAME_DATA_EXPORT_ROOT;
 export const TEAL_ASSET_EXPORT_ROOT = LOVE2D_ASSET_EXPORT_ROOT;
 export const TEAL_MANIFEST_PATH = `${TEAL_GAME_DATA_EXPORT_ROOT}/manifest.tl`;
-export const TEAL_ATLAS_EXPORT_ROOT = `${TEAL_GAME_DATA_EXPORT_ROOT}/atlases`;
 
 export interface TealExportFile {
   content: string;
@@ -230,16 +228,4 @@ export function createTealExportBundle(
   const luaBundle = createLove2dExportBundle(project, tables, exportedAt, assets, localization);
   const tablesByLuaPath = new Map(tables.map((table) => [`${love2dTableModuleName(table).replaceAll(".", "/")}.lua`, table] as const));
   return { files: luaBundle.files.map((file) => tealFile(file, tablesByLuaPath)) };
-}
-
-export function createTealAtlasTextFiles(build: TextureAtlasBuildResult): TealExportFile[] {
-  return createLove2dAtlasTextFiles(build).map((file) => {
-    if (!file.path.endsWith(".lua")) {
-      return file;
-    }
-    return {
-      path: tealPath(file.path),
-      content: tealLooseModuleContent(file, "atlas")
-    };
-  });
 }
