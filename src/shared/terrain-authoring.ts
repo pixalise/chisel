@@ -247,6 +247,17 @@ export const terrainCandidateMetricSchema = z
   .strict();
 export type TerrainCandidateMetric = z.infer<typeof terrainCandidateMetricSchema>;
 
+export const terrainApprovedCellOverrideSchema = z
+  .object({
+    index: z.number().int().nonnegative(),
+    tiles: terrainTileStackSchema,
+    blocking: z.boolean(),
+    elevation: z.number().int().min(-8).max(8),
+    tags: z.array(terrainSlugSchema)
+  })
+  .strict();
+export type TerrainApprovedCellOverride = z.infer<typeof terrainApprovedCellOverrideSchema>;
+
 export const terrainApprovedAssetSchema = z
   .object({
     slug: terrainSlugSchema,
@@ -258,6 +269,7 @@ export const terrainApprovedAssetSchema = z
     layerCount: terrainLayerCountSchema,
     cells: z.array(terrainTileStackSchema),
     cellMetadata: z.array(terrainResolvedCellMetadataSchema),
+    cellOverrides: z.array(terrainApprovedCellOverrideSchema),
     placements: z.array(terrainPlacementSchema),
     anchors: z.array(terrainTemplateAnchorSchema),
     metrics: terrainCandidateMetricSchema
@@ -274,6 +286,23 @@ export const terrainApprovedAssetSchema = z
       if (cell.length !== asset.layerCount) {
         context.addIssue({ code: "custom", message: "Approved cell layers must match layer count", path: ["cells", index] });
       }
+    });
+    const overrideIndexes = new Set<number>();
+    asset.cellOverrides.forEach((override, index) => {
+      if (override.index >= size) {
+        context.addIssue({ code: "custom", message: "Approved override is outside the map", path: ["cellOverrides", index, "index"] });
+      }
+      if (override.tiles.length !== asset.layerCount) {
+        context.addIssue({
+          code: "custom",
+          message: "Approved override layers must match layer count",
+          path: ["cellOverrides", index, "tiles"]
+        });
+      }
+      if (overrideIndexes.has(override.index)) {
+        context.addIssue({ code: "custom", message: "Approved cell overrides must be unique", path: ["cellOverrides", index, "index"] });
+      }
+      overrideIndexes.add(override.index);
     });
   });
 export type TerrainApprovedAsset = z.infer<typeof terrainApprovedAssetSchema>;

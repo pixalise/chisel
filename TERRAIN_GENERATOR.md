@@ -33,7 +33,7 @@ Terrain Generator is divided into five focused pages:
 2. **Pieces** — paint modules and inspect compatibility with the cart icon.
 3. **Collections** — choose the pieces solved together. Adjacency exceptions remain under Advanced.
 4. **Generate** — choose a template, starting seed, and batch size. **Generate** reproduces that seed range; **Generate more** appends the next range. Anchors, stamps, zones, and per-cell tag constraints remain under **Edit advanced constraints**.
-5. **Approved** — preview frozen maps and submodules, then paint separate spatial dressings for runtime content placement.
+5. **Annotations** — polish approved maps with sparse cell overrides, then paint separate spatial dressings for runtime content placement.
 
 An empty project with identified sprites opens with an unsaved `EXAMPLE_FOREST_SITE`. It can immediately generate eight candidates. The example uses weighted 1×1 pieces, a 2×2 module with a three-cell collision mask, mixed-size transforms, one collection, deny and allow-only adjacency exceptions, cell tag constraints, three anchors, a required stamp, and a validation zone. Use **Reset full example** to reconstruct it after experimenting. It does not modify project files until **Save authoring** is selected.
 
@@ -50,7 +50,7 @@ Both the Catalog sprite grid and the compact Sprite palette are searchable by lo
 
 ## Socket vocabulary
 
-Create stable socket slugs before painting pieces. A socket has a label, inspector color, and description. Examples include `GROUND`, `WATER`, `ROAD`, and `SHORE`.
+Create stable socket slugs before painting pieces. A socket uses its slug as its identity and has an inspector color and optional description. Examples include `GROUND`, `WATER`, `ROAD`, and `SHORE`.
 
 Two exposed boundary segments may touch only when their socket slugs match exactly. Interior edges of a multi-cell piece compile into private synthetic sockets, forcing all cells in that piece to appear together.
 
@@ -136,16 +136,18 @@ Approve a useful result as:
 - `MAP`: a complete authored site;
 - `SUBMODULE`: frozen reusable geography intended for a later composition step.
 
-Approval deep-copies concrete tile stacks, resolved metadata, placements, anchors, and metrics. Later changes to sockets, pieces, weights, templates, or the solver cannot alter an approved asset.
+Approval deep-copies concrete tile stacks, resolved metadata, placements, anchors, and metrics. Later changes to sockets, pieces, weights, templates, or the solver cannot alter that generated base.
 
-Every approved asset has a rendered preview under **Terrain → Terrain Annotations**. Selecting it opens the spatial annotation editor. A spatial dressing references—but never edits—the frozen asset and can define:
+Every approved asset has a rendered preview under **Terrain → Terrain Annotations**. Its Terrain polish tab stores sparse per-cell overrides for tile layers, collision, elevation, and semantic tags while retaining the generated base for individual or complete reversion. The final resolved geography updates connectivity and anchor metrics immediately.
+
+The separate Spatial annotations tab references—but never edits—the resolved geography and can define:
 
 - painted `PLACEMENT`, `EXCLUSION`, and `RESERVED` zones with semantic tags;
 - typed point markers such as POIs, quest sites, spawn hints, or landmarks, including radius and direction;
 - fixed placements that reference one concrete content-table row;
 - rule placements that name an engine-owned runtime rule set.
 
-An approved asset may have multiple interchangeable dressings. This lets one terrain result support different quest, encounter, or prop arrangements while retaining exactly the same geography. Chisel owns the immutable coordinates, tags, references, overlays, and validation. The engine interprets rule-set slugs, instantiates content, applies runtime eligibility rules, and owns spawned instance state.
+An approved asset may have multiple interchangeable dressings. This lets one polished terrain result support different quest, encounter, or prop arrangements while retaining exactly the same final geography. Chisel owns the coordinates, terrain overrides, annotation tags, references, overlays, and validation. The engine interprets rule-set slugs, instantiates content, applies runtime eligibility rules, and owns spawned instance state.
 
 Template stamps are intentionally separate: they force terrain pieces during WFC generation and become part of the frozen geography. Spatial placements happen after approval and never rerun or modify WFC.
 
@@ -174,4 +176,4 @@ All eight are editor-only system tables. Runtime export excludes them. Deleting 
 6. Create one collection and generate a small unconstrained template.
 7. Add anchors, zones, tag constraints, and required stamps only after the local grammar is healthy.
 8. Review a candidate batch and freeze only geography worth keeping.
-9. Select an approved map, create one or more spatial dressings, then paint placement/exclusion zones and add only the markers or placements the engine needs.
+9. Select an approved map, polish any terrain cells that need manual correction, create one or more spatial dressings, then paint placement/exclusion zones and add only the markers or placements the engine needs.

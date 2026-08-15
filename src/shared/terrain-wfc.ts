@@ -766,6 +766,7 @@ export function freezeTerrainCandidate(candidate: TerrainCandidate, slug: string
     layerCount: candidate.layerCount,
     cells: candidate.cells.map((stack) => stack.map((tile) => (tile ? { ...tile } : null))),
     cellMetadata: candidate.cellMetadata.map((metadata) => ({ ...metadata, tags: [...metadata.tags] })),
+    cellOverrides: [],
     placements: candidate.placements.map((placement) => ({ ...placement })),
     anchors: candidate.anchors.map((anchor) => ({ ...anchor })),
     metrics: { ...candidate.metrics }

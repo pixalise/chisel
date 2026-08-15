@@ -131,6 +131,7 @@ describe("Simple-Tiled socket WFC", () => {
     const frozen = freezeTerrainCandidate(first, "APPROVED", "MAP");
     first.cells[0][0] = tile(3);
     expect(frozen.cells[0][0]).not.toEqual(tile(3));
+    expect(frozen.cellOverrides).toEqual([]);
   });
 
   it("uses resolved cell tags and anchor sockets as macro constraints", () => {

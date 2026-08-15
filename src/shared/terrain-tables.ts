@@ -158,14 +158,14 @@ export const TERRAIN_SITE_TEMPLATES_TABLE = table(
 export const TERRAIN_APPROVED_ASSETS_TABLE = table(
   TERRAIN_APPROVED_ASSETS_TABLE_ID,
   "Approved Terrain Assets",
-  "Frozen complete maps and submodules retained in Chisel's internal geography library.",
+  "Approved generated bases with sparse terrain-polish overrides retained in Chisel's internal geography library.",
   Object.values(TERRAIN_APPROVED_ASSET_COLUMNS)
 );
 
 export const TERRAIN_SPATIAL_LAYOUTS_TABLE = table(
   TERRAIN_SPATIAL_LAYOUTS_TABLE_ID,
   "Terrain Spatial Layouts",
-  "Post-approval zone masks, markers, and fixed or rule-driven content placements over frozen geography.",
+  "Post-approval zone masks, markers, and fixed or rule-driven content placements over resolved approved geography.",
   Object.values(TERRAIN_SPATIAL_LAYOUT_COLUMNS)
 );
 

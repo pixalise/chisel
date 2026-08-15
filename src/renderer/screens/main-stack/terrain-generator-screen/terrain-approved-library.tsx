@@ -1,23 +1,35 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { Trash2 } from "lucide-react";
 import { type FC, useEffect, useState } from "react";
-import type { TerrainApprovedAsset, TerrainSpatialLayout, TerrainTilesetView } from "../../../../shared/terrain-authoring";
+import type {
+  TerrainApprovedAsset,
+  TerrainSpatialLayout,
+  TerrainTileBinding,
+  TerrainTileRef,
+  TerrainWorkspaceView
+} from "../../../../shared/terrain-authoring";
 import { TerrainApprovedMapPreview } from "./terrain-approved-map-preview";
+import { TerrainApprovedOverpaintEditor } from "./terrain-approved-overpaint-editor";
 import { TerrainSpatialAnnotationEditor } from "./terrain-spatial-annotation-editor";
+import { TerrainTileCatalog } from "./terrain-tile-catalog";
 
 interface TerrainApprovedLibraryProps {
   assets: TerrainApprovedAsset[];
   layouts: TerrainSpatialLayout[];
   onDelete: (slug: string) => Promise<void>;
+  onAssetsChange: (assets: TerrainApprovedAsset[]) => void;
+  onBindingsChange: (bindings: Record<string, TerrainTileBinding>) => void;
   onLayoutsChange: (layouts: TerrainSpatialLayout[]) => void;
-  tilesets: TerrainTilesetView[];
+  workspace: TerrainWorkspaceView;
 }
 
 export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) => {
-  const { assets, layouts, onDelete, onLayoutsChange, tilesets } = props;
+  const { assets, layouts, onAssetsChange, onBindingsChange, onDelete, onLayoutsChange, workspace } = props;
   const [selectedAssetSlug, setSelectedAssetSlug] = useState(assets[0]?.slug ?? "");
+  const [selectedTile, setSelectedTile] = useState<TerrainTileRef>();
   const selectedAsset = assets.find((asset) => asset.slug === selectedAssetSlug);
 
   useEffect(() => {
@@ -32,7 +44,7 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
           <div>
             <h3 className="text-sm font-semibold">Approved geography library</h3>
             <p className="text-xs text-muted-foreground">
-              Preview frozen maps, then select one to add separate spatial annotations without repainting its terrain.
+              Preview approved maps, then polish their terrain or add separate spatial annotations.
             </p>
           </div>
           <Badge variant="secondary">{assets.length}</Badge>
@@ -62,7 +74,7 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
                 }}
               >
                 <div className="overflow-hidden rounded bg-slate-950 p-2">
-                  <TerrainApprovedMapPreview asset={asset} layout={assetLayouts[0]} maxSize={320} tilesets={tilesets} />
+                  <TerrainApprovedMapPreview asset={asset} layout={assetLayouts[0]} maxSize={320} tilesets={workspace.tilesets} />
                 </div>
                 <div className="pr-9">
                   <p className="truncate text-sm font-medium">{asset.slug}</p>
@@ -71,7 +83,7 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
                   </p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {asset.metrics.distinctPieces} piece types · {asset.metrics.walkableComponents} walkable components ·{" "}
-                    {assetLayouts.length} {assetLayouts.length === 1 ? "dressing" : "dressings"}
+                    {asset.cellOverrides.length} overrides · {assetLayouts.length} {assetLayouts.length === 1 ? "dressing" : "dressings"}
                   </p>
                 </div>
                 <Button
@@ -94,7 +106,37 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
         </div>
       </div>
       {selectedAsset && (
-        <TerrainSpatialAnnotationEditor asset={selectedAsset} layouts={layouts} onChange={onLayoutsChange} tilesets={tilesets} />
+        <Tabs defaultValue="polish">
+          <TabsList className="grid h-auto w-full grid-cols-2">
+            <TabsTrigger value="polish">Terrain polish</TabsTrigger>
+            <TabsTrigger value="annotations">Spatial annotations</TabsTrigger>
+          </TabsList>
+          <TabsContent className="space-y-4" value="polish">
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.7fr)] xl:items-start">
+              <TerrainApprovedOverpaintEditor
+                asset={selectedAsset}
+                onChange={(asset) => onAssetsChange(assets.map((entry) => (entry.slug === asset.slug ? asset : entry)))}
+                selectedTile={selectedTile}
+                tilesets={workspace.tilesets}
+              />
+              <TerrainTileCatalog
+                compact
+                onBindingsChange={onBindingsChange}
+                onSelectTile={setSelectedTile}
+                selectedTile={selectedTile}
+                workspace={workspace}
+              />
+            </div>
+          </TabsContent>
+          <TabsContent value="annotations">
+            <TerrainSpatialAnnotationEditor
+              asset={selectedAsset}
+              layouts={layouts}
+              onChange={onLayoutsChange}
+              tilesets={workspace.tilesets}
+            />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );

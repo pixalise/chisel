@@ -11,6 +11,7 @@ import type {
   TerrainSpatialLayout,
   TerrainTilesetView
 } from "../../../../shared/terrain-authoring";
+import { resolveApprovedTerrainCell } from "../../../../shared/terrain-approved-overpaint";
 import { TerrainApprovedMapPreview } from "./terrain-approved-map-preview";
 
 interface TerrainSpatialAnnotationEditorProps {
@@ -42,9 +43,10 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
   const [placementTags, setPlacementTags] = useState("");
   const selectedLayout = assetLayouts.find((layout) => layout.slug === selectedLayoutSlug);
   const activeZone = selectedLayout?.zones.find((zone) => zone.slug === activeZoneSlug);
-  const selectedX = selectedIndex % asset.width;
-  const selectedY = Math.floor(selectedIndex / asset.width);
-  const selectedCell = asset.cellMetadata[selectedIndex];
+  const boundedSelectedIndex = Math.min(selectedIndex, asset.cells.length - 1);
+  const selectedX = boundedSelectedIndex % asset.width;
+  const selectedY = Math.floor(boundedSelectedIndex / asset.width);
+  const selectedCell = resolveApprovedTerrainCell(asset, boundedSelectedIndex).metadata;
 
   useEffect(() => {
     if (assetLayouts.some((layout) => layout.slug === selectedLayoutSlug)) return;
@@ -219,7 +221,7 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                   layout={selectedLayout}
                   onPaintCell={activeZone ? paintZone : undefined}
                   onSelectCell={setSelectedIndex}
-                  selectedIndex={selectedIndex}
+                  selectedIndex={boundedSelectedIndex}
                   tilesets={tilesets}
                 />
               </div>

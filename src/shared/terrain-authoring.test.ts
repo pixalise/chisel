@@ -127,6 +127,7 @@ describe("socket terrain authoring contract", () => {
         layerCount: 1,
         cells: Array.from({ length: 9 }, () => [{ tilesetId: "TERRAIN", localId: 0, orientation: 0 }]),
         cellMetadata: Array.from({ length: 9 }, () => ({ blocking: false, elevation: 0, tags: [], piece: "GROUND" })),
+        cellOverrides: [],
         placements: [],
         anchors: [],
         metrics: { walkableComponents: 1, reachableAnchors: 0, requiredAnchors: 0, distinctPieces: 1 }

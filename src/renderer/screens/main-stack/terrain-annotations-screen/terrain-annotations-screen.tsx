@@ -33,14 +33,14 @@ export const TerrainAnnotationsScreen: FC = () => {
     };
   }, []);
 
-  async function saveAnnotations(): Promise<void> {
+  async function saveApprovedTerrain(): Promise<void> {
     if (!workspace) return;
     setIsBusy(true);
     setError("");
     try {
-      const saved = await terrainGeneratorService.saveSpatialLayouts(workspace.spatialLayouts);
+      const saved = await terrainGeneratorService.save(workspace);
       setWorkspace(saved);
-      setMessage("Saved terrain annotations.");
+      setMessage("Saved approved terrain polish and annotations.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -68,7 +68,7 @@ export const TerrainAnnotationsScreen: FC = () => {
   }
 
   return (
-    <Section title="Terrain Annotations" copy="Preview approved maps and author spatial meaning without changing their terrain.">
+    <Section title="Terrain Annotations" copy="Polish approved geography, then author separate spatial meaning over the final terrain.">
       <div className="space-y-4">
         {error && (
           <Alert className="py-2" variant="destructive">
@@ -83,18 +83,23 @@ export const TerrainAnnotationsScreen: FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3">
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">{workspace.approvedAssets.length} approved maps</Badge>
+                <Badge variant="outline">
+                  {workspace.approvedAssets.reduce((count, asset) => count + asset.cellOverrides.length, 0)} terrain overrides
+                </Badge>
                 <Badge variant="outline">{workspace.spatialLayouts.length} annotation layouts</Badge>
               </div>
-              <Button disabled={isBusy} onClick={() => void saveAnnotations()} type="button">
-                <Save className="size-4" /> Save annotations
+              <Button disabled={isBusy} onClick={() => void saveApprovedTerrain()} type="button">
+                <Save className="size-4" /> Save terrain work
               </Button>
             </div>
             <TerrainApprovedLibrary
               assets={workspace.approvedAssets}
               layouts={workspace.spatialLayouts}
+              onAssetsChange={(approvedAssets) => setWorkspace((current) => (current ? { ...current, approvedAssets } : current))}
+              onBindingsChange={(tileBindings) => setWorkspace((current) => (current ? { ...current, tileBindings } : current))}
               onDelete={deleteApprovedAsset}
               onLayoutsChange={(spatialLayouts) => setWorkspace((current) => (current ? { ...current, spatialLayouts } : current))}
-              tilesets={workspace.tilesets}
+              workspace={workspace}
             />
           </>
         )}

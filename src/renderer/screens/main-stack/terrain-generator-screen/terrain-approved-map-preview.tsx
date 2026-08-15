@@ -1,5 +1,6 @@
 import { type FC, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import type { TerrainApprovedAsset, TerrainSpatialLayout, TerrainTilesetView } from "../../../../shared/terrain-authoring";
+import { resolveApprovedTerrainCell } from "../../../../shared/terrain-approved-overpaint";
 import { drawTerrainCell } from "./terrain-rendering";
 import { terrainZoneBoundarySegments } from "./terrain-zone-boundary";
 
@@ -11,6 +12,7 @@ interface TerrainApprovedMapPreviewProps {
   onPaintCell?: (index: number, erase: boolean) => void;
   onSelectCell?: (index: number) => void;
   selectedIndex?: number;
+  showOverrideMarkers?: boolean;
   tilesets: TerrainTilesetView[];
 }
 
@@ -20,7 +22,7 @@ interface PointerState {
 }
 
 export const TerrainApprovedMapPreview: FC<TerrainApprovedMapPreviewProps> = (props) => {
-  const { activeZoneSlug, asset, layout, maxSize = 560, onPaintCell, onSelectCell, selectedIndex, tilesets } = props;
+  const { activeZoneSlug, asset, layout, maxSize = 560, onPaintCell, onSelectCell, selectedIndex, showOverrideMarkers, tilesets } = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const images = useRef(new Map<string, HTMLImageElement>());
   const pointerState = useRef<PointerState>();
@@ -63,11 +65,12 @@ export const TerrainApprovedMapPreview: FC<TerrainApprovedMapPreviewProps> = (pr
     context.imageSmoothingEnabled = false;
     context.fillStyle = "#0f172a";
     context.fillRect(0, 0, width, height);
-    asset.cells.forEach((cell, index) => {
+    asset.cells.forEach((_, index) => {
       const x = index % asset.width;
       const y = Math.floor(index / asset.width);
-      drawTerrainCell(context, cell, tilesets, images.current, x * cellSize, y * cellSize, cellSize);
-      if (asset.cellMetadata[index]?.blocking) {
+      const cell = resolveApprovedTerrainCell(asset, index);
+      drawTerrainCell(context, cell.tiles, tilesets, images.current, x * cellSize, y * cellSize, cellSize);
+      if (cell.metadata.blocking) {
         context.fillStyle = "rgba(225, 29, 72, 0.16)";
         context.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
       }
@@ -85,6 +88,21 @@ export const TerrainApprovedMapPreview: FC<TerrainApprovedMapPreviewProps> = (pr
       context.lineTo(width, y * cellSize);
     }
     context.stroke();
+
+    if (showOverrideMarkers) {
+      context.fillStyle = "#22d3ee";
+      for (const override of asset.cellOverrides) {
+        const x = override.index % asset.width;
+        const y = Math.floor(override.index / asset.width);
+        const markerSize = Math.max(3, Math.floor(cellSize * 0.22));
+        context.beginPath();
+        context.moveTo(x * cellSize, y * cellSize);
+        context.lineTo(x * cellSize + markerSize, y * cellSize);
+        context.lineTo(x * cellSize, y * cellSize + markerSize);
+        context.closePath();
+        context.fill();
+      }
+    }
 
     for (const zone of layout?.zones ?? []) {
       const color = zoneColor(zone.kind);
@@ -157,7 +175,7 @@ export const TerrainApprovedMapPreview: FC<TerrainApprovedMapPreviewProps> = (pr
       context.lineWidth = 3;
       context.strokeRect(x * cellSize + 1.5, y * cellSize + 1.5, cellSize - 3, cellSize - 3);
     }
-  }, [activeZoneSlug, asset, cellSize, imageRevision, layout, selectedIndex, tilesets]);
+  }, [activeZoneSlug, asset, cellSize, imageRevision, layout, selectedIndex, showOverrideMarkers, tilesets]);
 
   function cellAt(event: ReactPointerEvent<HTMLCanvasElement>): number {
     const rect = event.currentTarget.getBoundingClientRect();

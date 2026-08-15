@@ -35,6 +35,7 @@ import {
   type TerrainWorkspaceView
 } from "../../shared/terrain-authoring";
 import { AssetCategoryEnum } from "../../shared/types";
+import { refreshApprovedTerrainMetrics } from "../../shared/terrain-approved-overpaint";
 
 function cell(row: DataTableRow, column: DataColumnDefinition): unknown {
   const stored = row.values.find((entry) => entry.columnId === column.id);
@@ -150,7 +151,9 @@ class TerrainGeneratorService {
       terrainSiteTemplateSchema.parse({ ...(cell(entry, TERRAIN_SITE_TEMPLATE_COLUMNS.definition) as object), slug: entry.slug })
     );
     const approvedAssets = approvedTable.rows.map((entry) =>
-      terrainApprovedAssetSchema.parse({ ...(cell(entry, TERRAIN_APPROVED_ASSET_COLUMNS.definition) as object), slug: entry.slug })
+      refreshApprovedTerrainMetrics(
+        terrainApprovedAssetSchema.parse({ ...(cell(entry, TERRAIN_APPROVED_ASSET_COLUMNS.definition) as object), slug: entry.slug })
+      )
     );
     const spatialLayouts = layoutsTable.rows.map((entry) =>
       terrainSpatialLayoutSchema.parse({ ...(cell(entry, TERRAIN_SPATIAL_LAYOUT_COLUMNS.definition) as object), slug: entry.slug })
