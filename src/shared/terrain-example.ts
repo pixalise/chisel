@@ -33,7 +33,7 @@ function chooseTile(tiles: BoundTile[], tags: string[], preferredLocalId: number
   const tagged = tiles.find((entry) => tags.some((tag) => entry.binding.tags.includes(tag)));
   const preferred = tiles.find((entry) => entry.tile.localId === preferredLocalId);
   const selected = tagged ?? preferred ?? tiles[fallbackIndex] ?? tiles[0];
-  if (!selected) throw new Error("The complete terrain example needs at least one bound tileset sprite");
+  if (!selected) throw new Error("The complete terrain example needs metadata for at least one tileset sprite");
   return { ...selected.tile };
 }
 
@@ -86,12 +86,12 @@ function examplePieces(ground: TerrainTileRef, tree: TerrainTileRef, rock: Terra
     2,
     2,
     [
-      terrainCell(ground, tree, ["TREE"]),
-      terrainCell(ground, bush, ["BUSH"]),
+      { ...terrainCell(ground, tree, ["TREE"]), blocking: true },
+      { ...terrainCell(ground, bush, ["BUSH"]), blocking: true },
       terrainCell(ground, null, []),
-      terrainCell(ground, tree, ["TREE"])
+      { ...terrainCell(ground, tree, ["TREE"]), blocking: true }
     ],
-    1,
+    0.01,
     ["GROUND", "TREE", "WALKABLE"],
     "REFLECT"
   );

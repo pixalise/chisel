@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -24,6 +23,7 @@ import type {
   TerrainTilesetView
 } from "../../../../shared/terrain-authoring";
 import { TerrainAdjacencyRulePreview } from "./terrain-adjacency-rule-preview";
+import { TerrainCollectionPiecePicker } from "./terrain-collection-piece-picker";
 
 interface TerrainPieceSetEditorProps {
   onOverridesChange: (overrides: TerrainAdjacencyOverride[]) => void;
@@ -135,24 +135,12 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
                 />
               </Label>
             </div>
-            <div className="flex flex-wrap gap-3 rounded border border-border p-2">
-              {pieces.map((piece) => (
-                <Label className="flex items-center gap-2 text-xs" key={piece.slug}>
-                  <Checkbox
-                    checked={selectedSet.pieceSlugs.includes(piece.slug)}
-                    onCheckedChange={(checked) =>
-                      updateSet({
-                        pieceSlugs:
-                          checked === true
-                            ? [...new Set([...selectedSet.pieceSlugs, piece.slug])]
-                            : selectedSet.pieceSlugs.filter((slug) => slug !== piece.slug)
-                      })
-                    }
-                  />
-                  {piece.slug}
-                </Label>
-              ))}
-            </div>
+            <TerrainCollectionPiecePicker
+              onChange={(pieceSlugs) => updateSet({ pieceSlugs })}
+              pieces={pieces}
+              selectedPieceSlugs={selectedSet.pieceSlugs}
+              tilesets={tilesets}
+            />
           </>
         )}
       </div>

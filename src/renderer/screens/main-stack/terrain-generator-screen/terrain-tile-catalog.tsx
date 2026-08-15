@@ -1,5 +1,3 @@
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -22,7 +20,7 @@ interface TerrainTileCatalogProps {
 }
 
 function defaultBinding(tilesetId: string, localId: number): TerrainTileBinding {
-  return { slug: `${tilesetId}_${localId}`, blocking: false, tags: [] };
+  return { slug: `${tilesetId}_${localId}`, tags: [] };
 }
 
 export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
@@ -30,6 +28,7 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
   const [emptyTileKeys, setEmptyTileKeys] = useState<Set<string>>(new Set());
   const [isScanningEmptyTiles, setIsScanningEmptyTiles] = useState(workspace.tilesets.length > 0);
   const [showEmptyTiles, setShowEmptyTiles] = useState(false);
+  const [search, setSearch] = useState("");
   const [activeTilesetId, setActiveTilesetId] = useState(workspace.tilesets[0]?.id ?? "");
   const allTiles = useMemo(
     () =>
@@ -39,7 +38,18 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
     [workspace.tilesets]
   );
   const tiles = useMemo(() => allTiles.filter((tile) => tile.tileset.id === activeTilesetId), [activeTilesetId, allTiles]);
-  const visibleTiles = showEmptyTiles ? tiles : tiles.filter((tile) => !emptyTileKeys.has(tile.key));
+  const availableTiles = useMemo(
+    () => (showEmptyTiles ? tiles : tiles.filter((tile) => !emptyTileKeys.has(tile.key))),
+    [emptyTileKeys, showEmptyTiles, tiles]
+  );
+  const visibleTiles = useMemo(() => {
+    const query = search.trim().toUpperCase();
+    if (!query) return availableTiles;
+    return availableTiles.filter((tile) => {
+      const binding = workspace.tileBindings[tile.key];
+      return [tile.key, String(tile.localId), binding?.slug ?? "", ...(binding?.tags ?? [])].join(" ").toUpperCase().includes(query);
+    });
+  }, [availableTiles, search, workspace.tileBindings]);
   const selected = selectedTile
     ? tiles.find((tile) => tile.key === terrainTileKey(selectedTile.tilesetId, selectedTile.localId) && !emptyTileKeys.has(tile.key))
     : undefined;
@@ -83,12 +93,14 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
     onBindingsChange({ ...workspace.tileBindings, [selected.key]: { ...binding, ...update } });
   }
 
-  function initializeAll(): void {
-    const bindings = { ...workspace.tileBindings };
-    for (const tile of tiles) {
-      if (!emptyTileKeys.has(tile.key)) bindings[tile.key] ??= defaultBinding(tile.tileset.id, tile.localId);
+  function selectTile(tile: (typeof tiles)[number]): void {
+    if (!workspace.tileBindings[tile.key]) {
+      onBindingsChange({
+        ...workspace.tileBindings,
+        [tile.key]: defaultBinding(tile.tileset.id, tile.localId)
+      });
     }
-    onBindingsChange(bindings);
+    onSelectTile({ tilesetId: tile.tileset.id, localId: tile.localId, orientation: 0 });
   }
 
   return (
@@ -101,11 +113,11 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
       <div className="min-w-0 space-y-2">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h3 className="text-sm font-semibold">{compact ? "Paint brush" : "Tileset catalog"}</h3>
+            <h3 className="text-sm font-semibold">{compact ? "Sprite palette" : "Tileset catalog"}</h3>
             <p className="text-xs text-muted-foreground">
               {compact
-                ? "Choose the sprite painted by the piece canvas."
-                : "Bind sprites once, then give them collision and semantic metadata."}
+                ? "Choose the sprite used by the terrain paint mode."
+                : "Select sprites to assign stable identity and semantic tags. Metadata is created automatically on first selection."}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -130,10 +142,20 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
               <Switch checked={showEmptyTiles} onCheckedChange={setShowEmptyTiles} />
               Show empty tiles
             </Label>
-            <Button disabled={tiles.length === 0 || isScanningEmptyTiles} onClick={initializeAll} size="sm" type="button" variant="outline">
-              Initialize unbound
-            </Button>
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            aria-label="Search terrain sprites"
+            className="min-w-52 flex-1"
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search local ID, sprite slug, or semantic tag…"
+            type="search"
+            value={search}
+          />
+          <span className="text-xs text-muted-foreground">
+            {visibleTiles.length} of {availableTiles.length} sprites
+          </span>
         </div>
         {tiles.length === 0 && (
           <p className="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -151,7 +173,7 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
               const scale = 48 / tile.tileset.tileSize;
               const column = tile.localId % tile.tileset.columns;
               const row = Math.floor(tile.localId / tile.tileset.columns);
-              const bound = workspace.tileBindings[tile.key];
+              const binding = workspace.tileBindings[tile.key];
               const empty = emptyTileKeys.has(tile.key);
               return (
                 <button
@@ -161,14 +183,13 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
                       ? "cursor-not-allowed border-muted-foreground/30 bg-muted opacity-50 grayscale"
                       : selected?.key === tile.key
                         ? "border-primary"
-                        : bound
-                          ? "border-emerald-600/70"
-                          : "border-destructive/70"
+                        : "border-border hover:border-primary/60"
                   )}
                   disabled={empty}
+                  data-terrain-sprite={tile.key}
                   key={tile.key}
-                  onClick={() => onSelectTile({ tilesetId: tile.tileset.id, localId: tile.localId, orientation: 0 })}
-                  title={empty ? `${tile.key} — empty tile` : `${tile.key}${bound ? ` — ${bound.slug}` : " — unbound"}`}
+                  onClick={() => selectTile(tile)}
+                  title={empty ? `${tile.key} — empty tile` : `${tile.key}${binding ? ` — ${binding.slug}` : ""}`}
                   type="button"
                 >
                   <span
@@ -187,14 +208,16 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
               );
             })}
             {visibleTiles.length === 0 && tiles.length > 0 && (
-              <p className="w-full p-3 text-center text-xs text-muted-foreground">All tiles in this tileset are empty.</p>
+              <p className="w-full p-3 text-center text-xs text-muted-foreground">
+                {search ? "No sprites match this search." : "All tiles in this tileset are empty."}
+              </p>
             )}
           </div>
         )}
       </div>
       {!compact && (
         <div className="space-y-3 border-l border-border pl-3">
-          <h3 className="text-sm font-semibold">Tile binding {selected?.key}</h3>
+          <h3 className="text-sm font-semibold">Sprite metadata {selected?.key}</h3>
           {selected && (
             <>
               <div className="space-y-1">
@@ -205,13 +228,6 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
                   value={selectedBinding?.slug ?? ""}
                 />
               </div>
-              <Label className="flex items-center gap-2">
-                <Checkbox
-                  checked={selectedBinding?.blocking ?? false}
-                  onCheckedChange={(checked) => updateSelected({ blocking: checked === true })}
-                />
-                Blocks movement
-              </Label>
               <div className="space-y-1">
                 <Label htmlFor="tile-tags">Semantic tags</Label>
                 <Input

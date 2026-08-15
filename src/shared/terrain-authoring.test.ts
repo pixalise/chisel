@@ -86,12 +86,12 @@ describe("socket terrain authoring contract", () => {
     expect(appendTerrainPieceLayer(piece).cells[0].tiles).toEqual([{ tilesetId: "TERRAIN", localId: 1, orientation: 0 }, null]);
   });
 
-  it("keeps tile bindings free of WFC grammar", () => {
-    expect(terrainTileBindingSchema.parse({ slug: "BOULDER", blocking: true, tags: ["MAP_EDGE"] })).toEqual({
+  it("keeps sprite metadata free of collision and WFC grammar", () => {
+    expect(terrainTileBindingSchema.parse({ slug: "BOULDER", tags: ["MAP_EDGE"] })).toEqual({
       slug: "BOULDER",
-      blocking: true,
       tags: ["MAP_EDGE"]
     });
+    expect(() => terrainTileBindingSchema.parse({ slug: "BOULDER", blocking: true, tags: [] })).toThrow();
   });
 
   it("validates extension anchors on template boundaries", () => {

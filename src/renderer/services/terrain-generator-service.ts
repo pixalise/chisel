@@ -51,12 +51,6 @@ function integerCell(row: DataTableRow, column: DataColumnDefinition): number {
   return value;
 }
 
-function booleanCell(row: DataTableRow, column: DataColumnDefinition): boolean {
-  const value = cell(row, column);
-  if (typeof value !== "boolean") throw new Error(`Terrain row '${row.slug}' has invalid '${column.name}'`);
-  return value;
-}
-
 function stringArrayCell(row: DataTableRow, column: DataColumnDefinition): string[] {
   const value = cell(row, column);
   if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
@@ -121,7 +115,6 @@ class TerrainGeneratorService {
           terrainTileKey(tileset, localId),
           terrainTileBindingSchema.parse({
             slug: stringCell(entry, TERRAIN_TILE_BINDING_COLUMNS.tileSlug),
-            blocking: booleanCell(entry, TERRAIN_TILE_BINDING_COLUMNS.blocking),
             tags: stringArrayCell(entry, TERRAIN_TILE_BINDING_COLUMNS.tags)
           })
         ];
@@ -164,7 +157,7 @@ class TerrainGeneratorService {
     for (const [key, binding] of Object.entries(tileBindings)) {
       const separator = key.lastIndexOf(":");
       const tileset = tilesets.find((entry) => entry.id === key.slice(0, separator));
-      if (!tileset || Number(key.slice(separator + 1)) >= tileset.tileCount) problems.push(`Tile binding '${binding.slug}' is orphaned`);
+      if (!tileset || Number(key.slice(separator + 1)) >= tileset.tileCount) problems.push(`Sprite metadata '${binding.slug}' is orphaned`);
     }
     for (const piece of pieces) {
       for (const direction of ["north", "east", "south", "west"] as const) {
@@ -177,7 +170,7 @@ class TerrainGeneratorService {
       for (const pieceCell of piece.cells) {
         for (const tile of pieceCell.tiles) {
           if (tile && !tileBindings[terrainTileKey(tile.tilesetId, tile.localId)]) {
-            problems.push(`Piece '${piece.slug}' uses unbound tile '${tile.tilesetId}:${tile.localId}'`);
+            problems.push(`Piece '${piece.slug}' uses sprite '${tile.tilesetId}:${tile.localId}' without metadata`);
           }
         }
       }
@@ -235,7 +228,6 @@ class TerrainGeneratorService {
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.tileset, key.slice(0, separator)),
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.localId, Number(key.slice(separator + 1))),
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.tileSlug, parsed.slug),
-          rowValue(TERRAIN_TILE_BINDING_COLUMNS.blocking, parsed.blocking),
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.tags, parsed.tags)
         ],
         bindingIds.get(parsed.slug)

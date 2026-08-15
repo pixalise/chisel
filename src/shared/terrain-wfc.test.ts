@@ -50,9 +50,7 @@ function set(slug: string, pieceSlugs: string[]): TerrainPieceSet {
 }
 
 function bindings(): Record<string, TerrainTileBinding> {
-  return Object.fromEntries(
-    [0, 1, 2, 3].map((localId) => [terrainTileKey("TERRAIN", localId), { slug: `TILE_${localId}`, blocking: false, tags: [] }])
-  );
+  return Object.fromEntries([0, 1, 2, 3].map((localId) => [terrainTileKey("TERRAIN", localId), { slug: `TILE_${localId}`, tags: [] }]));
 }
 
 describe("Simple-Tiled socket WFC", () => {
@@ -71,7 +69,7 @@ describe("Simple-Tiled socket WFC", () => {
       width: 2,
       height: 1,
       layerCount: 1,
-      cells: [0, 1].map((localId) => ({ ...createTerrainPieceCell(1), tiles: [tile(localId)] })),
+      cells: [0, 1].map((localId) => ({ ...createTerrainPieceCell(1), blocking: localId === 0, tiles: [tile(localId)] })),
       sockets: { north: ["GROUND", "GROUND"], east: ["GROUND"], south: ["GROUND", "GROUND"], west: ["GROUND"] },
       allowRotations: true,
       allowReflections: false,
@@ -89,6 +87,7 @@ describe("Simple-Tiled socket WFC", () => {
       [1, 2]
     ]);
     expect(library.states.some((state) => state.edges.east.startsWith("@INTERNAL_"))).toBe(true);
+    expect(library.variants.every((variant) => variant.cells.filter((cell) => cell.blocking).length === 1)).toBe(true);
   });
 
   it("applies deny and allow-only exceptions after socket matching", () => {
@@ -186,5 +185,50 @@ describe("Simple-Tiled socket WFC", () => {
       1
     );
     expect(candidate.issues.map((issue) => issue.code)).toContain("BLOCKED_ANCHOR");
+  });
+
+  it("preserves a mixed-size piece collision mask in generated cell metadata", () => {
+    const masked = terrainPieceSchema.parse({
+      slug: "MASKED_BLOCKER",
+      width: 2,
+      height: 2,
+      layerCount: 1,
+      cells: [true, true, false, true].map((blocking, localId) => ({
+        ...createTerrainPieceCell(1),
+        blocking,
+        tiles: [tile(localId)]
+      })),
+      sockets: { north: ["GROUND", "GROUND"], east: ["GROUND", "GROUND"], south: ["GROUND", "GROUND"], west: ["GROUND", "GROUND"] },
+      allowRotations: false,
+      allowReflections: false,
+      weight: 1,
+      biomeTags: [],
+      siteTags: [],
+      semanticFlags: [],
+      mutationFamily: ""
+    });
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: [masked],
+        pieceSets: [set("TERRAIN_SET", [masked.slug])],
+        adjacencyOverrides: [],
+        tileBindings: bindings()
+      },
+      {
+        slug: "MASKED_SITE",
+        width: 4,
+        height: 4,
+        pieceSet: "TERRAIN_SET",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells: createTerrainTemplateCells(4, 4),
+        anchors: [],
+        stamps: [],
+        zones: []
+      },
+      1
+    );
+    expect(candidate.cellMetadata.filter((cell) => cell.blocking)).toHaveLength(12);
+    expect(candidate.cellMetadata.filter((cell) => !cell.blocking)).toHaveLength(4);
   });
 });

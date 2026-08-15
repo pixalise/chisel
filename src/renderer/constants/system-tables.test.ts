@@ -44,6 +44,7 @@ describe("system tables", () => {
     expect(EDITOR_ONLY_TERRAIN_TABLE_IDS).toContain(TERRAIN_APPROVED_ASSETS_TABLE_ID);
     expect(TERRAIN_TILE_BINDING_COLUMNS.tileset.assetCategory).toBe(AssetCategoryEnum.tileset);
     expect(TERRAIN_TILE_BINDING_COLUMNS.tags.required).toBe(false);
+    expect(Object.keys(TERRAIN_TILE_BINDING_COLUMNS)).not.toContain("blocking");
     expect(Object.keys(TERRAIN_TILE_BINDING_COLUMNS)).not.toContain("wfcSymbol");
   });
 

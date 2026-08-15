@@ -35,17 +35,18 @@ Terrain Generator is divided into five focused pages:
 4. **Generate** — choose a template, starting seed, and batch size. **Generate** reproduces that seed range; **Generate more** appends the next range. Anchors, stamps, zones, and per-cell tag constraints remain under **Edit advanced constraints**.
 5. **Approved** — review frozen maps and submodules independently from the live grammar.
 
-An empty project with bound sprites opens with an unsaved `EXAMPLE_FOREST_SITE`. It can immediately generate eight candidates. The example uses weighted 1×1 pieces, mixed-size transformed modules, one collection, deny and allow-only adjacency exceptions, cell tag constraints, three anchors, a required stamp, and a validation zone. Use **Reset full example** to reconstruct it after experimenting. It does not modify project files until **Save authoring** is selected.
+An empty project with identified sprites opens with an unsaved `EXAMPLE_FOREST_SITE`. It can immediately generate eight candidates. The example uses weighted 1×1 pieces, a 2×2 module with a three-cell collision mask, mixed-size transforms, one collection, deny and allow-only adjacency exceptions, cell tag constraints, three anchors, a required stamp, and a validation zone. Use **Reset full example** to reconstruct it after experimenting. It does not modify project files until **Save authoring** is selected.
 
 ## Tile catalog
 
 Select a sprite in the tileset catalog to author:
 
 - a stable tile slug;
-- its default movement-blocking state;
 - semantic tags used by pieces and template constraints.
 
-Tile bindings contain sprite metadata only. Adjacency belongs to pieces, so a new tileset does not inherit hidden rules from an old sample.
+Selecting a sprite creates this metadata automatically; there is no separate bind/unbound workflow. Sprite metadata never owns collision or adjacency. Collision belongs to each painted piece cell, and adjacency belongs to piece sockets, so the same sprite can behave differently in different pieces without inheriting hidden rules.
+
+Both the Catalog sprite grid and the compact Sprite palette are searchable by local tile ID, stable sprite slug, or semantic tag.
 
 ## Socket vocabulary
 
@@ -65,6 +66,8 @@ A piece is a rectangular module from 1×1 through 8×8 cells. It contains:
 - a positive selection weight;
 - biome tags, site tags, semantic flags, and an optional mutation family;
 - per-cell movement blocking, elevation, and semantic flags.
+
+The piece painter has two explicit modes. **Paint terrain** applies render sprites and layers. **Paint collision** applies a red per-cell collision mask: left-drag blocks cells, while right-drag or Ctrl-drag clears them. A 2×2 piece may therefore block any combination of its four cells, and that mask rotates or reflects with the piece.
 
 For directional art, shadows, text, or asymmetrical collision, enable only visually valid transforms. The compiler transforms both artwork and socket profiles.
 
@@ -90,6 +93,8 @@ Prefer meaningful sockets over a large exception list.
 ## Collections
 
 A collection is the complete vocabulary available to one solve. Use collections to make biome densities and transition families explicit without duplicating tiles or generator code.
+
+Collection setup lists every valid authored piece—both 1×1 tiles and larger modules—as a visual card. Search by slug, dimensions, tags, or mutation family; filter cards by active/inactive status; and click a card to toggle whether that piece participates in the collection. A collection must retain at least one active piece.
 
 Weights are normalized by module area, so a large module does not become disproportionately common merely because it occupies more cells.
 

@@ -7,10 +7,10 @@ function emptyWorkspace(): TerrainWorkspaceView {
   return {
     tilesets: [],
     tileBindings: {
-      "TERRAIN:40": { slug: "GROUND", blocking: false, tags: ["GROUND"] },
-      "TERRAIN:80": { slug: "TREE", blocking: false, tags: ["TREE"] },
-      "TERRAIN:102": { slug: "BUSH", blocking: false, tags: ["BUSH"] },
-      "TERRAIN:104": { slug: "ROCK", blocking: false, tags: ["ROCK"] }
+      "TERRAIN:40": { slug: "GROUND", tags: ["GROUND"] },
+      "TERRAIN:80": { slug: "TREE", tags: ["TREE"] },
+      "TERRAIN:102": { slug: "BUSH", tags: ["BUSH"] },
+      "TERRAIN:104": { slug: "ROCK", tags: ["ROCK"] }
     },
     sockets: [],
     pieces: [],

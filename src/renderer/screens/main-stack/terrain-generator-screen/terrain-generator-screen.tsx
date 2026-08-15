@@ -270,7 +270,7 @@ export const TerrainGeneratorScreen: FC = () => {
                 <div className="rounded border border-border bg-muted/30 p-3">
                   <h2 className="text-sm font-semibold">First: identify sprites and define edge language</h2>
                   <p className="text-xs text-muted-foreground">
-                    Tile bindings describe what a sprite means. Sockets describe which outer piece edges may touch. Most natural terrain
+                    Sprite metadata describes what art means. Sockets describe which outer piece edges may touch. Most natural terrain
                     starts with one GROUND socket.
                   </p>
                 </div>
@@ -323,8 +323,8 @@ export const TerrainGeneratorScreen: FC = () => {
                 <div className="rounded border border-border bg-muted/30 p-3">
                   <h2 className="text-sm font-semibold">Second: paint reusable local terrain pieces</h2>
                   <p className="text-xs text-muted-foreground">
-                    A piece may be one tile or a mixed-size module. Paint it, tag every outer edge, then use the cart icon to inspect its
-                    current unsaved compatibility.
+                    A piece may be one tile or a mixed-size module. Paint its terrain and per-cell collision mask, tag every outer edge,
+                    then use the cart icon to inspect its current unsaved compatibility.
                   </p>
                 </div>
                 <TerrainPieceEditor

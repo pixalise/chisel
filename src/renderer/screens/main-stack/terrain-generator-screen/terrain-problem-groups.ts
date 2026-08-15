@@ -5,7 +5,7 @@ export interface TerrainProblemGroup {
 }
 
 function problemLabel(problem: string): string {
-  if (problem.includes("is orphaned")) return "Tile bindings are orphaned";
+  if (problem.includes("is orphaned")) return "Sprite metadata is orphaned";
   if (problem.includes("duplicated tile slug")) return "Tile slugs are duplicated";
   if (problem.includes("unpainted cells")) return "Samples have unpainted cells";
   if (problem.includes("uses missing tile")) return "Samples use missing tiles";

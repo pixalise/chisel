@@ -29,7 +29,6 @@ export type TerrainTileStack = z.infer<typeof terrainTileStackSchema>;
 export const terrainTileBindingSchema = z
   .object({
     slug: terrainSlugSchema,
-    blocking: z.boolean(),
     tags: z.array(terrainSlugSchema)
   })
   .strict();

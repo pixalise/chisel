@@ -504,16 +504,14 @@ function tagsForCell(cell: TerrainPieceCell, bindings: Record<string, TerrainTil
   for (const tile of cell.tiles) {
     if (!tile) continue;
     const binding = bindings[terrainTileKey(tile.tilesetId, tile.localId)];
-    if (!binding) throw new Error(`Piece '${piece.slug}' uses unbound tile '${tile.tilesetId}:${tile.localId}'`);
+    if (!binding) throw new Error(`Piece '${piece.slug}' uses sprite '${tile.tilesetId}:${tile.localId}' without metadata`);
     binding.tags.forEach((tag) => tags.add(tag));
   }
   return [...tags].sort();
 }
 
-function blockingForCell(cell: TerrainPieceCell, bindings: Record<string, TerrainTileBinding>): boolean {
-  return (
-    cell.blocking || cell.tiles.some((tile) => tile !== null && bindings[terrainTileKey(tile.tilesetId, tile.localId)]?.blocking === true)
-  );
+function blockingForCell(cell: TerrainPieceCell): boolean {
+  return cell.blocking;
 }
 
 function statePiece(library: TerrainCompiledLibrary, state: TerrainCompiledState): TerrainPiece {
@@ -554,7 +552,7 @@ function resolvedCellState(
   return {
     stack: state.cell.tiles.map((tile) => (tile ? { ...tile } : null)),
     metadata: {
-      blocking: blockingForCell(state.cell, bindings),
+      blocking: blockingForCell(state.cell),
       elevation: state.cell.elevation,
       tags: tagsForCell(state.cell, bindings, piece),
       piece: piece.slug
