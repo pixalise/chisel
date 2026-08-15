@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check, Dices, Play, Trash2 } from "lucide-react";
@@ -28,6 +29,7 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
   const { isBusy, onApprove, onDeleteApproved, workspace } = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef(new Map<string, HTMLImageElement>());
+  const knownSampleSlugsRef = useRef(new Set(workspace.samples.map((sample) => sample.slug)));
   const [width, setWidth] = useState(20);
   const [height, setHeight] = useState(20);
   const [seed, setSeed] = useState(1);
@@ -39,8 +41,16 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
   const [biome, setBiome] = useState("UNASSIGNED");
   const [category, setCategory] = useState("NATURE");
   const [weight, setWeight] = useState(1);
+  const [selectedSampleSlugs, setSelectedSampleSlugs] = useState<string[]>(() => workspace.samples.map((sample) => sample.slug));
 
   useEffect(() => {
+    const availableSlugs = workspace.samples.map((sample) => sample.slug);
+    const availableSlugSet = new Set(availableSlugs);
+    setSelectedSampleSlugs((current) => [
+      ...current.filter((slug) => availableSlugSet.has(slug)),
+      ...availableSlugs.filter((slug) => !knownSampleSlugsRef.current.has(slug))
+    ]);
+    knownSampleSlugsRef.current = availableSlugSet;
     setLibrary(undefined);
     setOutput(undefined);
     setError("");
@@ -96,7 +106,9 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
       if (width < terrainWfcPatternSize || width > 64 || height < terrainWfcPatternSize || height > 64) {
         throw new Error(`Preview dimensions must be between ${terrainWfcPatternSize} and 64 cells`);
       }
-      compiled = compileTerrainWfcLibrary(workspace);
+      const selectedSamples = workspace.samples.filter((sample) => selectedSampleSlugs.includes(sample.slug));
+      if (selectedSamples.length === 0) throw new Error("Select at least one contributing sample");
+      compiled = compileTerrainWfcLibrary({ samples: selectedSamples });
       setLibrary(compiled);
       const adjacencyProblem = terrainWfcAdjacencyProblem(compiled);
       if (adjacencyProblem) throw new Error(adjacencyProblem);
@@ -106,6 +118,13 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
       if (!compiled) setLibrary(undefined);
       setError(caught instanceof Error ? caught.message : String(caught));
     }
+  }
+
+  function selectSamples(slugs: string[]): void {
+    setSelectedSampleSlugs(slugs);
+    setLibrary(undefined);
+    setOutput(undefined);
+    setError("");
   }
 
   async function approve(): Promise<void> {
@@ -187,11 +206,11 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
               value={seed}
             />
           </div>
-          <Button disabled={workspace.samples.length === 0} onClick={() => generate(seed)} type="button">
+          <Button disabled={selectedSampleSlugs.length === 0} onClick={() => generate(seed)} type="button">
             <Play className="size-4" />
             Generate
           </Button>
-          <Button disabled={workspace.samples.length === 0} onClick={() => generate((seed + 1) >>> 0)} type="button" variant="outline">
+          <Button disabled={selectedSampleSlugs.length === 0} onClick={() => generate((seed + 1) >>> 0)} type="button" variant="outline">
             <Dices className="size-4" />
             Next seed
           </Button>
@@ -201,6 +220,49 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
         <p className="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
           Create and paint at least one sample to enable the compiler.
         </p>
+      )}
+      {workspace.samples.length > 0 && (
+        <div className="space-y-2 rounded-md border border-border p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h4 className="text-sm font-medium">Contributing samples</h4>
+              <p className="text-xs text-muted-foreground">
+                Only checked samples are compiled into this candidate. Each selected sample contributes normalized pattern weight.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {selectedSampleSlugs.length}/{workspace.samples.length} selected
+              </span>
+              <Button
+                onClick={() => selectSamples(workspace.samples.map((sample) => sample.slug))}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                All
+              </Button>
+              <Button onClick={() => selectSamples([])} size="sm" type="button" variant="outline">
+                None
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {workspace.samples.map((sample) => (
+              <Label className="flex items-center gap-2 text-sm" key={sample.slug}>
+                <Checkbox
+                  checked={selectedSampleSlugs.includes(sample.slug)}
+                  onCheckedChange={(checked) =>
+                    selectSamples(
+                      checked === true ? [...selectedSampleSlugs, sample.slug] : selectedSampleSlugs.filter((slug) => slug !== sample.slug)
+                    )
+                  }
+                />
+                {sample.slug}
+              </Label>
+            ))}
+          </div>
+        </div>
       )}
       {error && <p className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">{error}</p>}
       {library && (
@@ -233,8 +295,11 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
       )}
       {output && (
         <div className="space-y-3">
-          <div className="overflow-auto rounded-md border border-border bg-slate-950 p-2">
-            <canvas className="h-auto max-h-[40rem] max-w-full [image-rendering:pixelated]" ref={canvasRef} />
+          <div>
+            <p className="mb-1 text-xs text-muted-foreground">Fixed {previewCellSize}px cells. Scroll to inspect the full patch.</p>
+            <div className="max-h-[40rem] max-w-full overflow-auto rounded-md border border-border bg-slate-950 p-2">
+              <canvas className="block max-w-none [image-rendering:pixelated]" ref={canvasRef} />
+            </div>
           </div>
           <div className="grid gap-2 rounded-md border border-border p-3 md:grid-cols-[1fr_1fr_1fr_7rem_auto] md:items-end">
             <div className="space-y-1">

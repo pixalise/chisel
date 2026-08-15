@@ -446,7 +446,9 @@ The library is highly constrained or contains incompatible sub-languages. Add sh
 
 ## Approval and runtime tables
 
-Generating a candidate does not put it in game data. Inspect the rendered result, assign a stable patch slug, biome, category, and runtime selection weight, then choose **Approve candidate**. Approval freezes the complete layered grid. Changing a sample later cannot silently alter an already approved patch.
+Choose the samples that contribute before generating a candidate. Only checked samples are compiled, and each selected sample contributes one normalized unit of pattern weight. This lets one authoring library produce separate meadow, forest, shore, or other candidate families without mixing every sample every time.
+
+Generating a candidate does not put it in game data. Inspect the rendered result, assign a stable patch slug, biome, category, and runtime selection weight, then choose **Approve candidate**. Approval freezes the complete layered grid. Changing a sample later cannot silently alter an already approved patch. Preview cells retain a fixed display size, so large outputs scroll instead of being shrunk to fit the panel.
 
 Only two terrain tables appear in **Data Tables** and game exports:
 
