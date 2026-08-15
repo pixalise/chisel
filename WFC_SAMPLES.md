@@ -93,6 +93,17 @@ Sampling size controls local memory:
 
 It does not control output size. Start with 2×2 for forests, rocks, flowers, and irregular clearings. Increase it only when the output breaks a relationship that needs more context.
 
+## Inspect valid and invalid patterns
+
+Choose a sample to edit, select the sampling size beside its transform controls, then use the cart icon to analyze the sample's current unsaved state. The pattern inspector appears immediately above the painter and renders every extracted logical window with one representative concrete sprite variant. It separates patterns into:
+
+- **Valid**: the pattern can continue through other globally valid patterns in all four directions, so it can participate in a repeatable biome interior.
+- **Invalid**: at least one direction cannot reach a globally valid continuation. The pattern was observed in a sample, but it will be pruned before generation.
+
+Each direction reports `viable/compatible` neighbors. For example, `N 0/3` means three extracted patterns match the north overlap, but none belong to the globally viable pattern set. `E 0/0` is a direct east-facing dead end: no extracted pattern matches that edge at all.
+
+Open **Logical cells** on a pattern to inspect the exact symbol stack used for matching. Use the sample occurrence list to locate the source example, then paint the missing continuation or return the feature to shared neutral ground. Inspecting patterns does not run WFC or create a candidate.
+
 ## Sector generation and stitching
 
 Chisel does not ask one monolithic solve to invent the whole candidate. It generates small square sectors independently. Between neighboring sectors it leaves a gap `N-1` cells wide, fixes the sector interiors as constraints, and runs one final WFC solve to fill those gaps.

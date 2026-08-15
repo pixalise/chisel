@@ -42,6 +42,17 @@ export interface TerrainWfcSampleStats {
   viablePatterns: number;
 }
 
+export interface TerrainWfcPatternDirectionDiagnostic {
+  compatiblePatterns: number;
+  viableCompatiblePatterns: number;
+}
+
+export interface TerrainWfcPatternDiagnostic {
+  directions: Record<TerrainWfcDirection, TerrainWfcPatternDirectionDiagnostic>;
+  patternId: number;
+  viable: boolean;
+}
+
 export interface TerrainWfcOutput {
   attempts: number;
   cells: TerrainSampleCell[];
@@ -290,6 +301,26 @@ export function terrainWfcViablePatternIds(library: Pick<TerrainWfcLibrary, "adj
     }
   }
   return viable;
+}
+
+export function terrainWfcPatternDiagnostics(library: Pick<TerrainWfcLibrary, "adjacency" | "patterns">): TerrainWfcPatternDiagnostic[] {
+  const viablePatternIds = terrainWfcViablePatternIds(library);
+  return library.patterns.map((pattern) => ({
+    directions: Object.fromEntries(
+      directions.map((direction) => {
+        const compatiblePatternIds = library.adjacency[direction][pattern.id];
+        return [
+          direction,
+          {
+            compatiblePatterns: compatiblePatternIds.length,
+            viableCompatiblePatterns: compatiblePatternIds.filter((patternId) => viablePatternIds.has(patternId)).length
+          }
+        ];
+      })
+    ) as Record<TerrainWfcDirection, TerrainWfcPatternDirectionDiagnostic>,
+    patternId: pattern.id,
+    viable: viablePatternIds.has(pattern.id)
+  }));
 }
 
 export function terrainWfcAdjacencyProblem(library: TerrainWfcLibrary): string | undefined {

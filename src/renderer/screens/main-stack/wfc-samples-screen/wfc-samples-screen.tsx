@@ -6,11 +6,19 @@ import { TerrainProblemList } from "@/screens/main-stack/wfc-samples-screen/terr
 import { TerrainSampleInspector, type TerrainSampleCreation } from "@/screens/main-stack/wfc-samples-screen/terrain-sample-inspector";
 import { TerrainSamplePainter } from "@/screens/main-stack/wfc-samples-screen/terrain-sample-painter";
 import { TerrainTileCatalog } from "@/screens/main-stack/wfc-samples-screen/terrain-tile-catalog";
+import { TerrainWfcPatternInspector } from "@/screens/main-stack/wfc-samples-screen/terrain-wfc-pattern-inspector";
 import { TerrainWfcPreview } from "@/screens/main-stack/wfc-samples-screen/terrain-wfc-preview";
 import terrainSampleService from "@/services/terrain-sample-service";
 import { AlertTriangle, Save } from "lucide-react";
 import { type FC, useEffect, useMemo, useState } from "react";
 import type { TerrainApprovedPatch, TerrainSample, TerrainTileRef, TerrainWorkspaceView } from "../../../../shared/terrain-authoring";
+import { compileTerrainWfcLibrary, type TerrainWfcLibrary, type TerrainWfcPatternSize } from "../../../../shared/terrain-wfc";
+
+interface CurrentSamplePatternAnalysis {
+  library: TerrainWfcLibrary;
+  patternSize: TerrainWfcPatternSize;
+  sampleSlug: string;
+}
 
 export const WfcSamplesScreen: FC = () => {
   const [workspace, setWorkspace] = useState<TerrainWorkspaceView>();
@@ -19,6 +27,8 @@ export const WfcSamplesScreen: FC = () => {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isBusy, setIsBusy] = useState(false);
+  const [patternAnalysis, setPatternAnalysis] = useState<CurrentSamplePatternAnalysis>();
+  const [patternAnalysisError, setPatternAnalysisError] = useState("");
   const sample = useMemo(
     () => workspace?.samples.find((entry) => entry.slug === selectedSampleSlug),
     [selectedSampleSlug, workspace?.samples]
@@ -119,6 +129,7 @@ export const WfcSamplesScreen: FC = () => {
       allowReflections: false
     };
     mutateWorkspace((current) => ({ ...current, samples: [...current.samples, next] }));
+    clearPatternAnalysis();
     setSelectedSampleSlug(next.slug);
   }
 
@@ -129,7 +140,29 @@ export const WfcSamplesScreen: FC = () => {
       ...current,
       samples: current.samples.map((entry) => (entry.slug === previousSlug ? next : entry))
     }));
+    clearPatternAnalysis();
     setSelectedSampleSlug(next.slug);
+  }
+
+  function clearPatternAnalysis(): void {
+    setPatternAnalysis(undefined);
+    setPatternAnalysisError("");
+  }
+
+  function selectSample(sampleSlug?: string): void {
+    clearPatternAnalysis();
+    setSelectedSampleSlug(sampleSlug);
+  }
+
+  function analyzeCurrentSample(patternSize: TerrainWfcPatternSize): void {
+    clearPatternAnalysis();
+    if (!workspace || !sample) return;
+    try {
+      const library = compileTerrainWfcLibrary({ samples: [sample], tileBindings: workspace.tileBindings }, { patternSize });
+      setPatternAnalysis({ library, patternSize, sampleSlug: sample.slug });
+    } catch (caught) {
+      setPatternAnalysisError(caught instanceof Error ? caught.message : String(caught));
+    }
   }
 
   return (
@@ -161,6 +194,7 @@ export const WfcSamplesScreen: FC = () => {
             </div>
             {workspace.problems.length > 0 && <TerrainProblemList problems={workspace.problems} />}
             <TerrainSampleInspector
+              onAnalyze={analyzeCurrentSample}
               onChange={updateSample}
               onCreate={createSample}
               onDelete={() => {
@@ -168,16 +202,36 @@ export const WfcSamplesScreen: FC = () => {
                   ...current,
                   samples: current.samples.filter((entry) => entry.slug !== sample?.slug)
                 }));
-                setSelectedSampleSlug(undefined);
+                selectSample(undefined);
               }}
-              onSelect={setSelectedSampleSlug}
+              onSelect={selectSample}
               sample={sample}
               samples={workspace.samples}
             />
+            {patternAnalysisError && (
+              <p className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
+                {patternAnalysisError}
+              </p>
+            )}
+            {patternAnalysis && (
+              <div className="space-y-2 rounded-md border border-border p-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Current sample patterns</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {patternAnalysis.sampleSlug} · {patternAnalysis.patternSize}×{patternAnalysis.patternSize} · analyzed from the current
+                    unsaved editor state
+                  </p>
+                </div>
+                <TerrainWfcPatternInspector library={patternAnalysis.library} tilesets={workspace.tilesets} />
+              </div>
+            )}
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(28rem,1fr)] xl:items-start">
               <TerrainSamplePainter onChange={updateSample} sample={sample} selectedTile={selectedTile} tilesets={workspace.tilesets} />
               <TerrainTileCatalog
-                onBindingsChange={(tileBindings) => mutateWorkspace((current) => ({ ...current, tileBindings }))}
+                onBindingsChange={(tileBindings) => {
+                  clearPatternAnalysis();
+                  mutateWorkspace((current) => ({ ...current, tileBindings }));
+                }}
                 onSelectTile={setSelectedTile}
                 selectedTile={selectedTile}
                 workspace={workspace}

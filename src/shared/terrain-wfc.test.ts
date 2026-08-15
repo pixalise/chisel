@@ -4,7 +4,9 @@ import {
   compileTerrainWfcLibrary,
   generateTerrainWfcOutput,
   generateTerrainWfcSectorOutput,
-  terrainWfcAdjacencyProblem
+  terrainWfcAdjacencyProblem,
+  terrainWfcPatternDiagnostics,
+  type TerrainWfcLibrary
 } from "./terrain-wfc";
 
 function tile(localId: number): TerrainTileRef {
@@ -110,6 +112,44 @@ describe("logical overlapping terrain WFC", () => {
     expect(first.sectorCount).toBeGreaterThan(1);
     expect(first.seamWidth).toBe(1);
     expect(first.cells).toHaveLength(24 * 24);
+  });
+
+  it("reports valid neighbors and the directions that make a pattern invalid", () => {
+    const library: TerrainWfcLibrary = {
+      adjacency: {
+        north: [[0], []],
+        east: [[0], [0]],
+        south: [[0], [0]],
+        west: [[0], [0]]
+      },
+      patternSize: 1,
+      patterns: [
+        { id: 0, sampleOccurrences: { VALID: 1 }, symbols: ["GROUND@0"], weight: 1 },
+        { id: 1, sampleOccurrences: { INVALID: 1 }, symbols: ["TREE@0"], weight: 1 }
+      ],
+      sampleSlugs: ["VALID", "INVALID"],
+      sampleStats: {
+        VALID: { extractedOccurrences: 1, uniquePatterns: 1, viablePatterns: 1 },
+        INVALID: { extractedOccurrences: 1, uniquePatterns: 1, viablePatterns: 0 }
+      },
+      visualVariants: {}
+    };
+
+    const diagnostics = terrainWfcPatternDiagnostics(library);
+
+    expect(diagnostics[0]).toMatchObject({
+      patternId: 0,
+      viable: true,
+      directions: { north: { compatiblePatterns: 1, viableCompatiblePatterns: 1 } }
+    });
+    expect(diagnostics[1]).toMatchObject({
+      patternId: 1,
+      viable: false,
+      directions: {
+        north: { compatiblePatterns: 0, viableCompatiblePatterns: 0 },
+        east: { compatiblePatterns: 1, viableCompatiblePatterns: 1 }
+      }
+    });
   });
 
   it("requires every painted sprite to have a logical WFC symbol", () => {

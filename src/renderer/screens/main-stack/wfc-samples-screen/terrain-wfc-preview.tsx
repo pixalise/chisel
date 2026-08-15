@@ -37,7 +37,7 @@ const samplingDescriptions: Record<TerrainWfcPatternSize, string> = {
 export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
   const { isBusy, onApprove, onDeleteApproved, workspace } = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imagesRef = useRef(new Map<string, HTMLImageElement>());
+  const [images] = useState(() => new Map<string, HTMLImageElement>());
   const knownSampleSlugsRef = useRef(new Set(workspace.samples.map((sample) => sample.slug)));
   const [width, setWidth] = useState(20);
   const [height, setHeight] = useState(20);
@@ -70,7 +70,7 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
   }, [workspace.samples]);
 
   useEffect(() => {
-    imagesRef.current.clear();
+    images.clear();
     let cancelled = false;
     for (const tileset of workspace.tilesets) {
       const image = new Image();
@@ -81,12 +81,12 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
         if (!cancelled) setImageRevision((value) => value + 1);
       };
       image.src = window.electron.toAssetUrl(tileset.imagePath);
-      imagesRef.current.set(tileset.id, image);
+      images.set(tileset.id, image);
     }
     return () => {
       cancelled = true;
     };
-  }, [workspace.tilesets]);
+  }, [images, workspace.tilesets]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -103,13 +103,13 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
         context,
         cell,
         workspace.tilesets,
-        imagesRef.current,
+        images,
         (index % output.width) * previewCellSize,
         Math.floor(index / output.width) * previewCellSize,
         previewCellSize
       )
     );
-  }, [imageRevision, output, previewCellSize, workspace.tilesets]);
+  }, [imageRevision, images, output, previewCellSize, workspace.tilesets]);
 
   function generate(nextSeed: number): void {
     setError("");

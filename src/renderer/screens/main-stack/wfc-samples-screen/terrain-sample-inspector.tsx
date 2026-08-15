@@ -2,8 +2,10 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ShoppingCart } from "lucide-react";
 import { type FC, useState } from "react";
 import type { TerrainSample, TerrainSampleDimension, TerrainSampleLayerCount } from "../../../../shared/terrain-authoring";
+import { terrainWfcDefaultPatternSize, terrainWfcPatternSizes, type TerrainWfcPatternSize } from "../../../../shared/terrain-wfc";
 
 export interface TerrainSampleCreation {
   height: TerrainSampleDimension;
@@ -12,6 +14,7 @@ export interface TerrainSampleCreation {
 }
 
 interface TerrainSampleInspectorProps {
+  onAnalyze: (patternSize: TerrainWfcPatternSize) => void;
   onChange: (sample: TerrainSample) => void;
   onCreate: (creation: TerrainSampleCreation) => void;
   onDelete: () => void;
@@ -21,10 +24,11 @@ interface TerrainSampleInspectorProps {
 }
 
 export const TerrainSampleInspector: FC<TerrainSampleInspectorProps> = (props) => {
-  const { onChange, onCreate, onDelete, onSelect, sample, samples } = props;
+  const { onAnalyze, onChange, onCreate, onDelete, onSelect, sample, samples } = props;
   const [width, setWidth] = useState<TerrainSampleDimension>(12);
   const [height, setHeight] = useState<TerrainSampleDimension>(12);
   const [layerCount, setLayerCount] = useState<TerrainSampleLayerCount>(1);
+  const [patternSize, setPatternSize] = useState<TerrainWfcPatternSize>(terrainWfcDefaultPatternSize);
 
   function updateLayerCount(nextLayerCount: TerrainSampleLayerCount): void {
     if (!sample) return;
@@ -101,7 +105,7 @@ export const TerrainSampleInspector: FC<TerrainSampleInspectorProps> = (props) =
         </div>
       )}
       {sample && (
-        <div className="grid gap-3 border-t border-border pt-3 md:grid-cols-[minmax(12rem,1fr)_6rem_auto_auto_auto_auto] md:items-end">
+        <div className="grid gap-3 border-t border-border pt-3 md:grid-cols-[minmax(12rem,1fr)_6rem_auto_auto_auto_5rem_auto_auto] md:items-end">
           <div className="space-y-1">
             <Label htmlFor="sample-slug">Stable slug</Label>
             <Input
@@ -145,6 +149,31 @@ export const TerrainSampleInspector: FC<TerrainSampleInspectorProps> = (props) =
             />
             Reflections
           </Label>
+          <div className="space-y-1">
+            <Label htmlFor="sample-pattern-size">Sampling</Label>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              id="sample-pattern-size"
+              onChange={(event) => setPatternSize(Number(event.target.value) as TerrainWfcPatternSize)}
+              value={patternSize}
+            >
+              {terrainWfcPatternSizes.map((size) => (
+                <option key={size} value={size}>
+                  {size}×{size}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button
+            aria-label="Inspect current sample patterns"
+            onClick={() => onAnalyze(patternSize)}
+            size="icon"
+            title="Inspect current sample patterns"
+            type="button"
+            variant="outline"
+          >
+            <ShoppingCart className="size-4" />
+          </Button>
           <Button onClick={onDelete} type="button" variant="destructive">
             Delete sample
           </Button>
