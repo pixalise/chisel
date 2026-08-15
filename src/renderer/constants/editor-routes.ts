@@ -11,7 +11,7 @@ export const editorRoutes: EditorRouteDefinition[] = [
   { id: RouteEnum.assets, label: "Asset Library", section: "Workspace", hint: "Managed imports" },
   { id: RouteEnum.database, label: "Data Tables", section: "Workspace", hint: "Typed authoring data" },
   { id: RouteEnum.localization, label: "Localization", section: "Workspace", hint: "Translation source data" },
-  { id: RouteEnum.wfcSamples, label: "WFC Samples", section: "Terrain", hint: "Painted samples and tile metadata" },
+  { id: RouteEnum.terrainGenerator, label: "Terrain Generator", section: "Terrain", hint: "Socket modules and candidate maps" },
   { id: RouteEnum.imageConversion, label: "Image Conversion", section: "Tools", hint: "Convert images to PNG" },
   { id: RouteEnum.todos, label: "Project Management", section: "Tools", hint: "Track todos and checklist items" },
   { id: RouteEnum.settings, label: "Settings", section: "Project", hint: "Output and projects" }

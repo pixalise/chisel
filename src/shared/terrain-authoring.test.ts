@@ -1,79 +1,141 @@
 import { describe, expect, it } from "vitest";
-import { appendTerrainSampleLayer, terrainApprovedPatchSchema, terrainSampleSchema, terrainTileBindingSchema } from "./terrain-authoring";
+import {
+  appendTerrainPieceLayer,
+  createTerrainPieceCell,
+  createTerrainTemplateCells,
+  terrainApprovedAssetSchema,
+  terrainPieceSchema,
+  terrainSiteTemplateSchema,
+  terrainSocketDefinitionSchema,
+  terrainTileBindingSchema
+} from "./terrain-authoring";
 
-describe("native terrain authoring contract", () => {
-  it("accepts a fully painted current-format sample", () => {
-    const cells = Array.from({ length: 9 }, (_, localId) => [{ tilesetId: "TERRAIN", localId, orientation: 0 }]);
+describe("socket terrain authoring contract", () => {
+  it("accepts a mixed-size layered base piece with exact edge profiles", () => {
+    const cells = Array.from({ length: 6 }, (_, localId) => ({
+      ...createTerrainPieceCell(1, "BASE"),
+      tiles: [{ tilesetId: "TERRAIN", localId, orientation: 0 }]
+    }));
     expect(
-      terrainSampleSchema.parse({
-        slug: "GROUND_EDGE",
+      terrainPieceSchema.parse({
+        slug: "GROUND_CORNER",
+        pass: "BASE",
         width: 3,
-        height: 3,
+        height: 2,
         layerCount: 1,
         cells,
-        periodicInput: false,
+        sockets: {
+          north: ["GROUND", "GROUND", "ROAD"],
+          east: ["ROAD", "GROUND"],
+          south: ["GROUND", "GROUND", "GROUND"],
+          west: ["GROUND", "GROUND"]
+        },
         allowRotations: true,
-        allowReflections: false
+        allowReflections: false,
+        weight: 1,
+        biomeTags: ["FOREST"],
+        siteTags: [],
+        semanticFlags: ["WALKABLE"],
+        mutationFamily: "GROUND"
       })
-    ).toMatchObject({ slug: "GROUND_EDGE", width: 3, height: 3 });
+    ).toMatchObject({ slug: "GROUND_CORNER", width: 3, height: 2 });
   });
 
-  it("accepts large rectangular layered training samples", () => {
-    const sample = terrainSampleSchema.parse({
-      slug: "RUINS_EXAMPLE",
-      width: 24,
-      height: 32,
-      layerCount: 2,
-      cells: Array.from({ length: 24 * 32 }, () => [{ tilesetId: "GRASS", localId: 0, orientation: 0 }, null]),
-      periodicInput: true,
-      allowRotations: false,
-      allowReflections: false
-    });
-
-    expect(sample).toMatchObject({ width: 24, height: 32, layerCount: 2, periodicInput: true });
+  it("rejects socket profiles that do not cover every boundary segment", () => {
+    expect(() =>
+      terrainPieceSchema.parse({
+        slug: "BAD_EDGE",
+        pass: "BASE",
+        width: 2,
+        height: 1,
+        layerCount: 1,
+        cells: Array.from({ length: 2 }, (_, localId) => ({
+          ...createTerrainPieceCell(1, "BASE"),
+          tiles: [{ tilesetId: "TERRAIN", localId, orientation: 0 }]
+        })),
+        sockets: { north: ["GROUND"], east: ["GROUND"], south: ["GROUND", "GROUND"], west: ["GROUND"] },
+        allowRotations: false,
+        allowReflections: false,
+        weight: 1,
+        biomeTags: [],
+        siteTags: [],
+        semanticFlags: [],
+        mutationFamily: ""
+      })
+    ).toThrow("north socket profile must contain 2");
   });
 
-  it("appends a transparent paint layer without changing painted cells", () => {
-    const base = { tilesetId: "GRASS", localId: 7, orientation: 0 };
-    const sample = terrainSampleSchema.parse({
-      slug: "LAYER_TEST",
-      width: 3,
-      height: 3,
+  it("requires base coverage but permits transparent cliff overlays", () => {
+    const base = createTerrainPieceCell(1, "BASE");
+    const cliff = createTerrainPieceCell(1, "CLIFF");
+    expect(base.tiles[0]).toBeNull();
+    expect(cliff.writeMode).toBe("OVERLAY");
+  });
+
+  it("appends a transparent render layer without changing piece metadata", () => {
+    const piece = terrainPieceSchema.parse({
+      slug: "GROUND",
+      pass: "BASE",
+      width: 1,
+      height: 1,
       layerCount: 1,
-      cells: Array.from({ length: 9 }, () => [base]),
-      periodicInput: false,
+      cells: [{ ...createTerrainPieceCell(1, "BASE"), tiles: [{ tilesetId: "TERRAIN", localId: 1, orientation: 0 }] }],
+      sockets: { north: ["GROUND"], east: ["GROUND"], south: ["GROUND"], west: ["GROUND"] },
       allowRotations: false,
-      allowReflections: false
+      allowReflections: false,
+      weight: 1,
+      biomeTags: [],
+      siteTags: [],
+      semanticFlags: [],
+      mutationFamily: ""
     });
-
-    const layered = appendTerrainSampleLayer(sample);
-
-    expect(layered.layerCount).toBe(2);
-    expect(layered.cells).toEqual(Array.from({ length: 9 }, () => [base, null]));
+    expect(appendTerrainPieceLayer(piece).cells[0].tiles).toEqual([{ tilesetId: "TERRAIN", localId: 1, orientation: 0 }, null]);
   });
 
-  it("keeps blocking and tags in the per-tile binding", () => {
-    expect(terrainTileBindingSchema.parse({ slug: "CLIFF", wfcSymbol: "CLIFF", blocking: true, tags: ["MAP_EDGE"] })).toEqual({
+  it("keeps tile bindings free of WFC grammar", () => {
+    expect(terrainTileBindingSchema.parse({ slug: "CLIFF", blocking: true, tags: ["MAP_EDGE"] })).toEqual({
       slug: "CLIFF",
-      wfcSymbol: "CLIFF",
       blocking: true,
       tags: ["MAP_EDGE"]
     });
   });
 
-  it("accepts a frozen layered runtime patch", () => {
-    const cells = Array.from({ length: 9 }, () => [{ tilesetId: "GRASS", localId: 2, orientation: 0 }, null]);
+  it("validates extension anchors on template boundaries", () => {
+    expect(() =>
+      terrainSiteTemplateSchema.parse({
+        slug: "SITE",
+        width: 5,
+        height: 5,
+        basePieceSet: "BASE_SET",
+        cliffPieceSet: "",
+        candidateCount: 12,
+        cells: createTerrainTemplateCells(5, 5),
+        anchors: [{ slug: "EXTENSION", kind: "EXTENSION", x: 2, y: 2, direction: "north", socket: "GROUND" }],
+        stamps: [],
+        zones: []
+      })
+    ).toThrow("Extension anchors must lie on the map boundary");
+  });
+
+  it("accepts socket metadata and a frozen approved geography asset", () => {
     expect(
-      terrainApprovedPatchSchema.parse({
-        slug: "FOREST_1",
-        biome: "FOREST",
-        category: "NATURE",
-        weight: 1,
+      terrainSocketDefinitionSchema.parse({ slug: "GROUND", label: "Ground", color: "#8B9D5C", description: "", passes: ["BASE"] })
+    ).toMatchObject({ slug: "GROUND" });
+    expect(
+      terrainApprovedAssetSchema.parse({
+        slug: "SITE_1",
+        kind: "MAP",
+        sourceTemplate: "SITE",
+        seed: 1,
         width: 3,
         height: 3,
-        layerCount: 2,
-        cells
+        layerCount: 1,
+        cells: Array.from({ length: 9 }, () => [{ tilesetId: "TERRAIN", localId: 0, orientation: 0 }]),
+        cellMetadata: Array.from({ length: 9 }, () => ({ blocking: false, elevation: 0, tags: [], basePiece: "GROUND", cliffPiece: "" })),
+        placements: [],
+        anchors: [],
+        metrics: { walkableComponents: 1, reachableAnchors: 0, requiredAnchors: 0, cliffCells: 0, distinctPieces: 1 }
       })
-    ).toMatchObject({ slug: "FOREST_1", biome: "FOREST", layerCount: 2 });
+    ).toMatchObject({ slug: "SITE_1", kind: "MAP" });
   });
 });

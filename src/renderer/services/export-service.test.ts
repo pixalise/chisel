@@ -1,25 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { INPUT_BINDINGS_TABLE } from "@/constants/system-tables";
-import {
-  TERRAIN_APPROVED_PATCHES_TABLE,
-  TERRAIN_TILE_BINDINGS_TABLE,
-  TERRAIN_TILESETS_TABLE,
-  TERRAIN_WFC_SAMPLE_CELLS_TABLE,
-  TERRAIN_WFC_SAMPLES_TABLE
-} from "../../shared/terrain-tables";
+import { SYSTEM_TERRAIN_TABLES } from "../../shared/terrain-tables";
 import { runtimeExportTables } from "./export-service";
 
 describe("runtime terrain export", () => {
-  it("exports approved patches and tilesets without Chisel authoring metadata", () => {
-    const tables = runtimeExportTables([
-      INPUT_BINDINGS_TABLE,
-      TERRAIN_TILE_BINDINGS_TABLE,
-      TERRAIN_WFC_SAMPLES_TABLE,
-      TERRAIN_WFC_SAMPLE_CELLS_TABLE,
-      TERRAIN_TILESETS_TABLE,
-      TERRAIN_APPROVED_PATCHES_TABLE
-    ]);
+  it("keeps terrain grammars and frozen geography inside Chisel", () => {
+    const tables = runtimeExportTables([INPUT_BINDINGS_TABLE, ...SYSTEM_TERRAIN_TABLES]);
 
-    expect(tables.map((table) => table.id)).toEqual(["input_bindings", "terrain_tilesets", "terrain_approved_patches"]);
+    expect(tables.map((table) => table.id)).toEqual(["input_bindings"]);
   });
 });

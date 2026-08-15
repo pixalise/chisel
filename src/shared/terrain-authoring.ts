@@ -6,6 +6,14 @@ export const terrainSlugSchema = z
   .max(96)
   .regex(/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/, "Use CONSTANT_CASE");
 
+export const terrainDirections = ["north", "east", "south", "west"] as const;
+export const terrainDirectionSchema = z.enum(terrainDirections);
+export type TerrainDirection = z.infer<typeof terrainDirectionSchema>;
+
+export const terrainPiecePasses = ["BASE", "CLIFF"] as const;
+export const terrainPiecePassSchema = z.enum(terrainPiecePasses);
+export type TerrainPiecePass = z.infer<typeof terrainPiecePassSchema>;
+
 export const terrainTileRefSchema = z
   .object({
     tilesetId: terrainSlugSchema,
@@ -15,82 +23,285 @@ export const terrainTileRefSchema = z
   .strict();
 export type TerrainTileRef = z.infer<typeof terrainTileRefSchema>;
 
-export const terrainSampleLayerCountMax = 4;
-export const terrainSampleLayerCountSchema = z.number().int().min(1).max(terrainSampleLayerCountMax);
-export type TerrainSampleLayerCount = z.infer<typeof terrainSampleLayerCountSchema>;
+export const terrainLayerCountMax = 4;
+export const terrainLayerCountSchema = z.number().int().min(1).max(terrainLayerCountMax);
+export type TerrainLayerCount = z.infer<typeof terrainLayerCountSchema>;
 
-export const terrainSampleCellSchema = z.array(terrainTileRefSchema.nullable()).min(1).max(4);
-export type TerrainSampleCell = z.infer<typeof terrainSampleCellSchema>;
+export const terrainTileStackSchema = z.array(terrainTileRefSchema.nullable()).min(1).max(terrainLayerCountMax);
+export type TerrainTileStack = z.infer<typeof terrainTileStackSchema>;
 
 export const terrainTileBindingSchema = z
   .object({
     slug: terrainSlugSchema,
-    wfcSymbol: terrainSlugSchema,
     blocking: z.boolean(),
     tags: z.array(terrainSlugSchema)
   })
   .strict();
 export type TerrainTileBinding = z.infer<typeof terrainTileBindingSchema>;
 
-export const terrainSampleDimensionSchema = z.number().int().min(3).max(64);
-export type TerrainSampleDimension = z.infer<typeof terrainSampleDimensionSchema>;
-
-export const terrainSampleSchema = z
+export const terrainSocketDefinitionSchema = z
   .object({
     slug: terrainSlugSchema,
-    width: terrainSampleDimensionSchema,
-    height: terrainSampleDimensionSchema,
-    layerCount: terrainSampleLayerCountSchema,
-    cells: z.array(terrainSampleCellSchema),
-    periodicInput: z.boolean(),
+    label: z.string().trim().min(1).max(96),
+    color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use a six-digit hex color"),
+    description: z.string().max(512),
+    passes: z.array(terrainPiecePassSchema).min(1)
+  })
+  .strict();
+export type TerrainSocketDefinition = z.infer<typeof terrainSocketDefinitionSchema>;
+
+export const terrainPieceDimensionSchema = z.number().int().min(1).max(8);
+export type TerrainPieceDimension = z.infer<typeof terrainPieceDimensionSchema>;
+
+export const terrainPieceCellSchema = z
+  .object({
+    tiles: terrainTileStackSchema,
+    blocking: z.boolean(),
+    elevation: z.number().int().min(-8).max(8),
+    semanticFlags: z.array(terrainSlugSchema),
+    requiredBaseTags: z.array(terrainSlugSchema),
+    forbiddenBaseTags: z.array(terrainSlugSchema),
+    writeMode: z.enum(["REPLACE", "OVERLAY"])
+  })
+  .strict();
+export type TerrainPieceCell = z.infer<typeof terrainPieceCellSchema>;
+
+export const terrainSocketProfilesSchema = z
+  .object({
+    north: z.array(terrainSlugSchema),
+    east: z.array(terrainSlugSchema),
+    south: z.array(terrainSlugSchema),
+    west: z.array(terrainSlugSchema)
+  })
+  .strict();
+export type TerrainSocketProfiles = z.infer<typeof terrainSocketProfilesSchema>;
+
+export const terrainPieceSchema = z
+  .object({
+    slug: terrainSlugSchema,
+    pass: terrainPiecePassSchema,
+    width: terrainPieceDimensionSchema,
+    height: terrainPieceDimensionSchema,
+    layerCount: terrainLayerCountSchema,
+    cells: z.array(terrainPieceCellSchema),
+    sockets: terrainSocketProfilesSchema,
     allowRotations: z.boolean(),
-    allowReflections: z.boolean()
+    allowReflections: z.boolean(),
+    weight: z.number().positive().max(1_000_000),
+    biomeTags: z.array(terrainSlugSchema),
+    siteTags: z.array(terrainSlugSchema),
+    semanticFlags: z.array(terrainSlugSchema),
+    mutationFamily: z.union([terrainSlugSchema, z.literal("")])
   })
   .strict()
-  .superRefine((sample, context) => {
-    if (sample.cells.length !== sample.width * sample.height) {
-      context.addIssue({ code: "custom", message: "Sample cell count must match its dimensions", path: ["cells"] });
+  .superRefine((piece, context) => {
+    if (piece.cells.length !== piece.width * piece.height) {
+      context.addIssue({ code: "custom", message: "Piece cell count must match its dimensions", path: ["cells"] });
     }
-    sample.cells.forEach((cell, index) => {
-      if (cell.length !== sample.layerCount) {
-        context.addIssue({ code: "custom", message: "Sample cell layer count must match the sample", path: ["cells", index] });
+    piece.cells.forEach((cell, index) => {
+      if (cell.tiles.length !== piece.layerCount) {
+        context.addIssue({ code: "custom", message: "Piece cell layers must match layer count", path: ["cells", index, "tiles"] });
+      }
+      if (piece.pass === "BASE" && cell.tiles[0] === null) {
+        context.addIssue({ code: "custom", message: "Base pieces must paint every base-layer cell", path: ["cells", index, "tiles", 0] });
+      }
+      if (piece.pass === "BASE" && cell.writeMode !== "REPLACE") {
+        context.addIssue({
+          code: "custom",
+          message: "Base piece cells must replace their output cell",
+          path: ["cells", index, "writeMode"]
+        });
       }
     });
+    const expected = { north: piece.width, east: piece.height, south: piece.width, west: piece.height } as const;
+    for (const direction of terrainDirections) {
+      if (piece.sockets[direction].length !== expected[direction]) {
+        context.addIssue({
+          code: "custom",
+          message: `${direction} socket profile must contain ${expected[direction]} segment(s)`,
+          path: ["sockets", direction]
+        });
+      }
+    }
   });
-export type TerrainSample = z.infer<typeof terrainSampleSchema>;
+export type TerrainPiece = z.infer<typeof terrainPieceSchema>;
 
-export const terrainApprovedPatchSchema = z
+export const terrainPieceSetSchema = z
   .object({
     slug: terrainSlugSchema,
-    biome: terrainSlugSchema,
-    category: terrainSlugSchema,
-    weight: z.number().nonnegative(),
-    width: terrainSampleDimensionSchema,
-    height: terrainSampleDimensionSchema,
-    layerCount: terrainSampleLayerCountSchema,
-    cells: z.array(terrainSampleCellSchema)
+    label: z.string().trim().min(1).max(96),
+    pass: terrainPiecePassSchema,
+    pieceSlugs: z.array(terrainSlugSchema).min(1),
+    biomeTags: z.array(terrainSlugSchema),
+    siteTags: z.array(terrainSlugSchema)
+  })
+  .strict();
+export type TerrainPieceSet = z.infer<typeof terrainPieceSetSchema>;
+
+export const terrainAdjacencyOverrideSchema = z
+  .object({
+    slug: terrainSlugSchema,
+    sourcePiece: terrainSlugSchema,
+    direction: terrainDirectionSchema,
+    targetPiece: terrainSlugSchema,
+    mode: z.enum(["ALLOW_ONLY", "DENY"])
+  })
+  .strict();
+export type TerrainAdjacencyOverride = z.infer<typeof terrainAdjacencyOverrideSchema>;
+
+export const terrainTemplateDimensionSchema = z.number().int().min(3).max(64);
+export const terrainCliffModeSchema = z.enum(["FORBIDDEN", "OPTIONAL", "REQUIRED"]);
+export type TerrainCliffMode = z.infer<typeof terrainCliffModeSchema>;
+
+export const terrainTemplateCellSchema = z
+  .object({
+    requiredBaseTags: z.array(terrainSlugSchema),
+    forbiddenBaseTags: z.array(terrainSlugSchema),
+    cliffMode: terrainCliffModeSchema,
+    protected: z.boolean()
+  })
+  .strict();
+export type TerrainTemplateCell = z.infer<typeof terrainTemplateCellSchema>;
+
+export const terrainTemplateAnchorSchema = z
+  .object({
+    slug: terrainSlugSchema,
+    kind: z.enum(["ENTRANCE", "EXIT", "EXTENSION"]),
+    x: z.number().int().nonnegative(),
+    y: z.number().int().nonnegative(),
+    direction: terrainDirectionSchema,
+    socket: terrainSlugSchema
+  })
+  .strict();
+export type TerrainTemplateAnchor = z.infer<typeof terrainTemplateAnchorSchema>;
+
+export const terrainTemplateStampSchema = z
+  .object({
+    piece: terrainSlugSchema,
+    x: z.number().int().nonnegative(),
+    y: z.number().int().nonnegative(),
+    orientation: z.number().int().min(0).max(7),
+    protected: z.boolean()
+  })
+  .strict();
+export type TerrainTemplateStamp = z.infer<typeof terrainTemplateStampSchema>;
+
+export const terrainTemplateZoneSchema = z
+  .object({
+    slug: terrainSlugSchema,
+    x: z.number().int().nonnegative(),
+    y: z.number().int().nonnegative(),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    requiredTags: z.array(terrainSlugSchema),
+    minCount: z.number().int().nonnegative(),
+    maxCount: z.number().int().nonnegative()
   })
   .strict()
-  .superRefine((patch, context) => {
-    if (patch.cells.length !== patch.width * patch.height) {
-      context.addIssue({ code: "custom", message: "Patch cell count must match its dimensions", path: ["cells"] });
+  .refine((zone) => zone.maxCount >= zone.minCount, { message: "Zone maximum must be at least its minimum", path: ["maxCount"] });
+export type TerrainTemplateZone = z.infer<typeof terrainTemplateZoneSchema>;
+
+export const terrainSiteTemplateSchema = z
+  .object({
+    slug: terrainSlugSchema,
+    width: terrainTemplateDimensionSchema,
+    height: terrainTemplateDimensionSchema,
+    basePieceSet: terrainSlugSchema,
+    cliffPieceSet: z.union([terrainSlugSchema, z.literal("")]),
+    candidateCount: z.number().int().min(1).max(24),
+    cells: z.array(terrainTemplateCellSchema),
+    anchors: z.array(terrainTemplateAnchorSchema),
+    stamps: z.array(terrainTemplateStampSchema),
+    zones: z.array(terrainTemplateZoneSchema)
+  })
+  .strict()
+  .superRefine((template, context) => {
+    if (template.cells.length !== template.width * template.height) {
+      context.addIssue({ code: "custom", message: "Template cell count must match its dimensions", path: ["cells"] });
     }
-    patch.cells.forEach((cell, index) => {
-      if (cell.length !== patch.layerCount) {
-        context.addIssue({ code: "custom", message: "Patch cell layer count must match the patch", path: ["cells", index] });
+    template.anchors.forEach((anchor, index) => {
+      if (anchor.x >= template.width || anchor.y >= template.height) {
+        context.addIssue({ code: "custom", message: "Anchor is outside the template", path: ["anchors", index] });
+      }
+      if (anchor.kind === "EXTENSION") {
+        const onBoundary = anchor.x === 0 || anchor.y === 0 || anchor.x === template.width - 1 || anchor.y === template.height - 1;
+        if (!onBoundary)
+          context.addIssue({ code: "custom", message: "Extension anchors must lie on the map boundary", path: ["anchors", index] });
+      }
+    });
+    template.zones.forEach((zone, index) => {
+      if (zone.x + zone.width > template.width || zone.y + zone.height > template.height) {
+        context.addIssue({ code: "custom", message: "Zone is outside the template", path: ["zones", index] });
       }
     });
   });
-export type TerrainApprovedPatch = z.infer<typeof terrainApprovedPatchSchema>;
+export type TerrainSiteTemplate = z.infer<typeof terrainSiteTemplateSchema>;
 
-export function appendTerrainSampleLayer(sample: TerrainSample): TerrainSample {
-  const layerCount = terrainSampleLayerCountSchema.parse(sample.layerCount + 1);
-  return terrainSampleSchema.parse({
-    ...sample,
-    layerCount,
-    cells: sample.cells.map((cell) => [...cell, null])
+export const terrainPlacementSchema = z
+  .object({
+    piece: terrainSlugSchema,
+    pass: terrainPiecePassSchema,
+    x: z.number().int().nonnegative(),
+    y: z.number().int().nonnegative(),
+    orientation: z.number().int().min(0).max(7),
+    width: terrainPieceDimensionSchema,
+    height: terrainPieceDimensionSchema
+  })
+  .strict();
+export type TerrainPlacement = z.infer<typeof terrainPlacementSchema>;
+
+export const terrainResolvedCellMetadataSchema = z
+  .object({
+    blocking: z.boolean(),
+    elevation: z.number().int().min(-8).max(8),
+    tags: z.array(terrainSlugSchema),
+    basePiece: terrainSlugSchema,
+    cliffPiece: z.union([terrainSlugSchema, z.literal("")])
+  })
+  .strict();
+export type TerrainResolvedCellMetadata = z.infer<typeof terrainResolvedCellMetadataSchema>;
+
+export const terrainCandidateMetricSchema = z
+  .object({
+    walkableComponents: z.number().int().nonnegative(),
+    reachableAnchors: z.number().int().nonnegative(),
+    requiredAnchors: z.number().int().nonnegative(),
+    cliffCells: z.number().int().nonnegative(),
+    distinctPieces: z.number().int().nonnegative()
+  })
+  .strict();
+export type TerrainCandidateMetric = z.infer<typeof terrainCandidateMetricSchema>;
+
+export const terrainApprovedAssetSchema = z
+  .object({
+    slug: terrainSlugSchema,
+    kind: z.enum(["MAP", "SUBMODULE"]),
+    sourceTemplate: terrainSlugSchema,
+    seed: z.number().int().nonnegative(),
+    width: terrainTemplateDimensionSchema,
+    height: terrainTemplateDimensionSchema,
+    layerCount: terrainLayerCountSchema,
+    cells: z.array(terrainTileStackSchema),
+    cellMetadata: z.array(terrainResolvedCellMetadataSchema),
+    placements: z.array(terrainPlacementSchema),
+    anchors: z.array(terrainTemplateAnchorSchema),
+    metrics: terrainCandidateMetricSchema
+  })
+  .strict()
+  .superRefine((asset, context) => {
+    const size = asset.width * asset.height;
+    if (asset.cells.length !== size)
+      context.addIssue({ code: "custom", message: "Approved cell count must match dimensions", path: ["cells"] });
+    if (asset.cellMetadata.length !== size) {
+      context.addIssue({ code: "custom", message: "Approved metadata count must match dimensions", path: ["cellMetadata"] });
+    }
+    asset.cells.forEach((cell, index) => {
+      if (cell.length !== asset.layerCount) {
+        context.addIssue({ code: "custom", message: "Approved cell layers must match layer count", path: ["cells", index] });
+      }
+    });
   });
-}
+export type TerrainApprovedAsset = z.infer<typeof terrainApprovedAssetSchema>;
 
 export interface TerrainTilesetView {
   id: string;
@@ -107,11 +318,45 @@ export interface TerrainTilesetView {
 export interface TerrainWorkspaceView {
   tilesets: TerrainTilesetView[];
   tileBindings: Record<string, TerrainTileBinding>;
-  samples: TerrainSample[];
-  approvedPatches: TerrainApprovedPatch[];
+  sockets: TerrainSocketDefinition[];
+  pieces: TerrainPiece[];
+  pieceSets: TerrainPieceSet[];
+  adjacencyOverrides: TerrainAdjacencyOverride[];
+  templates: TerrainSiteTemplate[];
+  approvedAssets: TerrainApprovedAsset[];
   problems: string[];
 }
 
 export function terrainTileKey(tilesetId: string, localId: number): string {
   return `${tilesetId}:${localId}`;
+}
+
+export function createTerrainPieceCell(layerCount: number, pass: TerrainPiecePass): TerrainPieceCell {
+  return {
+    tiles: Array<TerrainTileRef | null>(terrainLayerCountSchema.parse(layerCount)).fill(null),
+    blocking: false,
+    elevation: 0,
+    semanticFlags: [],
+    requiredBaseTags: [],
+    forbiddenBaseTags: [],
+    writeMode: pass === "BASE" ? "REPLACE" : "OVERLAY"
+  };
+}
+
+export function appendTerrainPieceLayer(piece: TerrainPiece): TerrainPiece {
+  const layerCount = terrainLayerCountSchema.parse(piece.layerCount + 1);
+  return terrainPieceSchema.parse({
+    ...piece,
+    layerCount,
+    cells: piece.cells.map((cell) => ({ ...cell, tiles: [...cell.tiles, null] }))
+  });
+}
+
+export function createTerrainTemplateCells(width: number, height: number): TerrainTemplateCell[] {
+  return Array.from({ length: width * height }, () => ({
+    requiredBaseTags: [],
+    forbiddenBaseTags: [],
+    cliffMode: "FORBIDDEN" as const,
+    protected: false
+  }));
 }

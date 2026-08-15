@@ -22,7 +22,7 @@ const routeIcons: Record<RouteEnum, LucideIcon> = {
   [RouteEnum.database]: Database,
   [RouteEnum.localization]: Languages,
   [RouteEnum.imageConversion]: Images,
-  [RouteEnum.wfcSamples]: Grid3X3,
+  [RouteEnum.terrainGenerator]: Grid3X3,
   [RouteEnum.settings]: Settings2,
   [RouteEnum.todos]: ListChecks
 };

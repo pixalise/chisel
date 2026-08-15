@@ -1,15 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnyDataTable, Asset, DataTableRow } from "../../shared/schemas";
+import type { TerrainApprovedAsset, TerrainPiece } from "../../shared/terrain-authoring";
 import {
-  TERRAIN_APPROVED_PATCH_COLUMNS,
-  TERRAIN_APPROVED_PATCHES_TABLE,
+  TERRAIN_APPROVED_ASSET_COLUMNS,
+  TERRAIN_APPROVED_ASSETS_TABLE,
+  TERRAIN_PIECE_COLUMNS,
+  TERRAIN_PIECES_TABLE,
   TERRAIN_TILE_BINDING_COLUMNS,
-  TERRAIN_TILE_BINDINGS_TABLE,
-  TERRAIN_TILESET_COLUMNS,
-  TERRAIN_TILESETS_TABLE,
-  TERRAIN_WFC_SAMPLE_CELL_COLUMNS,
-  TERRAIN_WFC_SAMPLE_CELLS_TABLE,
-  TERRAIN_WFC_SAMPLES_TABLE
+  TERRAIN_TILE_BINDINGS_TABLE
 } from "../../shared/terrain-tables";
 import { AssetCategoryEnum, ColumnType } from "../../shared/types";
 
@@ -57,6 +55,48 @@ const tileset: Asset = {
   width: 64
 };
 
+const piece: TerrainPiece = {
+  slug: "GROUND_MODULE",
+  pass: "BASE",
+  width: 1,
+  height: 1,
+  layerCount: 1,
+  cells: [
+    {
+      tiles: [{ tilesetId: "TERRAIN", localId: 0, orientation: 0 }],
+      blocking: false,
+      elevation: 0,
+      semanticFlags: [],
+      requiredBaseTags: [],
+      forbiddenBaseTags: [],
+      writeMode: "REPLACE"
+    }
+  ],
+  sockets: { north: ["GROUND"], east: ["GROUND"], south: ["GROUND"], west: ["GROUND"] },
+  allowRotations: false,
+  allowReflections: false,
+  weight: 1,
+  biomeTags: [],
+  siteTags: [],
+  semanticFlags: [],
+  mutationFamily: ""
+};
+
+const approved: TerrainApprovedAsset = {
+  slug: "FOREST_SITE",
+  kind: "MAP",
+  sourceTemplate: "FOREST",
+  seed: 7,
+  width: 3,
+  height: 3,
+  layerCount: 1,
+  cells: Array.from({ length: 9 }, () => [{ tilesetId: "TERRAIN", localId: 0, orientation: 0 }]),
+  cellMetadata: Array.from({ length: 9 }, () => ({ blocking: false, elevation: 0, tags: [], basePiece: "GROUND_MODULE", cliffPiece: "" })),
+  placements: [],
+  anchors: [],
+  metrics: { walkableComponents: 1, reachableAnchors: 0, requiredAnchors: 0, cliffCells: 0, distinctPieces: 1 }
+};
+
 function tableRow(slug: string, values: DataTableRow["values"]): DataTableRow {
   return { id: `${slug}_ROW_ID_000000000`, slug, values };
 }
@@ -65,48 +105,29 @@ function value(column: { id: string; type: ColumnType }, cell: unknown): DataTab
   return { columnId: column.id, type: column.type, value: cell } as DataTableRow["values"][number];
 }
 
-function terrainTables(withApprovedPatch: boolean): AnyDataTable[] {
-  const sample = tableRow("EDGE", []);
-  const cell = tableRow("CELL", [
-    value(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.sample, "EDGE"),
-    value(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.x, 0),
-    value(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.y, 0),
-    value(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.tileset, "TERRAIN"),
-    value(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.localId, 0)
-  ]);
+function terrainTables(options: { approved?: boolean; piece?: boolean }): AnyDataTable[] {
   const binding = tableRow("GROUND", [
     value(TERRAIN_TILE_BINDING_COLUMNS.tileset, "TERRAIN"),
     value(TERRAIN_TILE_BINDING_COLUMNS.localId, 0),
     value(TERRAIN_TILE_BINDING_COLUMNS.tileSlug, "GROUND"),
-    value(TERRAIN_TILE_BINDING_COLUMNS.wfcSymbol, "GROUND"),
     value(TERRAIN_TILE_BINDING_COLUMNS.blocking, false),
     value(TERRAIN_TILE_BINDING_COLUMNS.tags, [])
   ]);
-  const approvedPatch = tableRow("FOREST_EDGE", [
-    value(TERRAIN_APPROVED_PATCH_COLUMNS.biome, "FOREST"),
-    value(TERRAIN_APPROVED_PATCH_COLUMNS.category, "NATURE"),
-    value(TERRAIN_APPROVED_PATCH_COLUMNS.weight, 1),
-    value(TERRAIN_APPROVED_PATCH_COLUMNS.width, 3),
-    value(TERRAIN_APPROVED_PATCH_COLUMNS.height, 3),
-    value(TERRAIN_APPROVED_PATCH_COLUMNS.layerCount, 1),
-    value(
-      TERRAIN_APPROVED_PATCH_COLUMNS.cells,
-      Array.from({ length: 9 }, () => [{ tilesetId: "TERRAIN", localId: 0, orientation: 0 }])
-    )
+  const pieceRow = tableRow(piece.slug, [
+    value(TERRAIN_PIECE_COLUMNS.pass, piece.pass),
+    value(TERRAIN_PIECE_COLUMNS.width, piece.width),
+    value(TERRAIN_PIECE_COLUMNS.height, piece.height),
+    value(TERRAIN_PIECE_COLUMNS.definition, piece)
   ]);
-  const runtimeTileset = tableRow("TERRAIN", [
-    value(TERRAIN_TILESET_COLUMNS.asset, "TERRAIN"),
-    value(TERRAIN_TILESET_COLUMNS.tileSize, 64),
-    value(TERRAIN_TILESET_COLUMNS.columns, 1),
-    value(TERRAIN_TILESET_COLUMNS.rows, 1),
-    value(TERRAIN_TILESET_COLUMNS.tiles, [])
+  const approvedRow = tableRow(approved.slug, [
+    value(TERRAIN_APPROVED_ASSET_COLUMNS.kind, approved.kind),
+    value(TERRAIN_APPROVED_ASSET_COLUMNS.sourceTemplate, approved.sourceTemplate),
+    value(TERRAIN_APPROVED_ASSET_COLUMNS.definition, approved)
   ]);
   return [
     { ...TERRAIN_TILE_BINDINGS_TABLE, rows: [binding] },
-    { ...TERRAIN_WFC_SAMPLES_TABLE, rows: [sample] },
-    { ...TERRAIN_WFC_SAMPLE_CELLS_TABLE, rows: [cell] },
-    { ...TERRAIN_APPROVED_PATCHES_TABLE, rows: withApprovedPatch ? [approvedPatch] : [] },
-    { ...TERRAIN_TILESETS_TABLE, rows: [runtimeTileset] }
+    { ...TERRAIN_PIECES_TABLE, rows: options.piece ? [pieceRow] : [] },
+    { ...TERRAIN_APPROVED_ASSETS_TABLE, rows: options.approved ? [approvedRow] : [] }
   ];
 }
 
@@ -119,26 +140,29 @@ describe("tileset asset deletion", () => {
     mocks.tryReadAssetsJson.mockResolvedValue({ schemaVersion: 1, assets: [tileset] });
   });
 
-  it("refuses a tileset used by an approved patch before mutating anything", async () => {
-    mocks.tables = terrainTables(true);
+  it("refuses a tileset used by an authored piece before mutating anything", async () => {
+    mocks.tables = terrainTables({ piece: true });
 
-    await expect(assetService.removeAsset("TERRAIN")).rejects.toThrow("approved terrain patch FOREST_EDGE");
+    await expect(assetService.removeAsset("TERRAIN")).rejects.toThrow("terrain piece GROUND_MODULE");
     expect(mocks.saveSystemTableRows).not.toHaveBeenCalled();
     expect(mocks.deleteProjectFile).not.toHaveBeenCalled();
   });
 
-  it("removes unapproved samples, cells, bindings, and runtime catalog row before deleting the asset", async () => {
-    mocks.tables = terrainTables(false);
+  it("refuses a tileset used by a frozen terrain asset before mutating anything", async () => {
+    mocks.tables = terrainTables({ approved: true });
+
+    await expect(assetService.removeAsset("TERRAIN")).rejects.toThrow("approved terrain asset FOREST_SITE");
+    expect(mocks.saveSystemTableRows).not.toHaveBeenCalled();
+    expect(mocks.deleteProjectFile).not.toHaveBeenCalled();
+  });
+
+  it("removes unused tile bindings before deleting the asset", async () => {
+    mocks.tables = terrainTables({});
 
     await assetService.removeAsset("TERRAIN");
 
-    expect(mocks.saveSystemTableRows).toHaveBeenCalledTimes(4);
-    expect(mocks.saveSystemTableRows.mock.calls.map((call) => call[0])).toEqual([
-      "terrain_wfc_sample_cells",
-      "terrain_wfc_samples",
-      "terrain_tile_bindings",
-      "terrain_tilesets"
-    ]);
+    expect(mocks.saveSystemTableRows).toHaveBeenCalledTimes(1);
+    expect(mocks.saveSystemTableRows).toHaveBeenCalledWith("terrain_tile_bindings", []);
     expect(mocks.deleteProjectFile).toHaveBeenCalledWith(expect.anything(), tileset.relativePath);
     expect(mocks.writeAssetsJson).toHaveBeenCalledWith(expect.anything(), { schemaVersion: 1, assets: [] });
   });

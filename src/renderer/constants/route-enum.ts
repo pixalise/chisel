@@ -1,7 +1,7 @@
 export enum RouteEnum {
   settings = "/settings",
   imageConversion = "/imageConversion",
-  wfcSamples = "/wfcSamples",
+  terrainGenerator = "/terrainGenerator",
   assets = "/assets",
   database = "/database",
   localization = "/localization",

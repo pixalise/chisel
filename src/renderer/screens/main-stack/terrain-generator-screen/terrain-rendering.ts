@@ -1,4 +1,4 @@
-import type { TerrainSampleCell, TerrainTileRef, TerrainTilesetView } from "../../../../shared/terrain-authoring";
+import type { TerrainTileRef, TerrainTilesetView, TerrainTileStack } from "../../../../shared/terrain-authoring";
 import { terrainOrientationMatrix } from "../../../../shared/terrain-wfc";
 
 export function drawTerrainTile(
@@ -35,7 +35,7 @@ export function drawTerrainTile(
 
 export function drawTerrainCell(
   context: CanvasRenderingContext2D,
-  cell: TerrainSampleCell,
+  cell: TerrainTileStack,
   tilesets: TerrainTilesetView[],
   images: Map<string, HTMLImageElement>,
   destinationX: number,

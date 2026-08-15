@@ -12,7 +12,7 @@ import { ImageConversionScreen } from "@/screens/main-stack/image-conversion-scr
 import LocalizationScreen from "@/screens/main-stack/localization-screen/localization-screen";
 import { SettingsScreen } from "@/screens/main-stack/settings-screen";
 import TodoScreen from "@/screens/main-stack/todo-screen/todo-screen";
-import { WfcSamplesScreen } from "@/screens/main-stack/wfc-samples-screen/wfc-samples-screen";
+import { TerrainGeneratorScreen } from "@/screens/main-stack/terrain-generator-screen/terrain-generator-screen";
 
 const MainStack: FC = () => {
   const { pathname } = useLocation();
@@ -33,7 +33,7 @@ const MainStack: FC = () => {
               <Route element={<AssetLibraryScreen />} path={RouteEnum.assets} />
               <Route element={<DataTablesScreen />} path={RouteEnum.database} />
               <Route element={<LocalizationScreen />} path={RouteEnum.localization} />
-              <Route element={<WfcSamplesScreen />} path={RouteEnum.wfcSamples} />
+              <Route element={<TerrainGeneratorScreen />} path={RouteEnum.terrainGenerator} />
               <Route element={<ImageConversionScreen />} path={RouteEnum.imageConversion} />
               <Route element={<SettingsScreen />} path={RouteEnum.settings} />
               <Route element={<TodoScreen />} path={RouteEnum.todos} />

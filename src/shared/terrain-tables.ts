@@ -2,10 +2,12 @@ import type { DataColumnDefinition, DataTableRow, SystemDataTable } from "./sche
 import { AssetCategoryEnum, ColumnType } from "./types";
 
 export const TERRAIN_TILE_BINDINGS_TABLE_ID = "terrain_tile_bindings";
-export const TERRAIN_WFC_SAMPLES_TABLE_ID = "terrain_wfc_samples";
-export const TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID = "terrain_wfc_sample_cells";
-export const TERRAIN_TILESETS_TABLE_ID = "terrain_tilesets";
-export const TERRAIN_APPROVED_PATCHES_TABLE_ID = "terrain_approved_patches";
+export const TERRAIN_SOCKETS_TABLE_ID = "terrain_sockets";
+export const TERRAIN_PIECES_TABLE_ID = "terrain_pieces";
+export const TERRAIN_PIECE_SETS_TABLE_ID = "terrain_piece_sets";
+export const TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID = "terrain_adjacency_overrides";
+export const TERRAIN_SITE_TEMPLATES_TABLE_ID = "terrain_site_templates";
+export const TERRAIN_APPROVED_ASSETS_TABLE_ID = "terrain_approved_assets";
 
 const SYSTEM_TABLE_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
@@ -67,96 +69,108 @@ export const TERRAIN_TILE_BINDING_COLUMNS = {
   tileset: column("terrain_binding_tileset", "tileset", ColumnType.assetRef, { assetCategory: AssetCategoryEnum.tileset }),
   localId: column("terrain_binding_local", "local_id", ColumnType.integer, { min: 0 }),
   tileSlug: column("terrain_binding_slug", "tile_slug", ColumnType.string),
-  wfcSymbol: column("terrain_binding_wfc", "wfc_symbol", ColumnType.string),
   blocking: column("terrain_binding_block", "blocking", ColumnType.boolean),
   tags: column("terrain_binding_tags", "tags", ColumnType.enumArray, { defaultValue: [], required: false })
 } as const;
 
-export const TERRAIN_WFC_SAMPLE_COLUMNS = {
-  width: column("terrain_sample_width", "width", ColumnType.integer, { min: 3 }),
-  height: column("terrain_sample_height", "height", ColumnType.integer, { min: 3 }),
-  layerCount: column("terrain_sample_layers", "layer_count", ColumnType.integer, { defaultValue: 1, min: 1 }),
-  periodicInput: column("terrain_sample_periodic", "periodic_input", ColumnType.boolean),
-  allowRotations: column("terrain_sample_rotate", "allow_rotations", ColumnType.boolean),
-  allowReflections: column("terrain_sample_reflect", "allow_reflections", ColumnType.boolean)
+export const TERRAIN_SOCKET_COLUMNS = {
+  label: column("terrain_socket_label", "label", ColumnType.string),
+  color: column("terrain_socket_color", "color", ColumnType.color),
+  description: column("terrain_socket_desc", "description", ColumnType.text, { required: false }),
+  passes: column("terrain_socket_passes", "passes", ColumnType.enumArray)
 } as const;
 
-export const TERRAIN_WFC_SAMPLE_CELL_COLUMNS = {
-  sample: column("terrain_cell_sample", "sample", ColumnType.ref, { refTableId: TERRAIN_WFC_SAMPLES_TABLE_ID }),
-  x: column("terrain_cell_x", "x", ColumnType.integer, { min: 0 }),
-  y: column("terrain_cell_y", "y", ColumnType.integer, { min: 0 }),
-  layer: column("terrain_cell_layer", "layer", ColumnType.integer, { min: 0 }),
-  tileset: column("terrain_cell_tileset", "tileset", ColumnType.assetRef, { assetCategory: AssetCategoryEnum.tileset }),
-  localId: column("terrain_cell_local", "local_id", ColumnType.integer, { min: 0 })
+export const TERRAIN_PIECE_COLUMNS = {
+  pass: column("terrain_piece_pass", "pass", ColumnType.string),
+  width: column("terrain_piece_width", "width", ColumnType.integer, { min: 1 }),
+  height: column("terrain_piece_height", "height", ColumnType.integer, { min: 1 }),
+  definition: column("terrain_piece_definition", "definition", ColumnType.json)
 } as const;
 
-export const TERRAIN_TILESET_COLUMNS = {
-  asset: column("terrain_tileset_asset", "asset", ColumnType.assetRef, { assetCategory: AssetCategoryEnum.tileset }),
-  tileSize: column("terrain_tileset_size", "tile_size", ColumnType.integer, { min: 1 }),
-  columns: column("terrain_tileset_cols", "columns", ColumnType.integer, { min: 1 }),
-  rows: column("terrain_tileset_rows", "rows", ColumnType.integer, { min: 1 }),
-  tiles: column("terrain_tileset_tiles", "tiles", ColumnType.json, { defaultValue: [] })
+export const TERRAIN_PIECE_SET_COLUMNS = {
+  pass: column("terrain_set_pass", "pass", ColumnType.string),
+  label: column("terrain_set_label", "label", ColumnType.string),
+  definition: column("terrain_set_definition", "definition", ColumnType.json)
 } as const;
 
-export const TERRAIN_APPROVED_PATCH_COLUMNS = {
-  biome: column("terrain_patch_biome", "biome", ColumnType.string),
-  category: column("terrain_patch_category", "category", ColumnType.string),
-  weight: column("terrain_patch_weight", "weight", ColumnType.decimal, { defaultValue: 1, min: 0 }),
-  width: column("terrain_patch_width", "width", ColumnType.integer, { min: 3 }),
-  height: column("terrain_patch_height", "height", ColumnType.integer, { min: 3 }),
-  layerCount: column("terrain_patch_layers", "layer_count", ColumnType.integer, { defaultValue: 1, min: 1 }),
-  cells: column("terrain_patch_cells", "cells", ColumnType.json, { defaultValue: [] })
+export const TERRAIN_ADJACENCY_OVERRIDE_COLUMNS = {
+  sourcePiece: column("terrain_override_source", "source_piece", ColumnType.ref, { refTableId: TERRAIN_PIECES_TABLE_ID }),
+  direction: column("terrain_override_direction", "direction", ColumnType.string),
+  targetPiece: column("terrain_override_target", "target_piece", ColumnType.ref, { refTableId: TERRAIN_PIECES_TABLE_ID }),
+  mode: column("terrain_override_mode", "mode", ColumnType.string)
+} as const;
+
+export const TERRAIN_SITE_TEMPLATE_COLUMNS = {
+  width: column("terrain_template_width", "width", ColumnType.integer, { min: 3 }),
+  height: column("terrain_template_height", "height", ColumnType.integer, { min: 3 }),
+  definition: column("terrain_template_definition", "definition", ColumnType.json)
+} as const;
+
+export const TERRAIN_APPROVED_ASSET_COLUMNS = {
+  kind: column("terrain_approved_kind", "kind", ColumnType.string),
+  sourceTemplate: column("terrain_approved_template", "source_template", ColumnType.ref, { refTableId: TERRAIN_SITE_TEMPLATES_TABLE_ID }),
+  definition: column("terrain_approved_definition", "definition", ColumnType.json)
 } as const;
 
 export const TERRAIN_TILE_BINDINGS_TABLE = table(
   TERRAIN_TILE_BINDINGS_TABLE_ID,
   "Terrain Tile Bindings",
-  "Stable slugs, logical WFC symbols, collision flags, and semantic tags for tileset sprites.",
+  "Stable tile slugs, collision defaults, and semantic tags used by authored terrain pieces.",
   Object.values(TERRAIN_TILE_BINDING_COLUMNS)
 );
 
-export const TERRAIN_WFC_SAMPLES_TABLE = table(
-  TERRAIN_WFC_SAMPLES_TABLE_ID,
-  "Terrain WFC Samples",
-  "Native Chisel WFC sample definitions.",
-  Object.values(TERRAIN_WFC_SAMPLE_COLUMNS)
+export const TERRAIN_SOCKETS_TABLE = table(
+  TERRAIN_SOCKETS_TABLE_ID,
+  "Terrain Sockets",
+  "Project-wide Wang edge socket vocabulary for base and cliff pieces.",
+  Object.values(TERRAIN_SOCKET_COLUMNS)
 );
 
-export const TERRAIN_WFC_SAMPLE_CELLS_TABLE = table(
-  TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID,
-  "Terrain WFC Sample Cells",
-  "Painted tileset cells belonging to native Chisel WFC samples.",
-  Object.values(TERRAIN_WFC_SAMPLE_CELL_COLUMNS)
+export const TERRAIN_PIECES_TABLE = table(
+  TERRAIN_PIECES_TABLE_ID,
+  "Terrain Pieces",
+  "Mixed-size, layered Simple-Tiled WFC modules with explicit edge sockets.",
+  Object.values(TERRAIN_PIECE_COLUMNS)
 );
 
-export const TERRAIN_TILESETS_TABLE = table(
-  TERRAIN_TILESETS_TABLE_ID,
-  "Terrain Tilesets",
-  "Runtime tileset dimensions and per-sprite gameplay metadata.",
-  Object.values(TERRAIN_TILESET_COLUMNS)
+export const TERRAIN_PIECE_SETS_TABLE = table(
+  TERRAIN_PIECE_SETS_TABLE_ID,
+  "Terrain Piece Sets",
+  "Base or cliff piece vocabularies selected by site templates.",
+  Object.values(TERRAIN_PIECE_SET_COLUMNS)
 );
 
-export const TERRAIN_APPROVED_PATCHES_TABLE = table(
-  TERRAIN_APPROVED_PATCHES_TABLE_ID,
-  "Approved Terrain Patches",
-  "Frozen terrain candidates selected for deterministic runtime placement.",
-  Object.values(TERRAIN_APPROVED_PATCH_COLUMNS)
+export const TERRAIN_ADJACENCY_OVERRIDES_TABLE = table(
+  TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID,
+  "Terrain Adjacency Overrides",
+  "Inspectable allow-only and deny exceptions applied after socket matching.",
+  Object.values(TERRAIN_ADJACENCY_OVERRIDE_COLUMNS)
+);
+
+export const TERRAIN_SITE_TEMPLATES_TABLE = table(
+  TERRAIN_SITE_TEMPLATES_TABLE_ID,
+  "Terrain Site Templates",
+  "Macro constraints, stamps, anchors, zones, and cliff masks used for candidate generation.",
+  Object.values(TERRAIN_SITE_TEMPLATE_COLUMNS)
+);
+
+export const TERRAIN_APPROVED_ASSETS_TABLE = table(
+  TERRAIN_APPROVED_ASSETS_TABLE_ID,
+  "Approved Terrain Assets",
+  "Frozen complete maps and submodules retained in Chisel's internal geography library.",
+  Object.values(TERRAIN_APPROVED_ASSET_COLUMNS)
 );
 
 export const SYSTEM_TERRAIN_TABLES = [
   TERRAIN_TILE_BINDINGS_TABLE,
-  TERRAIN_WFC_SAMPLES_TABLE,
-  TERRAIN_WFC_SAMPLE_CELLS_TABLE,
-  TERRAIN_TILESETS_TABLE,
-  TERRAIN_APPROVED_PATCHES_TABLE
+  TERRAIN_SOCKETS_TABLE,
+  TERRAIN_PIECES_TABLE,
+  TERRAIN_PIECE_SETS_TABLE,
+  TERRAIN_ADJACENCY_OVERRIDES_TABLE,
+  TERRAIN_SITE_TEMPLATES_TABLE,
+  TERRAIN_APPROVED_ASSETS_TABLE
 ];
 
-export const EDITOR_ONLY_TERRAIN_TABLE_IDS = new Set([
-  TERRAIN_TILE_BINDINGS_TABLE_ID,
-  TERRAIN_WFC_SAMPLES_TABLE_ID,
-  TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID
-]);
-
-export const RUNTIME_TERRAIN_TABLE_IDS = new Set([TERRAIN_TILESETS_TABLE_ID, TERRAIN_APPROVED_PATCHES_TABLE_ID]);
-
+export const EDITOR_ONLY_TERRAIN_TABLE_IDS = new Set(SYSTEM_TERRAIN_TABLES.map((entry) => entry.id));
+export const RUNTIME_TERRAIN_TABLE_IDS = new Set<string>();
 export const EDITABLE_TERRAIN_TABLE_IDS = new Set<string>();

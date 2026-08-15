@@ -21,7 +21,7 @@ interface TerrainTileCatalogProps {
 }
 
 function defaultBinding(tilesetId: string, localId: number): TerrainTileBinding {
-  return { slug: `${tilesetId}_${localId}`, wfcSymbol: `${tilesetId}_${localId}`, blocking: false, tags: [] };
+  return { slug: `${tilesetId}_${localId}`, blocking: false, tags: [] };
 }
 
 export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
@@ -96,7 +96,7 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold">Tileset palette</h3>
-            <p className="text-xs text-muted-foreground">Select a sprite to paint samples and edit its semantic metadata.</p>
+            <p className="text-xs text-muted-foreground">Select a sprite to paint modules and edit its semantic metadata.</p>
           </div>
           <div className="flex items-center gap-3">
             <Label className="space-y-1 text-xs text-muted-foreground">
@@ -193,16 +193,6 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
                 onChange={(event) => updateSelected({ slug: event.target.value.toUpperCase().replace(/[^A-Z0-9]+/g, "_") })}
                 value={selectedBinding?.slug ?? ""}
               />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="tile-wfc-symbol">WFC symbol</Label>
-              <Input
-                id="tile-wfc-symbol"
-                onChange={(event) => updateSelected({ wfcSymbol: event.target.value.toUpperCase().replace(/[^A-Z0-9]+/g, "_") })}
-                placeholder="GROUND, TREE, ROCK"
-                value={selectedBinding?.wfcSymbol ?? ""}
-              />
-              <p className="text-xs text-muted-foreground">Sprites with the same symbol are interchangeable visual variants.</p>
             </div>
             <Label className="flex items-center gap-2">
               <Checkbox
