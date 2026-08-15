@@ -35,7 +35,7 @@ Terrain Generator is divided into five focused pages:
 4. **Generate** — choose a template, starting seed, and batch size. **Generate** reproduces that seed range; **Generate more** appends the next range. Anchors, stamps, zones, and per-cell tag constraints remain under **Edit advanced constraints**.
 5. **Approved** — review frozen maps and submodules independently from the live grammar.
 
-An empty project with bound sprites opens with an unsaved `EXAMPLE_FOREST_SITE`. It can immediately generate eight candidates. The example uses weighted 1×1 pieces, mixed-size transformed modules, one collection, deny and allow-only adjacency exceptions, cell tag constraints, three anchors, a required stamp, and a semantic zone. Use **Reset full example** to reconstruct it after experimenting. It does not modify project files until **Save authoring** is selected.
+An empty project with bound sprites opens with an unsaved `EXAMPLE_FOREST_SITE`. It can immediately generate eight candidates. The example uses weighted 1×1 pieces, mixed-size transformed modules, one collection, deny and allow-only adjacency exceptions, cell tag constraints, three anchors, a required stamp, and a validation zone. Use **Reset full example** to reconstruct it after experimenting. It does not modify project files until **Save authoring** is selected.
 
 ## Tile catalog
 
@@ -101,13 +101,13 @@ A site template supplies large-scale intent that local WFC cannot infer. It sele
 - per-cell required and forbidden semantic tags;
 - required piece stamps with fixed transform and location;
 - entrance, exit, and extension anchors;
-- zones with tag-count ranges.
+- validation zones with tag-count ranges.
 
 Required stamps are placed before collapse. Their mixed-size internal states are fixed as one unit. Contradictory or overlapping stamps fail immediately.
 
 Extension anchors must lie on the map boundary. Anchors are validated against the generated walkability graph; WFC handles local assembly, while templates and validation handle site-level intent.
 
-The advanced constraint preview draws the latest generated candidate as a terrain backdrop, then overlays every authored constraint together: green/red tag cells, gold stamps, blue zones, directional entrance/exit/extension anchors, and the selected editing cell. Before a candidate exists, the same overlay remains usable on a neutral grid.
+The advanced constraint preview draws the latest generated candidate as a terrain backdrop, then overlays every authored constraint together: green/red tag cells, gold stamps, blue validation zones, directional entrance/exit/extension anchors, and the selected editing cell. Before a candidate exists, the same overlay remains usable on a neutral grid. Creation controls stay beside the preview; authored rules appear as cards below it. Selecting a card highlights the complete affected cell or footprint, while zone count ranges remain editable on their cards.
 
 ## Generation
 

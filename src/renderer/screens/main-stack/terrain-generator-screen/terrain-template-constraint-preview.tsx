@@ -6,6 +6,7 @@ import { drawTerrainCell } from "./terrain-rendering";
 
 interface TerrainTemplateConstraintPreviewProps {
   candidate?: TerrainCandidate;
+  highlight?: TerrainConstraintHighlight;
   onSelectCell: (index: number) => void;
   pieces: TerrainPiece[];
   selectedIndex: number;
@@ -13,8 +14,17 @@ interface TerrainTemplateConstraintPreviewProps {
   tilesets: TerrainTilesetView[];
 }
 
+export interface TerrainConstraintHighlight {
+  color: string;
+  height: number;
+  key: string;
+  width: number;
+  x: number;
+  y: number;
+}
+
 export const TerrainTemplateConstraintPreview: FC<TerrainTemplateConstraintPreviewProps> = (props) => {
-  const { candidate, onSelectCell, pieces, selectedIndex, template, tilesets } = props;
+  const { candidate, highlight, onSelectCell, pieces, selectedIndex, template, tilesets } = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const images = useRef(new Map<string, HTMLImageElement>());
   const [imageRevision, setImageRevision] = useState(0);
@@ -147,12 +157,28 @@ export const TerrainTemplateConstraintPreview: FC<TerrainTemplateConstraintPrevi
     }
     context.stroke();
 
+    if (highlight) {
+      const inset = 2;
+      context.save();
+      context.shadowBlur = 12;
+      context.shadowColor = highlight.color;
+      context.strokeStyle = highlight.color;
+      context.lineWidth = 4;
+      context.strokeRect(
+        highlight.x * cellSize + inset,
+        highlight.y * cellSize + inset,
+        highlight.width * cellSize - inset * 2,
+        highlight.height * cellSize - inset * 2
+      );
+      context.restore();
+    }
+
     const selectedX = selectedIndex % template.width;
     const selectedY = Math.floor(selectedIndex / template.width);
     context.strokeStyle = "#ffffff";
     context.lineWidth = 3;
     context.strokeRect(selectedX * cellSize + 1.5, selectedY * cellSize + 1.5, cellSize - 3, cellSize - 3);
-  }, [candidate, cellSize, imageRevision, pieces, selectedIndex, template, tilesets]);
+  }, [candidate, cellSize, highlight, imageRevision, pieces, selectedIndex, template, tilesets]);
 
   function selectCell(event: ReactMouseEvent<HTMLCanvasElement>): void {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -183,7 +209,7 @@ export const TerrainTemplateConstraintPreview: FC<TerrainTemplateConstraintPrevi
         <span className="text-emerald-400">+ Required tags</span>
         <span className="text-red-400">− Forbidden tags</span>
         <span className="text-amber-300">S Required stamp</span>
-        <span className="text-blue-300">Z Semantic zone</span>
+        <span className="text-blue-300">Z Validation zone</span>
         <span className="text-cyan-300">○ Entrance</span>
         <span className="text-purple-300">○ Exit</span>
         <span className="text-pink-300">○ Extension</span>

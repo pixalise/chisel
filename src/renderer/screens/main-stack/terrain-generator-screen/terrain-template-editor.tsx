@@ -13,7 +13,8 @@ import {
   type TerrainTilesetView
 } from "../../../../shared/terrain-authoring";
 import type { TerrainCandidate } from "../../../../shared/terrain-wfc";
-import { TerrainTemplateConstraintPreview } from "./terrain-template-constraint-preview";
+import { TerrainTemplateConstraintCards } from "./terrain-template-constraint-cards";
+import { type TerrainConstraintHighlight, TerrainTemplateConstraintPreview } from "./terrain-template-constraint-preview";
 
 interface TerrainTemplateEditorProps {
   canGenerateMore: boolean;
@@ -55,6 +56,7 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
   const [zoneHeight, setZoneHeight] = useState(3);
   const [zoneTags, setZoneTags] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [focusedConstraint, setFocusedConstraint] = useState<TerrainConstraintHighlight>();
 
   function update(updateValue: Partial<TerrainSiteTemplate>): void {
     if (!selectedTemplate) return;
@@ -93,13 +95,17 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
         <div>
           <h3 className="text-sm font-semibold">Macro site templates</h3>
           <p className="text-xs text-muted-foreground">
-            Define bounds, a terrain collection, required stamps, anchors, semantic zones, and optional cell tag constraints.
+            Define bounds, a terrain collection, required stamps, anchors, validation zones, and optional cell tag constraints.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <select
             className="h-9 min-w-48 rounded border border-input bg-background px-2 text-sm"
-            onChange={(event) => onSelect(event.target.value || undefined)}
+            onChange={(event) => {
+              setFocusedConstraint(undefined);
+              setSelectedIndex(0);
+              onSelect(event.target.value || undefined);
+            }}
             value={selectedTemplate?.slug ?? ""}
           >
             <option value="">Choose template…</option>
@@ -197,14 +203,33 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
           </div>
           {showAdvanced && (
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_24rem]">
-              <TerrainTemplateConstraintPreview
-                candidate={previewCandidate}
-                onSelectCell={setSelectedIndex}
-                pieces={pieces}
-                selectedIndex={selectedIndex}
-                template={selectedTemplate}
-                tilesets={tilesets}
-              />
+              <div className="min-w-0 space-y-3">
+                <TerrainTemplateConstraintPreview
+                  candidate={previewCandidate}
+                  highlight={focusedConstraint}
+                  onSelectCell={(index) => {
+                    setFocusedConstraint(undefined);
+                    setSelectedIndex(index);
+                  }}
+                  pieces={pieces}
+                  selectedIndex={selectedIndex}
+                  template={selectedTemplate}
+                  tilesets={tilesets}
+                />
+                <TerrainTemplateConstraintCards
+                  focusedKey={focusedConstraint?.key}
+                  onChange={(updateValue) => {
+                    setFocusedConstraint(undefined);
+                    update(updateValue);
+                  }}
+                  onFocus={(highlight, index) => {
+                    setFocusedConstraint(highlight);
+                    setSelectedIndex(index);
+                  }}
+                  pieces={pieces}
+                  template={selectedTemplate}
+                />
+              </div>
               <div className="space-y-3 rounded border border-border p-3">
                 <p className="text-xs font-semibold">
                   Selected cell {selectedX},{selectedY}
@@ -351,7 +376,7 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
                   </Button>
                 </div>
                 <div className="space-y-2 border-t border-border pt-2">
-                  <p className="text-xs font-semibold">Semantic zone from selected cell</p>
+                  <p className="text-xs font-semibold">Validation zone from selected cell</p>
                   <div className="grid grid-cols-2 gap-2">
                     <Input
                       max={selectedTemplate.width - selectedX}
@@ -393,100 +418,6 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
                   >
                     <Plus className="size-3" /> Zone
                   </Button>
-                </div>
-                <div className="space-y-2 border-t border-border pt-2">
-                  <p className="text-xs font-semibold">Authored constraints</p>
-                  {selectedTemplate.anchors.map((anchor, index) => (
-                    <div
-                      className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1 text-[11px]"
-                      key={anchor.slug}
-                    >
-                      <span>
-                        {anchor.slug} · {anchor.kind} · {anchor.x},{anchor.y} {anchor.direction}/{anchor.socket}
-                      </span>
-                      <Button
-                        aria-label={`Delete ${anchor.slug}`}
-                        onClick={() => update({ anchors: selectedTemplate.anchors.filter((_, entryIndex) => entryIndex !== index) })}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Trash2 className="size-3" />
-                      </Button>
-                    </div>
-                  ))}
-                  {selectedTemplate.stamps.map((stamp, index) => (
-                    <div
-                      className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1 text-[11px]"
-                      key={`${stamp.piece}-${stamp.x}-${stamp.y}-${index}`}
-                    >
-                      <span>
-                        {stamp.piece}@{stamp.orientation} · {stamp.x},{stamp.y}
-                      </span>
-                      <Button
-                        aria-label={`Delete ${stamp.piece} stamp`}
-                        onClick={() => update({ stamps: selectedTemplate.stamps.filter((_, entryIndex) => entryIndex !== index) })}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Trash2 className="size-3" />
-                      </Button>
-                    </div>
-                  ))}
-                  {selectedTemplate.zones.map((zone, index) => (
-                    <div className="space-y-1 rounded border border-border p-2 text-[11px]" key={zone.slug}>
-                      <div className="flex items-center justify-between gap-2">
-                        <span>
-                          {zone.slug} · {zone.x},{zone.y} · {zone.width}×{zone.height} · {zone.requiredTags.join(", ") || "any tags"}
-                        </span>
-                        <Button
-                          aria-label={`Delete ${zone.slug}`}
-                          onClick={() => update({ zones: selectedTemplate.zones.filter((_, entryIndex) => entryIndex !== index) })}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Trash2 className="size-3" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-1">
-                        <Label className="space-y-1">
-                          Minimum
-                          <Input
-                            min={0}
-                            onChange={(event) =>
-                              update({
-                                zones: selectedTemplate.zones.map((entry, entryIndex) =>
-                                  entryIndex === index ? { ...entry, minCount: Number(event.target.value) } : entry
-                                )
-                              })
-                            }
-                            type="number"
-                            value={zone.minCount}
-                          />
-                        </Label>
-                        <Label className="space-y-1">
-                          Maximum
-                          <Input
-                            min={0}
-                            onChange={(event) =>
-                              update({
-                                zones: selectedTemplate.zones.map((entry, entryIndex) =>
-                                  entryIndex === index ? { ...entry, maxCount: Number(event.target.value) } : entry
-                                )
-                              })
-                            }
-                            type="number"
-                            value={zone.maxCount}
-                          />
-                        </Label>
-                      </div>
-                    </div>
-                  ))}
-                  {selectedTemplate.anchors.length === 0 && selectedTemplate.stamps.length === 0 && selectedTemplate.zones.length === 0 && (
-                    <p className="text-xs text-muted-foreground">No anchors, stamps, or zones.</p>
-                  )}
                 </div>
               </div>
             </div>
