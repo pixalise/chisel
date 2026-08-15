@@ -10,7 +10,7 @@ import { TerrainWfcPreview } from "@/screens/main-stack/wfc-samples-screen/terra
 import terrainSampleService from "@/services/terrain-sample-service";
 import { AlertTriangle, Save } from "lucide-react";
 import { type FC, useEffect, useMemo, useState } from "react";
-import type { TerrainSample, TerrainTileRef, TerrainWorkspaceView } from "../../../../shared/terrain-authoring";
+import type { TerrainApprovedPatch, TerrainSample, TerrainTileRef, TerrainWorkspaceView } from "../../../../shared/terrain-authoring";
 
 export const WfcSamplesScreen: FC = () => {
   const [workspace, setWorkspace] = useState<TerrainWorkspaceView>();
@@ -58,7 +58,44 @@ export const WfcSamplesScreen: FC = () => {
       const saved = await terrainSampleService.save(workspace);
       setWorkspace(saved);
       setSelectedSampleSlug((current) => (saved.samples.some((entry) => entry.slug === current) ? current : undefined));
-      setMessage(saved.problems.length === 0 ? "Saved terrain tables." : "Saved terrain tables; blocking validation problems remain.");
+      setMessage(
+        saved.problems.length === 0
+          ? "Saved terrain authoring and runtime tilesets."
+          : "Saved terrain data; blocking validation problems remain."
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function approvePatch(patch: TerrainApprovedPatch): Promise<void> {
+    if (!workspace) return;
+    if (workspace.approvedPatches.some((entry) => entry.slug === patch.slug)) {
+      throw new Error(`Approved patch '${patch.slug}' already exists`);
+    }
+    setIsBusy(true);
+    setError("");
+    try {
+      await terrainSampleService.save(workspace);
+      const saved = await terrainSampleService.saveApprovedPatches([...workspace.approvedPatches, patch]);
+      setWorkspace(saved);
+      setMessage(`Approved '${patch.slug}' for runtime export.`);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function deleteApprovedPatch(slug: string): Promise<void> {
+    if (!workspace) return;
+    setIsBusy(true);
+    setError("");
+    try {
+      const nextPatches = workspace.approvedPatches.filter((entry) => entry.slug !== slug);
+      const saved = await terrainSampleService.saveApprovedPatches(nextPatches);
+      setWorkspace((current) => (current ? { ...current, approvedPatches: saved.approvedPatches } : saved));
+      setMessage(`Removed approved patch '${slug}'.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -96,7 +133,10 @@ export const WfcSamplesScreen: FC = () => {
   }
 
   return (
-    <Section title="WFC Samples" copy="Paint native terrain samples, tag tiles, compile their patterns, and preview procedural output.">
+    <Section
+      title="WFC Samples"
+      copy="Author training samples, generate terrain candidates, and approve only the patches shipped to the game."
+    >
       <div className="space-y-4">
         {error && (
           <Alert className="py-2" variant="destructive">
@@ -116,7 +156,7 @@ export const WfcSamplesScreen: FC = () => {
               </div>
               <Button disabled={isBusy} onClick={() => void saveWorkspace()} type="button">
                 <Save className="size-4" />
-                Save terrain tables
+                Save authoring
               </Button>
             </div>
             {workspace.problems.length > 0 && <TerrainProblemList problems={workspace.problems} />}
@@ -143,7 +183,7 @@ export const WfcSamplesScreen: FC = () => {
                 workspace={workspace}
               />
             </div>
-            <TerrainWfcPreview workspace={workspace} />
+            <TerrainWfcPreview isBusy={isBusy} onApprove={approvePatch} onDeleteApproved={deleteApprovedPatch} workspace={workspace} />
           </>
         )}
       </div>

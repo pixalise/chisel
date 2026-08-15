@@ -14,7 +14,8 @@ import {
 import { createTealExportBundle, TEAL_GAME_DATA_EXPORT_ROOT, TEAL_MANIFEST_PATH } from "../../shared/teal-export";
 import { LocalizationProblemSeverity, validateLocalizationDocument } from "../../shared/localization";
 import { ProjectValidationSeverity, validateProjectContent } from "../../shared/project-validation";
-import { validatedDataTableSchema, type Asset, type Project } from "../../shared/schemas";
+import { validatedDataTableSchema, type AnyDataTable, type Asset, type Project } from "../../shared/schemas";
+import { EDITOR_ONLY_TERRAIN_TABLE_IDS } from "../../shared/terrain-tables";
 import appStore from "@/stores/app-store";
 import fileService from "@/services/file-service";
 import sourceStateService from "@/services/source-state-service";
@@ -34,6 +35,10 @@ export interface ExportProjectResult {
   target: ExportTarget;
 }
 
+export function runtimeExportTables(tables: AnyDataTable[]): AnyDataTable[] {
+  return tables.filter((table) => !EDITOR_ONLY_TERRAIN_TABLE_IDS.has(table.id));
+}
+
 class ExportService {
   public async exportProject(target: ExportTarget = ExportTarget.godot): Promise<ExportProjectResult> {
     const project = appStore.getState().computed.project;
@@ -43,7 +48,7 @@ class ExportService {
       throw new Error("Commit the current Chisel source state before exporting game data.");
     }
     const committedProject = { ...commit.project, path: project.path };
-    const tables = commit.tables.map((table) => validatedDataTableSchema.parse(table));
+    const tables = runtimeExportTables(commit.tables).map((table) => validatedDataTableSchema.parse(table));
     const assets = commit.assets.assets;
     const validationErrors = validateProjectContent(tables, assets, commit.localization).filter(
       (issue) => issue.severity === ProjectValidationSeverity.error

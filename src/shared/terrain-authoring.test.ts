@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendTerrainSampleLayer, terrainSampleSchema, terrainTileBindingSchema } from "./terrain-authoring";
+import { appendTerrainSampleLayer, terrainApprovedPatchSchema, terrainSampleSchema, terrainTileBindingSchema } from "./terrain-authoring";
 
 describe("native terrain authoring contract", () => {
   it("accepts a fully painted current-format sample", () => {
@@ -58,5 +58,21 @@ describe("native terrain authoring contract", () => {
       blocking: true,
       tags: ["MAP_EDGE"]
     });
+  });
+
+  it("accepts a frozen layered runtime patch", () => {
+    const cells = Array.from({ length: 9 }, () => [{ tilesetId: "GRASS", localId: 2, orientation: 0 }, null]);
+    expect(
+      terrainApprovedPatchSchema.parse({
+        slug: "FOREST_1",
+        biome: "FOREST",
+        category: "NATURE",
+        weight: 1,
+        width: 3,
+        height: 3,
+        layerCount: 2,
+        cells
+      })
+    ).toMatchObject({ slug: "FOREST_1", biome: "FOREST", layerCount: 2 });
   });
 });

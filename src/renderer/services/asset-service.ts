@@ -14,10 +14,11 @@ import { assetSlug, chiselAssetRelativePath } from "../../shared/asset-paths";
 import { findAssetReferences, findTableReferences } from "../../shared/project-validation";
 import tableService from "@/services/table-service";
 import {
-  TERRAIN_BIOME_PROFILE_COLUMNS,
-  TERRAIN_BIOME_PROFILES_TABLE_ID,
+  TERRAIN_APPROVED_PATCH_COLUMNS,
+  TERRAIN_APPROVED_PATCHES_TABLE_ID,
   TERRAIN_TILE_BINDING_COLUMNS,
   TERRAIN_TILE_BINDINGS_TABLE_ID,
+  TERRAIN_TILESETS_TABLE_ID,
   TERRAIN_WFC_SAMPLE_CELL_COLUMNS,
   TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID,
   TERRAIN_WFC_SAMPLES_TABLE_ID
@@ -28,6 +29,16 @@ function rowStringValue(row: DataTableRow, columnId: string): string {
   const value = row.values.find((entry) => entry.columnId === columnId)?.value;
   if (typeof value !== "string") throw new Error(`Terrain row is missing required column '${columnId}'`);
   return value;
+}
+
+function approvedPatchUsesTileset(row: DataTableRow, assetId: string): boolean {
+  const cells = row.values.find((entry) => entry.columnId === TERRAIN_APPROVED_PATCH_COLUMNS.cells.id)?.value;
+  if (!Array.isArray(cells)) throw new Error(`Approved terrain patch '${row.slug}' has invalid cells`);
+  return cells.some(
+    (stack) =>
+      Array.isArray(stack) &&
+      stack.some((tile) => typeof tile === "object" && tile !== null && "tilesetId" in tile && tile.tilesetId === assetId)
+  );
 }
 
 class AssetService extends BaseService {
@@ -109,7 +120,11 @@ class AssetService extends BaseService {
     }
     const tables = await tableService.listAllTables();
     const references = findAssetReferences(tables, assetId);
-    const managedTerrainReferences = new Set([TERRAIN_TILE_BINDINGS_TABLE_ID, TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID]);
+    const managedTerrainReferences = new Set([
+      TERRAIN_TILE_BINDINGS_TABLE_ID,
+      TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID,
+      TERRAIN_TILESETS_TABLE_ID
+    ]);
     const blockingReference = references.find((reference) => !managedTerrainReferences.has(reference.sourceTableId));
     if (blockingReference) {
       throw new Error(
@@ -133,26 +148,25 @@ class AssetService extends BaseService {
     const bindings = tables.find((table) => table.id === TERRAIN_TILE_BINDINGS_TABLE_ID);
     const samples = tables.find((table) => table.id === TERRAIN_WFC_SAMPLES_TABLE_ID);
     const cells = tables.find((table) => table.id === TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID);
-    const profiles = tables.find((table) => table.id === TERRAIN_BIOME_PROFILES_TABLE_ID);
-    if (!bindings || !samples || !cells || !profiles) throw new Error("Terrain system tables are missing");
+    const approvedPatches = tables.find((table) => table.id === TERRAIN_APPROVED_PATCHES_TABLE_ID);
+    const runtimeTilesets = tables.find((table) => table.id === TERRAIN_TILESETS_TABLE_ID);
+    if (!bindings || !samples || !cells || !approvedPatches || !runtimeTilesets) throw new Error("Terrain system tables are missing");
 
     const affectedSamples = new Set(
       cells.rows
         .filter((row) => rowStringValue(row, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.tileset.id) === assetId)
         .map((row) => rowStringValue(row, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.sample.id))
     );
-    const blockingProfile = profiles.rows.find((row) => affectedSamples.has(rowStringValue(row, TERRAIN_BIOME_PROFILE_COLUMNS.sample.id)));
-    if (blockingProfile) {
-      const sampleSlug = rowStringValue(blockingProfile, TERRAIN_BIOME_PROFILE_COLUMNS.sample.id);
-      throw new Error(`Tileset ${assetId} is used by biome profile ${blockingProfile.slug} through sample ${sampleSlug}`);
+    const blockingPatch = approvedPatches.rows.find((row) => approvedPatchUsesTileset(row, assetId));
+    if (blockingPatch) {
+      throw new Error(`Tileset ${assetId} is used by approved terrain patch ${blockingPatch.slug}`);
     }
 
     const removedCells = cells.rows.filter((row) => affectedSamples.has(rowStringValue(row, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.sample.id)));
     const removedBindings = bindings.rows.filter((row) => rowStringValue(row, TERRAIN_TILE_BINDING_COLUMNS.tileset.id) === assetId);
     const blockingRowReference = [
       ...findTableReferences(tables, TERRAIN_WFC_SAMPLES_TABLE_ID, affectedSamples).filter(
-        (reference) =>
-          reference.sourceTableId !== TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID && reference.sourceTableId !== TERRAIN_BIOME_PROFILES_TABLE_ID
+        (reference) => reference.sourceTableId !== TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID
       ),
       ...findTableReferences(tables, TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID, new Set(removedCells.map((row) => row.slug))),
       ...findTableReferences(tables, TERRAIN_TILE_BINDINGS_TABLE_ID, new Set(removedBindings.map((row) => row.slug)))
@@ -176,6 +190,10 @@ class AssetService extends BaseService {
     await tableService.saveSystemTableRows(
       TERRAIN_TILE_BINDINGS_TABLE_ID,
       bindings.rows.filter((row) => !removedBindings.some((removed) => removed.id === row.id))
+    );
+    await tableService.saveSystemTableRows(
+      TERRAIN_TILESETS_TABLE_ID,
+      runtimeTilesets.rows.filter((row) => row.slug !== assetId)
     );
   }
 }

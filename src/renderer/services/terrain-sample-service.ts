@@ -4,19 +4,23 @@ import assetService from "@/services/asset-service";
 import tableService from "@/services/table-service";
 import { dataTableRowSchema, type DataColumnDefinition, type DataTableRow, type SystemDataTable } from "../../shared/schemas";
 import {
-  TERRAIN_BIOME_PROFILE_COLUMNS,
-  TERRAIN_BIOME_PROFILES_TABLE_ID,
+  TERRAIN_APPROVED_PATCH_COLUMNS,
+  TERRAIN_APPROVED_PATCHES_TABLE_ID,
   TERRAIN_TILE_BINDING_COLUMNS,
   TERRAIN_TILE_BINDINGS_TABLE_ID,
+  TERRAIN_TILESET_COLUMNS,
+  TERRAIN_TILESETS_TABLE_ID,
   TERRAIN_WFC_SAMPLE_CELL_COLUMNS,
   TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID,
   TERRAIN_WFC_SAMPLE_COLUMNS,
   TERRAIN_WFC_SAMPLES_TABLE_ID
 } from "../../shared/terrain-tables";
 import {
+  terrainApprovedPatchSchema,
   terrainSampleSchema,
   terrainTileBindingSchema,
   terrainTileKey,
+  type TerrainApprovedPatch,
   type TerrainTileBinding,
   type TerrainTilesetView,
   type TerrainWorkspaceView
@@ -69,11 +73,12 @@ class TerrainSampleService {
   }
 
   public async load(): Promise<TerrainWorkspaceView> {
-    const [assets, bindingsTable, samplesTable, cellsTable] = await Promise.all([
+    const [assets, bindingsTable, samplesTable, cellsTable, approvedPatchesTable] = await Promise.all([
       assetService.getAllAssets(),
       this.systemTable(TERRAIN_TILE_BINDINGS_TABLE_ID),
       this.systemTable(TERRAIN_WFC_SAMPLES_TABLE_ID),
-      this.systemTable(TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID)
+      this.systemTable(TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID),
+      this.systemTable(TERRAIN_APPROVED_PATCHES_TABLE_ID)
     ]);
     const projectPath = appStore.getState().computed.project.path;
     const tilesets: TerrainTilesetView[] = assets
@@ -122,6 +127,18 @@ class TerrainSampleService {
       })
     );
     const samplesBySlug = new Map(samples.map((sample) => [sample.slug, sample]));
+    const approvedPatches = approvedPatchesTable.rows.map((entry) =>
+      terrainApprovedPatchSchema.parse({
+        slug: entry.slug,
+        biome: stringCell(entry, TERRAIN_APPROVED_PATCH_COLUMNS.biome),
+        category: stringCell(entry, TERRAIN_APPROVED_PATCH_COLUMNS.category),
+        weight: cell(entry, TERRAIN_APPROVED_PATCH_COLUMNS.weight),
+        width: integerCell(entry, TERRAIN_APPROVED_PATCH_COLUMNS.width),
+        height: integerCell(entry, TERRAIN_APPROVED_PATCH_COLUMNS.height),
+        layerCount: integerCell(entry, TERRAIN_APPROVED_PATCH_COLUMNS.layerCount),
+        cells: cell(entry, TERRAIN_APPROVED_PATCH_COLUMNS.cells)
+      })
+    );
     const problems: string[] = [];
     for (const entry of cellsTable.rows) {
       const sampleSlug = stringCell(entry, TERRAIN_WFC_SAMPLE_CELL_COLUMNS.sample);
@@ -175,22 +192,17 @@ class TerrainSampleService {
         }
       }
     }
-    return { tilesets, tileBindings, samples, problems };
+    return { tilesets, tileBindings, samples, approvedPatches, problems };
   }
 
   public async save(workspace: TerrainWorkspaceView): Promise<TerrainWorkspaceView> {
     const samples = workspace.samples.map((sample) => terrainSampleSchema.parse(sample));
-    const [bindingsTable, samplesTable, cellsTable, profilesTable] = await Promise.all([
+    const [bindingsTable, samplesTable, cellsTable, runtimeTilesetsTable] = await Promise.all([
       this.systemTable(TERRAIN_TILE_BINDINGS_TABLE_ID),
       this.systemTable(TERRAIN_WFC_SAMPLES_TABLE_ID),
       this.systemTable(TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID),
-      this.systemTable(TERRAIN_BIOME_PROFILES_TABLE_ID)
+      this.systemTable(TERRAIN_TILESETS_TABLE_ID)
     ]);
-    const nextSampleSlugs = new Set(samples.map((sample) => sample.slug));
-    const removed = samplesTable.rows.map((entry) => entry.slug).find((slug) => !nextSampleSlugs.has(slug));
-    if (removed && profilesTable.rows.some((entry) => stringCell(entry, TERRAIN_BIOME_PROFILE_COLUMNS.sample) === removed)) {
-      throw new Error(`WFC sample '${removed}' is still used by a biome profile`);
-    }
 
     const bindingIds = new Map(
       bindingsTable.rows.map((entry) => [
@@ -260,9 +272,56 @@ class TerrainSampleService {
         });
       })
     );
+    const runtimeTilesetIds = new Map(runtimeTilesetsTable.rows.map((entry) => [entry.slug, entry.id]));
+    const runtimeTilesetRows = workspace.tilesets.map((tileset) =>
+      row(
+        tileset.id,
+        [
+          rowValue(TERRAIN_TILESET_COLUMNS.asset, tileset.id),
+          rowValue(TERRAIN_TILESET_COLUMNS.tileSize, tileset.tileSize),
+          rowValue(TERRAIN_TILESET_COLUMNS.columns, tileset.columns),
+          rowValue(TERRAIN_TILESET_COLUMNS.rows, tileset.rows),
+          rowValue(
+            TERRAIN_TILESET_COLUMNS.tiles,
+            Object.entries(workspace.tileBindings)
+              .flatMap(([key, binding]) => {
+                const separator = key.lastIndexOf(":");
+                if (key.slice(0, separator) !== tileset.id) return [];
+                return [{ localId: Number(key.slice(separator + 1)), ...terrainTileBindingSchema.parse(binding) }];
+              })
+              .sort((left, right) => left.localId - right.localId)
+          )
+        ],
+        runtimeTilesetIds.get(tileset.id)
+      )
+    );
     await tableService.saveSystemTableRows(TERRAIN_WFC_SAMPLE_CELLS_TABLE_ID, cellRows);
     await tableService.saveSystemTableRows(TERRAIN_WFC_SAMPLES_TABLE_ID, sampleRows);
     await tableService.saveSystemTableRows(TERRAIN_TILE_BINDINGS_TABLE_ID, bindingRows);
+    await tableService.saveSystemTableRows(TERRAIN_TILESETS_TABLE_ID, runtimeTilesetRows);
+    return this.load();
+  }
+
+  public async saveApprovedPatches(patches: TerrainApprovedPatch[]): Promise<TerrainWorkspaceView> {
+    const parsedPatches = patches.map((patch) => terrainApprovedPatchSchema.parse(patch));
+    const table = await this.systemTable(TERRAIN_APPROVED_PATCHES_TABLE_ID);
+    const ids = new Map(table.rows.map((entry) => [entry.slug, entry.id]));
+    const rows = parsedPatches.map((patch) =>
+      row(
+        patch.slug,
+        [
+          rowValue(TERRAIN_APPROVED_PATCH_COLUMNS.biome, patch.biome),
+          rowValue(TERRAIN_APPROVED_PATCH_COLUMNS.category, patch.category),
+          rowValue(TERRAIN_APPROVED_PATCH_COLUMNS.weight, patch.weight),
+          rowValue(TERRAIN_APPROVED_PATCH_COLUMNS.width, patch.width),
+          rowValue(TERRAIN_APPROVED_PATCH_COLUMNS.height, patch.height),
+          rowValue(TERRAIN_APPROVED_PATCH_COLUMNS.layerCount, patch.layerCount),
+          rowValue(TERRAIN_APPROVED_PATCH_COLUMNS.cells, patch.cells)
+        ],
+        ids.get(patch.slug)
+      )
+    );
+    await tableService.saveSystemTableRows(TERRAIN_APPROVED_PATCHES_TABLE_ID, rows);
     return this.load();
   }
 }

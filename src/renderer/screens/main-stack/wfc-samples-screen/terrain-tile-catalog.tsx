@@ -29,13 +29,15 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
   const [emptyTileKeys, setEmptyTileKeys] = useState<Set<string>>(new Set());
   const [isScanningEmptyTiles, setIsScanningEmptyTiles] = useState(workspace.tilesets.length > 0);
   const [showEmptyTiles, setShowEmptyTiles] = useState(false);
-  const tiles = useMemo(
+  const [activeTilesetId, setActiveTilesetId] = useState(workspace.tilesets[0]?.id ?? "");
+  const allTiles = useMemo(
     () =>
       workspace.tilesets.flatMap((tileset) =>
         Array.from({ length: tileset.tileCount }, (_, localId) => ({ tileset, localId, key: terrainTileKey(tileset.id, localId) }))
       ),
     [workspace.tilesets]
   );
+  const tiles = useMemo(() => allTiles.filter((tile) => tile.tileset.id === activeTilesetId), [activeTilesetId, allTiles]);
   const visibleTiles = showEmptyTiles ? tiles : tiles.filter((tile) => !emptyTileKeys.has(tile.key));
   const selected = selectedTile
     ? tiles.find((tile) => tile.key === terrainTileKey(selectedTile.tilesetId, selectedTile.localId) && !emptyTileKeys.has(tile.key))
@@ -66,6 +68,11 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
   }, [workspace.tilesets]);
 
   useEffect(() => {
+    if (workspace.tilesets.some((tileset) => tileset.id === activeTilesetId)) return;
+    setActiveTilesetId(workspace.tilesets[0]?.id ?? "");
+  }, [activeTilesetId, workspace.tilesets]);
+
+  useEffect(() => {
     if (selectedTile && emptyTileKeys.has(terrainTileKey(selectedTile.tilesetId, selectedTile.localId))) onSelectTile(undefined);
   }, [emptyTileKeys, onSelectTile, selectedTile]);
 
@@ -86,12 +93,29 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
   return (
     <div className="grid min-h-0 gap-3 rounded-md border border-border p-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
       <div className="min-w-0 space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold">Tileset palette</h3>
             <p className="text-xs text-muted-foreground">Select a sprite to paint samples and edit its semantic metadata.</p>
           </div>
           <div className="flex items-center gap-3">
+            <Label className="space-y-1 text-xs text-muted-foreground">
+              <span className="block">Tileset</span>
+              <select
+                className="h-9 min-w-44 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                onChange={(event) => {
+                  setActiveTilesetId(event.target.value);
+                  onSelectTile(undefined);
+                }}
+                value={activeTilesetId}
+              >
+                {workspace.tilesets.map((tileset) => (
+                  <option key={tileset.id} value={tileset.id}>
+                    {tileset.name}
+                  </option>
+                ))}
+              </select>
+            </Label>
             <Label className="flex items-center gap-2 text-xs text-muted-foreground">
               <Switch checked={showEmptyTiles} onCheckedChange={setShowEmptyTiles} />
               Show empty tiles
@@ -153,7 +177,7 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
               );
             })}
             {visibleTiles.length === 0 && tiles.length > 0 && (
-              <p className="w-full p-3 text-center text-xs text-muted-foreground">All tiles in these sheets are empty.</p>
+              <p className="w-full p-3 text-center text-xs text-muted-foreground">All tiles in this tileset are empty.</p>
             )}
           </div>
         )}

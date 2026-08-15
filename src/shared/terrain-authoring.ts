@@ -58,6 +58,30 @@ export const terrainSampleSchema = z
   });
 export type TerrainSample = z.infer<typeof terrainSampleSchema>;
 
+export const terrainApprovedPatchSchema = z
+  .object({
+    slug: terrainSlugSchema,
+    biome: terrainSlugSchema,
+    category: terrainSlugSchema,
+    weight: z.number().nonnegative(),
+    width: terrainSampleDimensionSchema,
+    height: terrainSampleDimensionSchema,
+    layerCount: terrainSampleLayerCountSchema,
+    cells: z.array(terrainSampleCellSchema)
+  })
+  .strict()
+  .superRefine((patch, context) => {
+    if (patch.cells.length !== patch.width * patch.height) {
+      context.addIssue({ code: "custom", message: "Patch cell count must match its dimensions", path: ["cells"] });
+    }
+    patch.cells.forEach((cell, index) => {
+      if (cell.length !== patch.layerCount) {
+        context.addIssue({ code: "custom", message: "Patch cell layer count must match the patch", path: ["cells", index] });
+      }
+    });
+  });
+export type TerrainApprovedPatch = z.infer<typeof terrainApprovedPatchSchema>;
+
 export function appendTerrainSampleLayer(sample: TerrainSample): TerrainSample {
   const layerCount = terrainSampleLayerCountSchema.parse(sample.layerCount + 1);
   return terrainSampleSchema.parse({
@@ -83,6 +107,7 @@ export interface TerrainWorkspaceView {
   tilesets: TerrainTilesetView[];
   tileBindings: Record<string, TerrainTileBinding>;
   samples: TerrainSample[];
+  approvedPatches: TerrainApprovedPatch[];
   problems: string[];
 }
 

@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnyDataTable, Asset, DataTableRow } from "../../shared/schemas";
 import {
-  TERRAIN_BIOME_PROFILE_COLUMNS,
-  TERRAIN_BIOME_PROFILES_TABLE,
+  TERRAIN_APPROVED_PATCH_COLUMNS,
+  TERRAIN_APPROVED_PATCHES_TABLE,
   TERRAIN_TILE_BINDING_COLUMNS,
   TERRAIN_TILE_BINDINGS_TABLE,
+  TERRAIN_TILESET_COLUMNS,
+  TERRAIN_TILESETS_TABLE,
   TERRAIN_WFC_SAMPLE_CELL_COLUMNS,
   TERRAIN_WFC_SAMPLE_CELLS_TABLE,
   TERRAIN_WFC_SAMPLES_TABLE
@@ -63,7 +65,7 @@ function value(column: { id: string; type: ColumnType }, cell: unknown): DataTab
   return { columnId: column.id, type: column.type, value: cell } as DataTableRow["values"][number];
 }
 
-function terrainTables(withProfile: boolean): AnyDataTable[] {
+function terrainTables(withApprovedPatch: boolean): AnyDataTable[] {
   const sample = tableRow("EDGE", []);
   const cell = tableRow("CELL", [
     value(TERRAIN_WFC_SAMPLE_CELL_COLUMNS.sample, "EDGE"),
@@ -79,16 +81,31 @@ function terrainTables(withProfile: boolean): AnyDataTable[] {
     value(TERRAIN_TILE_BINDING_COLUMNS.blocking, false),
     value(TERRAIN_TILE_BINDING_COLUMNS.tags, [])
   ]);
-  const profile = tableRow("FOREST_EDGE", [
-    value(TERRAIN_BIOME_PROFILE_COLUMNS.biome, "FOREST"),
-    value(TERRAIN_BIOME_PROFILE_COLUMNS.sample, "EDGE"),
-    value(TERRAIN_BIOME_PROFILE_COLUMNS.weight, 1)
+  const approvedPatch = tableRow("FOREST_EDGE", [
+    value(TERRAIN_APPROVED_PATCH_COLUMNS.biome, "FOREST"),
+    value(TERRAIN_APPROVED_PATCH_COLUMNS.category, "NATURE"),
+    value(TERRAIN_APPROVED_PATCH_COLUMNS.weight, 1),
+    value(TERRAIN_APPROVED_PATCH_COLUMNS.width, 3),
+    value(TERRAIN_APPROVED_PATCH_COLUMNS.height, 3),
+    value(TERRAIN_APPROVED_PATCH_COLUMNS.layerCount, 1),
+    value(
+      TERRAIN_APPROVED_PATCH_COLUMNS.cells,
+      Array.from({ length: 9 }, () => [{ tilesetId: "TERRAIN", localId: 0, orientation: 0 }])
+    )
+  ]);
+  const runtimeTileset = tableRow("TERRAIN", [
+    value(TERRAIN_TILESET_COLUMNS.asset, "TERRAIN"),
+    value(TERRAIN_TILESET_COLUMNS.tileSize, 64),
+    value(TERRAIN_TILESET_COLUMNS.columns, 1),
+    value(TERRAIN_TILESET_COLUMNS.rows, 1),
+    value(TERRAIN_TILESET_COLUMNS.tiles, [])
   ]);
   return [
     { ...TERRAIN_TILE_BINDINGS_TABLE, rows: [binding] },
     { ...TERRAIN_WFC_SAMPLES_TABLE, rows: [sample] },
     { ...TERRAIN_WFC_SAMPLE_CELLS_TABLE, rows: [cell] },
-    { ...TERRAIN_BIOME_PROFILES_TABLE, rows: withProfile ? [profile] : [] }
+    { ...TERRAIN_APPROVED_PATCHES_TABLE, rows: withApprovedPatch ? [approvedPatch] : [] },
+    { ...TERRAIN_TILESETS_TABLE, rows: [runtimeTileset] }
   ];
 }
 
@@ -101,24 +118,25 @@ describe("tileset asset deletion", () => {
     mocks.tryReadAssetsJson.mockResolvedValue({ schemaVersion: 1, assets: [tileset] });
   });
 
-  it("refuses a tileset reached by a biome before mutating anything", async () => {
+  it("refuses a tileset used by an approved patch before mutating anything", async () => {
     mocks.tables = terrainTables(true);
 
-    await expect(assetService.removeAsset("TERRAIN")).rejects.toThrow("biome profile FOREST_EDGE through sample EDGE");
+    await expect(assetService.removeAsset("TERRAIN")).rejects.toThrow("approved terrain patch FOREST_EDGE");
     expect(mocks.saveSystemTableRows).not.toHaveBeenCalled();
     expect(mocks.deleteProjectFile).not.toHaveBeenCalled();
   });
 
-  it("removes unprofiled samples, cells, and bindings before deleting the asset", async () => {
+  it("removes unapproved samples, cells, bindings, and runtime catalog row before deleting the asset", async () => {
     mocks.tables = terrainTables(false);
 
     await assetService.removeAsset("TERRAIN");
 
-    expect(mocks.saveSystemTableRows).toHaveBeenCalledTimes(3);
+    expect(mocks.saveSystemTableRows).toHaveBeenCalledTimes(4);
     expect(mocks.saveSystemTableRows.mock.calls.map((call) => call[0])).toEqual([
       "terrain_wfc_sample_cells",
       "terrain_wfc_samples",
-      "terrain_tile_bindings"
+      "terrain_tile_bindings",
+      "terrain_tilesets"
     ]);
     expect(mocks.deleteProjectFile).toHaveBeenCalledWith(expect.anything(), tileset.relativePath);
     expect(mocks.writeAssetsJson).toHaveBeenCalledWith(expect.anything(), { schemaVersion: 1, assets: [] });

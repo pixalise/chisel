@@ -1,6 +1,6 @@
 # Native overlapping-WFC sample pipeline
 
-Chisel owns the complete terrain-authoring workflow: tileset assets, layered training examples, optional per-tile metadata, pattern compilation, procedural preview, and biome references.
+Chisel owns the complete nature-authoring workflow: tileset assets, layered training examples, optional per-tile metadata, pattern compilation, candidate generation, and approval.
 
 ## What overlapping WFC learns
 
@@ -272,7 +272,7 @@ Leave them disabled when:
 
 Transformations multiply the pattern space. More patterns are useful only when they are visually correct and remain connected.
 
-## Frequency, weights, and biome control
+## Frequency and approval
 
 Repeated observations inside one sample increase a pattern's relative frequency. Paint more ordinary grass than graves when graves should be rare. Paint several path middles when long paths should be common.
 
@@ -280,9 +280,9 @@ Chisel normalizes each sample to one total unit of compiler weight. Therefore:
 
 - frequency inside a sample controls the balance among that sample's patterns;
 - adding a second sample does not automatically dominate merely because it is larger;
-- biome-level sample weights belong in biome profiles, not in the WFC sample editor.
+- sample size does not secretly become a biome-level weight.
 
-For substantially different distributions, prefer separate representative samples and assign them through biome profiles. For example:
+For substantially different distributions, prefer separate representative samples, generate review candidates from the relevant library, and approve the good results under a biome slug. For example:
 
 ```text
 MEADOW_OPEN      mostly grass, sparse flowers
@@ -333,9 +333,9 @@ An initial meadow library could be:
 | `MEADOW_PATHS`  | Straights, corners, junctions, endpoints | 24×24          |
 | `MEADOW_RUINS`  | Repeatable path/ruin relationships       | 24×20          |
 
-All five should reuse the exact same neutral grass stack where they meet. A biome profile can then choose which samples participate and how strongly they contribute. A dry meadow might omit `MEADOW_WATER`; a ruin biome might raise the path and ruin sample weights.
+All five should reuse the exact same neutral grass stack where they meet. Generate candidates from coherent sample sets and approve only results that match the target biome. The approved patch weight controls how often the game chooses that frozen patch; it does not alter WFC.
 
-Do not connect unrelated visual languages accidentally. If snow and desert never touch directly, do not give them one shared neutral cell merely to improve viability. Add an intentional transition sample, or place them in different biome profiles.
+Do not connect unrelated visual languages accidentally. If snow and desert never touch directly, do not give them one shared neutral cell merely to improve viability. Add an intentional transition sample or generate them as separate candidate libraries.
 
 ## Read the diagnostics
 
@@ -391,13 +391,13 @@ Do not judge the library from one attractive seed. Generate a small review set�
 - Are important destinations reachable?
 - Are water bodies, cliffs, and map boundaries consistent with world-level rules?
 
-The first three can be improved primarily through samples and biome weights. The fourth normally needs post-generation validation because a 3×3 local model cannot guarantee arbitrary global properties such as one connected road between two distant entrances.
+The first three can be improved primarily through samples and candidate selection. The fourth normally needs post-generation validation because a 3×3 local model cannot guarantee arbitrary global properties such as one connected road between two distant entrances.
 
 Change one variable at a time while tuning:
 
 1. Save a fixed list of review seeds.
 2. Record pattern counts and contribution diagnostics.
-3. Change one sample, transformation policy, or biome weight.
+3. Change one sample or transformation policy.
 4. Regenerate the same seeds.
 5. Compare topology and frequency, not just visual attractiveness.
 
@@ -444,20 +444,19 @@ The library is highly constrained or contains incompatible sub-languages. Add sh
 11. Test at least ten seeds and compare topology, density, and feature integrity.
 12. Increase complexity gradually; preserve a working shared neutral language.
 
-## System tables
+## Approval and runtime tables
 
-Terrain authoring uses normalized system tables:
+Generating a candidate does not put it in game data. Inspect the rendered result, assign a stable patch slug, biome, category, and runtime selection weight, then choose **Approve candidate**. Approval freezes the complete layered grid. Changing a sample later cannot silently alter an already approved patch.
 
-- `terrain_tile_bindings`
-- `terrain_wfc_samples`
-- `terrain_wfc_sample_cells`
-- `terrain_biomes`
-- `terrain_biome_profiles`
+Only two terrain tables appear in **Data Tables** and game exports:
 
-`terrain_wfc_samples` stores dimensions, layer count, periodic-input policy, and transformation policy. `terrain_wfc_sample_cells` stores sample, position, layer, tileset asset, and local tile ID. The specialized terrain editor and Data Tables screen read the same rows.
+- `terrain_tilesets` contains each tileset's asset reference, grid dimensions, and compact per-sprite gameplay metadata;
+- `terrain_approved_patches` contains the frozen layered grids selected for deterministic runtime placement.
+
+Chisel still versions normalized bindings, samples, and painted cells as editor-only source data. These internal tables power the authoring workspace, but they are deliberately hidden from Data Tables and removed from every runtime export. The game therefore receives no WFC grammar, pattern library, sample metadata, or rejected candidates.
 
 ## Tileset deletion and source commits
 
-Deleting an unused tileset removes its tile bindings. If a biome profile reaches the tileset through a sample, deletion is refused and reports the blocking profile and sample.
+Deleting a tileset that is used by an approved patch is refused. If the tileset is not part of any approved patch, deletion also cleans up its bindings and source samples before removing the asset.
 
-Tileset assets and every terrain system table participate in ordinary Chisel source commits. There is no parallel terrain registry or external map format.
+Tileset assets, approved runtime data, and internal terrain authoring data participate in ordinary Chisel source commits. There is no parallel terrain registry or external map format.

@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dices, Play } from "lucide-react";
+import { Check, Dices, Play, Trash2 } from "lucide-react";
 import { type FC, useEffect, useRef, useState } from "react";
-import type { TerrainWorkspaceView } from "../../../../shared/terrain-authoring";
+import { terrainApprovedPatchSchema, type TerrainApprovedPatch, type TerrainWorkspaceView } from "../../../../shared/terrain-authoring";
 import {
   compileTerrainWfcLibrary,
   generateTerrainWfcOutput,
@@ -16,13 +16,16 @@ import {
 import { drawTerrainCell } from "./terrain-rendering";
 
 interface TerrainWfcPreviewProps {
+  isBusy: boolean;
+  onApprove: (patch: TerrainApprovedPatch) => Promise<void>;
+  onDeleteApproved: (slug: string) => Promise<void>;
   workspace: TerrainWorkspaceView;
 }
 
 const previewCellSize = 48;
 
 export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
-  const { workspace } = props;
+  const { isBusy, onApprove, onDeleteApproved, workspace } = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef(new Map<string, HTMLImageElement>());
   const [width, setWidth] = useState(20);
@@ -32,6 +35,10 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
   const [output, setOutput] = useState<TerrainWfcOutput>();
   const [error, setError] = useState("");
   const [imageRevision, setImageRevision] = useState(0);
+  const [patchSlug, setPatchSlug] = useState("PATCH_1");
+  const [biome, setBiome] = useState("UNASSIGNED");
+  const [category, setCategory] = useState("NATURE");
+  const [weight, setWeight] = useState(1);
 
   useEffect(() => {
     setLibrary(undefined);
@@ -101,6 +108,29 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
     }
   }
 
+  async function approve(): Promise<void> {
+    if (!output) return;
+    setError("");
+    try {
+      const patch = terrainApprovedPatchSchema.parse({
+        slug: patchSlug,
+        biome,
+        category,
+        weight,
+        width: output.width,
+        height: output.height,
+        layerCount: output.cells[0]?.length ?? 1,
+        cells: output.cells.map((stack) => stack.map((tile) => (tile ? { ...tile } : null)))
+      });
+      await onApprove(patch);
+      let index = workspace.approvedPatches.length + 2;
+      while (workspace.approvedPatches.some((entry) => entry.slug === `PATCH_${index}`)) index += 1;
+      setPatchSlug(`PATCH_${index}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    }
+  }
+
   const missingAdjacency = library
     ? (["north", "east", "south", "west"] as const).map((direction) => ({
         direction,
@@ -112,7 +142,7 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
     <div className="space-y-3 rounded-md border border-border p-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold">WFC preview</h3>
+          <h3 className="text-sm font-semibold">WFC candidate approval</h3>
           <p className="text-xs text-muted-foreground">
             Compile large painted examples into overlapping {terrainWfcPatternSize}×{terrainWfcPatternSize} patterns. Adjacency matches
             complete layered cells by exact sprites and orientations; semantic tags do not make edges compatible.
@@ -202,10 +232,89 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
         </div>
       )}
       {output && (
-        <div className="overflow-auto rounded-md border border-border bg-slate-950 p-2">
-          <canvas className="h-auto max-h-[40rem] max-w-full [image-rendering:pixelated]" ref={canvasRef} />
+        <div className="space-y-3">
+          <div className="overflow-auto rounded-md border border-border bg-slate-950 p-2">
+            <canvas className="h-auto max-h-[40rem] max-w-full [image-rendering:pixelated]" ref={canvasRef} />
+          </div>
+          <div className="grid gap-2 rounded-md border border-border p-3 md:grid-cols-[1fr_1fr_1fr_7rem_auto] md:items-end">
+            <div className="space-y-1">
+              <Label className="text-xs" htmlFor="approved-patch-slug">
+                Patch slug
+              </Label>
+              <Input id="approved-patch-slug" onChange={(event) => setPatchSlug(normalizeSlug(event.target.value))} value={patchSlug} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs" htmlFor="approved-patch-biome">
+                Biome
+              </Label>
+              <Input id="approved-patch-biome" onChange={(event) => setBiome(normalizeSlug(event.target.value))} value={biome} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs" htmlFor="approved-patch-category">
+                Category
+              </Label>
+              <Input id="approved-patch-category" onChange={(event) => setCategory(normalizeSlug(event.target.value))} value={category} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs" htmlFor="approved-patch-weight">
+                Weight
+              </Label>
+              <Input
+                id="approved-patch-weight"
+                min="0"
+                onChange={(event) => setWeight(Number(event.target.value))}
+                type="number"
+                value={weight}
+              />
+            </div>
+            <Button disabled={isBusy} onClick={() => void approve()} type="button">
+              <Check className="size-4" />
+              Approve candidate
+            </Button>
+          </div>
         </div>
       )}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <h4 className="text-sm font-medium">Approved patches</h4>
+          <span className="text-xs text-muted-foreground">{workspace.approvedPatches.length} exported</span>
+        </div>
+        {workspace.approvedPatches.length === 0 ? (
+          <p className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+            Generate a candidate, inspect it, then approve it to include it in game data.
+          </p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {workspace.approvedPatches.map((patch) => (
+              <div className="flex items-center justify-between gap-3 rounded-md border border-border p-2" key={patch.slug}>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{patch.slug}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {patch.biome} · {patch.category} · {patch.width}×{patch.height} · weight {patch.weight}
+                  </p>
+                </div>
+                <Button
+                  aria-label={`Delete ${patch.slug}`}
+                  disabled={isBusy}
+                  onClick={() => void onDeleteApproved(patch.slug)}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
+
+function normalizeSlug(value: string): string {
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+/, "");
+}
