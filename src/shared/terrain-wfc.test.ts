@@ -14,6 +14,7 @@ import {
   compileTerrainPieceLibrary,
   freezeTerrainCandidate,
   generateTerrainCandidate,
+  generateTerrainCandidateBatch,
   inspectTerrainPieceCompatibility
 } from "./terrain-wfc";
 
@@ -111,6 +112,7 @@ describe("Simple-Tiled socket WFC", () => {
       width: 5,
       height: 5,
       pieceSet: "TERRAIN_SET",
+      firstSeed: 1,
       candidateCount: 2,
       cells: createTerrainTemplateCells(5, 5),
       anchors: [],
@@ -126,6 +128,7 @@ describe("Simple-Tiled socket WFC", () => {
     const first = generateTerrainCandidate(workspace, template, 42);
     const second = generateTerrainCandidate(workspace, template, 42);
     expect(first).toEqual(second);
+    expect(generateTerrainCandidateBatch(workspace, template, template.firstSeed).map((result) => result.seed)).toEqual([1, 2]);
     const frozen = freezeTerrainCandidate(first, "APPROVED", "MAP");
     first.cells[0][0] = tile(3);
     expect(frozen.cells[0][0]).not.toEqual(tile(3));
@@ -150,6 +153,7 @@ describe("Simple-Tiled socket WFC", () => {
         width: 3,
         height: 3,
         pieceSet: "TERRAIN_SET",
+        firstSeed: 1,
         candidateCount: 1,
         cells,
         anchors: [{ slug: "ENTRY", kind: "ENTRANCE", x: 0, y: 1, direction: "west", socket: "ENTRANCE" }],
@@ -172,6 +176,7 @@ describe("Simple-Tiled socket WFC", () => {
         width: 3,
         height: 3,
         pieceSet: "TERRAIN_SET",
+        firstSeed: 1,
         candidateCount: 1,
         cells: createTerrainTemplateCells(3, 3),
         anchors: [{ slug: "ENTRY", kind: "ENTRANCE", x: 0, y: 0, direction: "west", socket: "GROUND" }],

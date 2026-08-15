@@ -101,6 +101,7 @@ describe("socket terrain authoring contract", () => {
         width: 5,
         height: 5,
         pieceSet: "TERRAIN_SET",
+        firstSeed: 1,
         candidateCount: 12,
         cells: createTerrainTemplateCells(5, 5),
         anchors: [{ slug: "EXTENSION", kind: "EXTENSION", x: 2, y: 2, direction: "north", socket: "GROUND" }],

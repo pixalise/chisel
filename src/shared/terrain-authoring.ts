@@ -188,6 +188,7 @@ export const terrainSiteTemplateSchema = z
     width: terrainTemplateDimensionSchema,
     height: terrainTemplateDimensionSchema,
     pieceSet: terrainSlugSchema,
+    firstSeed: z.number().int().min(0).max(0xffffffff),
     candidateCount: z.number().int().min(1).max(24),
     cells: z.array(terrainTemplateCellSchema),
     anchors: z.array(terrainTemplateAnchorSchema),

@@ -32,7 +32,7 @@ Terrain Generator is divided into five focused pages:
 1. **Catalog** — bind tiles and define the socket vocabulary.
 2. **Pieces** — paint modules and inspect compatibility with the cart icon.
 3. **Collections** — choose the pieces solved together. Adjacency exceptions remain under Advanced.
-4. **Generate** — choose a template and create candidate batches. Anchors, stamps, zones, and per-cell tag constraints remain under **Edit advanced constraints**.
+4. **Generate** — choose a template, starting seed, and batch size. **Generate** reproduces that seed range; **Generate more** appends the next range. Anchors, stamps, zones, and per-cell tag constraints remain under **Edit advanced constraints**.
 5. **Approved** — review frozen maps and submodules independently from the live grammar.
 
 An empty project with bound sprites opens with an unsaved `EXAMPLE_FOREST_SITE`. It can immediately generate eight candidates. The example uses weighted 1×1 pieces, mixed-size transformed modules, one collection, deny and allow-only adjacency exceptions, cell tag constraints, three anchors, a required stamp, and a semantic zone. Use **Reset full example** to reconstruct it after experimenting. It does not modify project files until **Save authoring** is selected.
@@ -97,7 +97,7 @@ Weights are normalized by module area, so a large module does not become disprop
 
 A site template supplies large-scale intent that local WFC cannot infer. It selects one collection and defines:
 
-- map dimensions and candidate batch size;
+- map dimensions, reproducible starting seed, and candidate batch size;
 - per-cell required and forbidden semantic tags;
 - required piece stamps with fixed transform and location;
 - entrance, exit, and extension anchors;
@@ -107,9 +107,11 @@ Required stamps are placed before collapse. Their mixed-size internal states are
 
 Extension anchors must lie on the map boundary. Anchors are validated against the generated walkability graph; WFC handles local assembly, while templates and validation handle site-level intent.
 
+The advanced constraint preview draws the latest generated candidate as a terrain backdrop, then overlays every authored constraint together: green/red tag cells, gold stamps, blue zones, directional entrance/exit/extension anchors, and the selected editing cell. Before a candidate exists, the same overlay remains usable on a neutral grid.
+
 ## Generation
 
-Generation is deterministic for a template and seed:
+Generation is deterministic for a template and seed. The authored start seed always recreates the same batch; requesting more candidates continues from the next seed without replacing the current contact sheet.
 
 1. Compile every enabled transform into per-cell states.
 2. Pre-ban module origins that would clip a boundary.

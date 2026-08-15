@@ -26,8 +26,9 @@ describe("complete terrain example", () => {
   it("installs every authoring feature and produces an immediately usable candidate batch", () => {
     const workspace = installCompleteTerrainExample(emptyWorkspace());
     const template = workspace.templates.find((entry) => entry.slug === terrainExampleTemplateSlug)!;
-    const results = generateTerrainCandidateBatch(workspace, template, 1);
+    const results = generateTerrainCandidateBatch(workspace, template, template.firstSeed);
 
+    expect(template.firstSeed).toBe(1);
     expect(workspace.sockets.map((entry) => entry.slug)).toEqual(["GROUND"]);
     expect(workspace.pieces.some((entry) => entry.width > 1 && entry.allowRotations)).toBe(true);
     expect(workspace.pieceSets).toHaveLength(1);

@@ -9,22 +9,40 @@ import {
   type TerrainPiece,
   type TerrainPieceSet,
   type TerrainSiteTemplate,
-  type TerrainSocketDefinition
+  type TerrainSocketDefinition,
+  type TerrainTilesetView
 } from "../../../../shared/terrain-authoring";
+import type { TerrainCandidate } from "../../../../shared/terrain-wfc";
+import { TerrainTemplateConstraintPreview } from "./terrain-template-constraint-preview";
 
 interface TerrainTemplateEditorProps {
+  canGenerateMore: boolean;
   onChange: (templates: TerrainSiteTemplate[]) => void;
-  onGenerate: (template: TerrainSiteTemplate) => void;
+  onGenerate: (template: TerrainSiteTemplate, append: boolean) => void;
   onSelect: (slug?: string) => void;
   pieces: TerrainPiece[];
+  previewCandidate?: TerrainCandidate;
   selectedTemplate?: TerrainSiteTemplate;
   sets: TerrainPieceSet[];
   sockets: TerrainSocketDefinition[];
   templates: TerrainSiteTemplate[];
+  tilesets: TerrainTilesetView[];
 }
 
 export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => {
-  const { onChange, onGenerate, onSelect, pieces, selectedTemplate, sets, sockets, templates } = props;
+  const {
+    canGenerateMore,
+    onChange,
+    onGenerate,
+    onSelect,
+    pieces,
+    previewCandidate,
+    selectedTemplate,
+    sets,
+    sockets,
+    templates,
+    tilesets
+  } = props;
   const [width, setWidth] = useState(12);
   const [height, setHeight] = useState(12);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -54,6 +72,7 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
       width,
       height,
       pieceSet: pieceSet.slug,
+      firstSeed: 1,
       candidateCount: 12,
       cells: createTerrainTemplateCells(width, height),
       anchors: [],
@@ -105,7 +124,7 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
       </div>
       {selectedTemplate && (
         <>
-          <div className="grid gap-2 lg:grid-cols-[minmax(10rem,1fr)_14rem_8rem_auto_auto] lg:items-end">
+          <div className="grid gap-2 lg:grid-cols-[minmax(10rem,1fr)_14rem_8rem_7rem_auto_auto_auto] lg:items-end">
             <Label className="space-y-1 text-xs">
               Stable slug
               <Input onChange={(event) => update({ slug: normalizeSlug(event.target.value) })} value={selectedTemplate.slug} />
@@ -125,6 +144,16 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
               </select>
             </Label>
             <Label className="space-y-1 text-xs">
+              Start seed
+              <Input
+                max={0xffffffff}
+                min={0}
+                onChange={(event) => update({ firstSeed: Number(event.target.value) })}
+                type="number"
+                value={selectedTemplate.firstSeed}
+              />
+            </Label>
+            <Label className="space-y-1 text-xs">
               Batch
               <Input
                 max={24}
@@ -134,8 +163,11 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
                 value={selectedTemplate.candidateCount}
               />
             </Label>
-            <Button onClick={() => onGenerate(selectedTemplate)} type="button">
-              <Dices className="size-4" /> Generate batch
+            <Button onClick={() => onGenerate(selectedTemplate, false)} type="button">
+              <Dices className="size-4" /> Generate
+            </Button>
+            <Button disabled={!canGenerateMore} onClick={() => onGenerate(selectedTemplate, true)} type="button" variant="outline">
+              <Plus className="size-4" /> Generate more
             </Button>
             <Button
               onClick={() => {
@@ -165,34 +197,18 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
           </div>
           {showAdvanced && (
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_24rem]">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium">Cell tag constraints</span>
-                  <span className="text-xs text-muted-foreground">
-                    Select a cell to require or forbid semantic terrain tags · selected {selectedX},{selectedY}
-                  </span>
-                </div>
-                <div className="max-h-[34rem] overflow-auto rounded bg-slate-950 p-3">
-                  <div className="grid w-max gap-px" style={{ gridTemplateColumns: `repeat(${selectedTemplate.width}, 1.4rem)` }}>
-                    {selectedTemplate.cells.map((cell, index) => (
-                      <button
-                        className="size-[1.4rem] border border-white/10 text-[8px]"
-                        key={index}
-                        onClick={() => setSelectedIndex(index)}
-                        style={{
-                          backgroundColor: cell.requiredTags.length > 0 ? "#3f7f58" : cell.forbiddenTags.length > 0 ? "#914646" : "#1a1a18",
-                          outline: index === selectedIndex ? "2px solid #d0c4aa" : undefined
-                        }}
-                        title={`${index % selectedTemplate.width},${Math.floor(index / selectedTemplate.width)} · required: ${cell.requiredTags.join(", ") || "none"} · forbidden: ${cell.forbiddenTags.join(", ") || "none"}`}
-                        type="button"
-                      >
-                        {cell.requiredTags.length > 0 ? "+" : cell.forbiddenTags.length > 0 ? "−" : ""}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <TerrainTemplateConstraintPreview
+                candidate={previewCandidate}
+                onSelectCell={setSelectedIndex}
+                pieces={pieces}
+                selectedIndex={selectedIndex}
+                template={selectedTemplate}
+                tilesets={tilesets}
+              />
               <div className="space-y-3 rounded border border-border p-3">
+                <p className="text-xs font-semibold">
+                  Selected cell {selectedX},{selectedY}
+                </p>
                 {selectedCell && (
                   <div className="space-y-2">
                     <Label className="space-y-1 text-xs">

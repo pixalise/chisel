@@ -85,7 +85,14 @@ export const TerrainCandidateBatch: FC<TerrainCandidateBatchProps> = (props) => 
             Each seed solves the selected terrain collection; invalid candidates remain inspectable but cannot be approved.
           </p>
         </div>
-        <Badge variant="outline">{results.length} candidates</Badge>
+        <div className="flex items-center gap-2">
+          {results.length > 0 && (
+            <Badge variant="outline">
+              Seeds {results[0].seed}–{results[results.length - 1].seed}
+            </Badge>
+          )}
+          <Badge variant="outline">{results.length} candidates</Badge>
+        </div>
       </div>
       {results.length === 0 && (
         <p className="rounded border border-dashed p-6 text-center text-sm text-muted-foreground">

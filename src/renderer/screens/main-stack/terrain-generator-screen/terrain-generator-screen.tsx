@@ -43,6 +43,7 @@ export const TerrainGeneratorScreen: FC = () => {
   const [selectedTile, setSelectedTile] = useState<TerrainTileRef>();
   const [compatibility, setCompatibility] = useState<TerrainPieceCompatibility>();
   const [candidateResults, setCandidateResults] = useState<TerrainCandidateResult[]>([]);
+  const [generatedTemplateSlug, setGeneratedTemplateSlug] = useState<string>();
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isBusy, setIsBusy] = useState(false);
@@ -97,6 +98,7 @@ export const TerrainGeneratorScreen: FC = () => {
       setSelectedTemplateSlug(terrainExampleTemplateSlug);
       setSelectedPieceSlug("EXAMPLE_OPEN_GROUND");
       setCandidateResults([]);
+      setGeneratedTemplateSlug(undefined);
       setCompatibility(undefined);
       setActivePage("generate");
       setMessage("Loaded the complete forest example into the editor. It remains unsaved until you choose Save authoring.");
@@ -143,6 +145,7 @@ export const TerrainGeneratorScreen: FC = () => {
     setSelectedPieceSlug(next.slug);
     setCompatibility(undefined);
     setCandidateResults([]);
+    setGeneratedTemplateSlug(undefined);
   }
 
   function analyzePiece(): void {
@@ -166,12 +169,18 @@ export const TerrainGeneratorScreen: FC = () => {
     }
   }
 
-  function generateBatch(source: TerrainSiteTemplate): void {
+  function generateBatch(source: TerrainSiteTemplate, append: boolean): void {
     if (!workspace) return;
     setError("");
     try {
-      setCandidateResults(generateTerrainCandidateBatch(workspace, source, 1));
-      setMessage(`Generated ${source.candidateCount} deterministic candidates for '${source.slug}'.`);
+      const continuing = append && generatedTemplateSlug === source.slug && candidateResults.length > 0;
+      const firstSeed = continuing ? (candidateResults[candidateResults.length - 1].seed + 1) >>> 0 : source.firstSeed;
+      const generated = generateTerrainCandidateBatch(workspace, source, firstSeed);
+      setCandidateResults(continuing ? [...candidateResults, ...generated] : generated);
+      setGeneratedTemplateSlug(source.slug);
+      setMessage(
+        `${continuing ? "Added" : "Generated"} ${generated.length} candidates for '${source.slug}' using seeds ${generated[0].seed}-${generated[generated.length - 1].seed}.`
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     }
@@ -410,6 +419,7 @@ export const TerrainGeneratorScreen: FC = () => {
               <TabsContent className="space-y-4" value="generate">
                 {hasExample && <TerrainExampleGuide />}
                 <TerrainTemplateEditor
+                  canGenerateMore={generatedTemplateSlug === template?.slug && candidateResults.length > 0}
                   onChange={(templates) =>
                     mutateWorkspace((current) => {
                       const renamed =
@@ -433,15 +443,21 @@ export const TerrainGeneratorScreen: FC = () => {
                   onGenerate={generateBatch}
                   onSelect={setSelectedTemplateSlug}
                   pieces={workspace.pieces}
+                  previewCandidate={
+                    generatedTemplateSlug === template?.slug
+                      ? [...candidateResults].reverse().find((entry) => entry.candidate)?.candidate
+                      : undefined
+                  }
                   selectedTemplate={template}
                   sets={workspace.pieceSets}
                   sockets={workspace.sockets}
                   templates={workspace.templates}
+                  tilesets={workspace.tilesets}
                 />
                 <TerrainCandidateBatch
                   approvedAssets={workspace.approvedAssets}
                   onApprove={approveAsset}
-                  results={candidateResults}
+                  results={generatedTemplateSlug === template?.slug ? candidateResults : []}
                   tilesets={workspace.tilesets}
                 />
               </TabsContent>

@@ -132,6 +132,7 @@ function exampleTemplate() {
     width,
     height,
     pieceSet: terrainExamplePieceSetSlug,
+    firstSeed: 1,
     candidateCount: 8,
     cells,
     anchors: [
