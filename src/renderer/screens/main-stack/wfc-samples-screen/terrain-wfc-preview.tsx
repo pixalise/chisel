@@ -125,6 +125,17 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
 
   function selectSamples(slugs: string[]): void {
     setSelectedSampleSlugs(slugs);
+    clearCandidate();
+  }
+
+  function toggleSample(slug: string, checked: boolean): void {
+    setSelectedSampleSlugs((current) =>
+      checked ? [...new Set([...current, slug])] : current.filter((selectedSlug) => selectedSlug !== slug)
+    );
+    clearCandidate();
+  }
+
+  function clearCandidate(): void {
     setLibrary(undefined);
     setOutput(undefined);
     setError("");
@@ -272,11 +283,7 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
               <Label className="flex items-center gap-2 text-sm" key={sample.slug}>
                 <Checkbox
                   checked={selectedSampleSlugs.includes(sample.slug)}
-                  onCheckedChange={(checked) =>
-                    selectSamples(
-                      checked === true ? [...selectedSampleSlugs, sample.slug] : selectedSampleSlugs.filter((slug) => slug !== sample.slug)
-                    )
-                  }
+                  onCheckedChange={(checked) => toggleSample(sample.slug, checked === true)}
                 />
                 {sample.slug}
               </Label>
