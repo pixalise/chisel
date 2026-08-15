@@ -9,10 +9,11 @@ import {
   compileTerrainWfcLibrary,
   generateTerrainWfcOutput,
   terrainWfcAdjacencyProblem,
-  terrainWfcPatternSize,
+  terrainWfcPatternSizes,
   terrainWfcViablePatternIds,
   type TerrainWfcLibrary,
-  type TerrainWfcOutput
+  type TerrainWfcOutput,
+  type TerrainWfcPatternSize
 } from "../../../../shared/terrain-wfc";
 import { drawTerrainCell } from "./terrain-rendering";
 
@@ -25,6 +26,11 @@ interface TerrainWfcPreviewProps {
 
 const basePreviewCellSize = 48;
 const previewZoomLevels = [25, 50, 75, 100, 150, 200] as const;
+const samplingDescriptions: Record<TerrainWfcPatternSize, string> = {
+  2: "Loose: matches 1-cell edges for maximum natural recombination.",
+  3: "Balanced: matches 2-cell edges to preserve small clusters.",
+  4: "Strict: matches 3-cell edges to preserve larger local shapes."
+};
 
 export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
   const { isBusy, onApprove, onDeleteApproved, workspace } = props;
@@ -34,6 +40,7 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
   const [width, setWidth] = useState(20);
   const [height, setHeight] = useState(20);
   const [seed, setSeed] = useState(1);
+  const [patternSize, setPatternSize] = useState<TerrainWfcPatternSize>(terrainWfcPatternSizes[0]);
   const [zoomPercent, setZoomPercent] = useState(100);
   const [library, setLibrary] = useState<TerrainWfcLibrary>();
   const [output, setOutput] = useState<TerrainWfcOutput>();
@@ -106,12 +113,12 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
     setOutput(undefined);
     let compiled: TerrainWfcLibrary | undefined;
     try {
-      if (width < terrainWfcPatternSize || width > 64 || height < terrainWfcPatternSize || height > 64) {
-        throw new Error(`Preview dimensions must be between ${terrainWfcPatternSize} and 64 cells`);
+      if (width < patternSize || width > 64 || height < patternSize || height > 64) {
+        throw new Error(`Preview dimensions must be between ${patternSize} and 64 cells`);
       }
       const selectedSamples = workspace.samples.filter((sample) => selectedSampleSlugs.includes(sample.slug));
       if (selectedSamples.length === 0) throw new Error("Select at least one contributing sample");
-      compiled = compileTerrainWfcLibrary({ samples: selectedSamples });
+      compiled = compileTerrainWfcLibrary({ samples: selectedSamples }, { patternSize });
       setLibrary(compiled);
       const adjacencyProblem = terrainWfcAdjacencyProblem(compiled);
       if (adjacencyProblem) throw new Error(adjacencyProblem);
@@ -177,11 +184,32 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
         <div>
           <h3 className="text-sm font-semibold">WFC candidate approval</h3>
           <p className="text-xs text-muted-foreground">
-            Compile large painted examples into overlapping {terrainWfcPatternSize}×{terrainWfcPatternSize} patterns. Adjacency matches
-            complete layered cells by exact sprites and orientations; semantic tags do not make edges compatible.
+            Compile painted examples with a selectable overlap size. Adjacency matches complete layered cells by exact sprites and
+            orientations; semantic tags do not make edges compatible.
           </p>
+          <p className="text-xs text-muted-foreground">{samplingDescriptions[patternSize]}</p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
+          <div className="w-24 space-y-1">
+            <Label className="text-xs" htmlFor="wfc-preview-pattern-size">
+              Sampling
+            </Label>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              id="wfc-preview-pattern-size"
+              onChange={(event) => {
+                setPatternSize(Number(event.target.value) as TerrainWfcPatternSize);
+                clearCandidate();
+              }}
+              value={patternSize}
+            >
+              {terrainWfcPatternSizes.map((size) => (
+                <option key={size} value={size}>
+                  {size}×{size}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="w-20 space-y-1">
             <Label className="text-xs" htmlFor="wfc-preview-width">
               Width
@@ -189,7 +217,7 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
             <Input
               id="wfc-preview-width"
               max="64"
-              min={terrainWfcPatternSize}
+              min={patternSize}
               onChange={(event) => setWidth(Number(event.target.value))}
               type="number"
               value={width}
@@ -202,7 +230,7 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
             <Input
               id="wfc-preview-height"
               max="64"
-              min={terrainWfcPatternSize}
+              min={patternSize}
               onChange={(event) => setHeight(Number(event.target.value))}
               type="number"
               value={height}
@@ -296,6 +324,9 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
         <div className="space-y-2 text-xs text-muted-foreground">
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             <span>{library.patterns.length} unique patterns</span>
+            <span>
+              {library.patternSize}×{library.patternSize} sampling
+            </span>
             <span>{terrainWfcViablePatternIds(library).size} globally viable</span>
             <span>{library.sampleSlugs.length} samples</span>
             {output && <span>{output.attempts} generation attempts</span>}

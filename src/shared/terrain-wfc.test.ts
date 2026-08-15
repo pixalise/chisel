@@ -55,6 +55,84 @@ describe("native terrain overlapping WFC", () => {
     expect(library.patterns[0].cells.map((entry) => entry[0]?.localId)).toEqual([1, 2, 3, 6, 7, 8, 11, 12, 13]);
   });
 
+  it.each([
+    [2, 16],
+    [3, 9],
+    [4, 4]
+  ] as const)("extracts selectable %dx%d overlapping windows", (patternSize, expectedPatterns) => {
+    const library = compileTerrainWfcLibrary(
+      {
+        samples: [
+          sample(
+            "UNIQUE",
+            5,
+            5,
+            Array.from({ length: 25 }, (_, index) => index + 1)
+          )
+        ]
+      },
+      { patternSize }
+    );
+
+    expect(library.patternSize).toBe(patternSize);
+    expect(library.patterns).toHaveLength(expectedPatterns);
+    expect(library.patterns[0].cells).toHaveLength(patternSize * patternSize);
+  });
+
+  it.each([2, 3, 4] as const)("indexes exact %dx%d overlaps in every direction", (patternSize) => {
+    const dimension = patternSize + 1;
+    const library = compileTerrainWfcLibrary(
+      {
+        samples: [
+          sample(
+            "UNIQUE",
+            dimension,
+            dimension,
+            Array.from({ length: dimension * dimension }, (_, index) => index + 1)
+          )
+        ]
+      },
+      { patternSize }
+    );
+
+    expect(library.adjacency.east[0]).toEqual([1]);
+    expect(library.adjacency.south[0]).toEqual([2]);
+    expect(library.adjacency.west[1]).toEqual([0]);
+    expect(library.adjacency.north[2]).toEqual([0]);
+  });
+
+  it.each([2, 3, 4] as const)("generates only observed %dx%d windows", (patternSize) => {
+    const source = sample(
+      "TEXTURE",
+      6,
+      6,
+      [1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 3, 1, 1, 1, 1, 2, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 2, 1, 3, 1, 1, 1, 1, 1, 1, 1]
+    );
+    source.periodicInput = true;
+    const library = compileTerrainWfcLibrary({ samples: [source] }, { patternSize });
+    const output = generateTerrainWfcOutput(library, { width: 18, height: 18, seed: 91 });
+    const patternKeys = new Set(
+      library.patterns.map((pattern) => pattern.cells.map((cell) => cell.map((entry) => entry?.localId ?? "-").join("/")).join("|"))
+    );
+
+    for (let anchorY = 0; anchorY <= output.height - patternSize; anchorY += 1) {
+      for (let anchorX = 0; anchorX <= output.width - patternSize; anchorX += 1) {
+        const cells = [];
+        for (let y = 0; y < patternSize; y += 1) {
+          for (let x = 0; x < patternSize; x += 1) cells.push(output.cells[(anchorY + y) * output.width + anchorX + x]);
+        }
+        const key = cells.map((cell) => cell.map((entry) => entry?.localId ?? "-").join("/")).join("|");
+        expect(patternKeys.has(key)).toBe(true);
+      }
+    }
+  });
+
+  it("rejects samples smaller than the selected overlap", () => {
+    expect(() => compileTerrainWfcLibrary({ samples: [sample("SMALL", 3, 3, Array(9).fill(1))] }, { patternSize: 4 })).toThrow(
+      "at least 4×4"
+    );
+  });
+
   it("rotates pattern positions and sprite orientations together", () => {
     const rotating = sample("ROTATING", 3, 3, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
     rotating.allowRotations = true;

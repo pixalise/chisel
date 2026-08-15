@@ -1,6 +1,8 @@
 import type { TerrainSample, TerrainSampleCell, TerrainTileRef, TerrainWorkspaceView } from "./terrain-authoring";
 
-export const terrainWfcPatternSize = 3;
+export const terrainWfcPatternSizes = [2, 3, 4] as const;
+export type TerrainWfcPatternSize = (typeof terrainWfcPatternSizes)[number];
+export const terrainWfcDefaultPatternSize: TerrainWfcPatternSize = 3;
 
 export type TerrainWfcDirection = "north" | "east" | "south" | "west";
 
@@ -117,8 +119,7 @@ function transformCell(cell: TerrainSampleCell, transform: GridTransform): Terra
   return cell.map((tile) => (tile ? transformTile(tile, transform) : null));
 }
 
-function transformPattern(cells: TerrainSampleCell[], transform: GridTransform): TerrainSampleCell[] {
-  const size = terrainWfcPatternSize;
+function transformPattern(cells: TerrainSampleCell[], size: number, transform: GridTransform): TerrainSampleCell[] {
   const transformed = Array<TerrainSampleCell>(cells.length);
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
@@ -137,42 +138,51 @@ function cellKey(cell: TerrainSampleCell): string {
   return cell.map((tile) => (tile ? tileKey(tile) : "-")).join("/");
 }
 
-function patternsFit(left: TerrainWfcPattern, right: TerrainWfcPattern, direction: TerrainWfcDirection): boolean {
-  const size = terrainWfcPatternSize;
+function patternOverlapKey(pattern: TerrainWfcPattern, size: number, direction: TerrainWfcDirection, side: "source" | "neighbor"): string {
   const [offsetX, offsetY] = directionOffsets[direction];
+  const cells: string[] = [];
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      const rightX = x - offsetX;
-      const rightY = y - offsetY;
-      if (rightX < 0 || rightX >= size || rightY < 0 || rightY >= size) continue;
-      if (cellKey(left.cells[y * size + x]) !== cellKey(right.cells[rightY * size + rightX])) return false;
+      const neighborX = x - offsetX;
+      const neighborY = y - offsetY;
+      if (neighborX < 0 || neighborX >= size || neighborY < 0 || neighborY >= size) continue;
+      const index = side === "source" ? y * size + x : neighborY * size + neighborX;
+      cells.push(cellKey(pattern.cells[index]));
     }
   }
-  return true;
+  return cells.join("|");
 }
 
-export function compileTerrainWfcLibrary(workspace: Pick<TerrainWorkspaceView, "samples">): TerrainWfcLibrary {
+export function compileTerrainWfcLibrary(
+  workspace: Pick<TerrainWorkspaceView, "samples">,
+  options: { patternSize?: TerrainWfcPatternSize } = {}
+): TerrainWfcLibrary {
   if (workspace.samples.length === 0) throw new Error("Create at least one WFC sample before compiling a preview");
+  const patternSize = options.patternSize ?? terrainWfcDefaultPatternSize;
+  if (!terrainWfcPatternSizes.includes(patternSize)) throw new Error(`Unsupported WFC overlap size ${patternSize}`);
   const patterns: TerrainWfcPattern[] = [];
   const patternByKey = new Map<string, TerrainWfcPattern>();
   const sampleStats: Record<string, TerrainWfcSampleStats> = {};
   for (const sample of workspace.samples) {
+    if (sample.width < patternSize || sample.height < patternSize) {
+      throw new Error(`Sample '${sample.slug}' must be at least ${patternSize}×${patternSize} for a ${patternSize}×${patternSize} overlap`);
+    }
     if (sample.cells.some((cell) => cell[0] === null))
       throw new Error(`Sample '${sample.slug}' must have its base layer fully painted before compiling`);
     const occurrences: TerrainSampleCell[][] = [];
-    const patternRows = sample.periodicInput ? sample.height : sample.height - terrainWfcPatternSize + 1;
-    const patternColumns = sample.periodicInput ? sample.width : sample.width - terrainWfcPatternSize + 1;
+    const patternRows = sample.periodicInput ? sample.height : sample.height - patternSize + 1;
+    const patternColumns = sample.periodicInput ? sample.width : sample.width - patternSize + 1;
     for (let patternY = 0; patternY < patternRows; patternY += 1) {
       for (let patternX = 0; patternX < patternColumns; patternX += 1) {
         const cells: TerrainSampleCell[] = [];
-        for (let y = 0; y < terrainWfcPatternSize; y += 1) {
-          for (let x = 0; x < terrainWfcPatternSize; x += 1) {
+        for (let y = 0; y < patternSize; y += 1) {
+          for (let x = 0; x < patternSize; x += 1) {
             const sourceX = (patternX + x) % sample.width;
             const sourceY = (patternY + y) % sample.height;
             cells.push(sample.cells[sourceY * sample.width + sourceX]);
           }
         }
-        for (const transform of sampleTransforms(sample)) occurrences.push(transformPattern(cells, transform));
+        for (const transform of sampleTransforms(sample)) occurrences.push(transformPattern(cells, patternSize, transform));
       }
     }
     const contribution = 1 / occurrences.length;
@@ -194,10 +204,15 @@ export function compileTerrainWfcLibrary(workspace: Pick<TerrainWorkspaceView, "
     number[][]
   >;
   for (const direction of directions) {
-    for (const left of patterns) {
-      for (const right of patterns) {
-        if (patternsFit(left, right, direction)) adjacency[direction][left.id].push(right.id);
-      }
+    const neighborsByOverlap = new Map<string, number[]>();
+    for (const pattern of patterns) {
+      const key = patternOverlapKey(pattern, patternSize, direction, "neighbor");
+      const matching = neighborsByOverlap.get(key);
+      if (matching) matching.push(pattern.id);
+      else neighborsByOverlap.set(key, [pattern.id]);
+    }
+    for (const pattern of patterns) {
+      adjacency[direction][pattern.id] = neighborsByOverlap.get(patternOverlapKey(pattern, patternSize, direction, "source")) ?? [];
     }
   }
   const viablePatternIds = terrainWfcViablePatternIds({ adjacency, patterns });
@@ -208,7 +223,7 @@ export function compileTerrainWfcLibrary(workspace: Pick<TerrainWorkspaceView, "
   }
   return {
     adjacency,
-    patternSize: terrainWfcPatternSize,
+    patternSize,
     patterns,
     sampleStats,
     sampleSlugs: workspace.samples.map((sample) => sample.slug)
@@ -237,7 +252,8 @@ export function terrainWfcAdjacencyProblem(library: TerrainWfcLibrary): string |
   const emptyDirections = directions.filter((direction) => library.adjacency[direction].every((neighbors) => neighbors.length === 0));
   if (emptyDirections.length === 0) return undefined;
   const labels = emptyDirections.map((direction) => direction[0].toUpperCase()).join(", ");
-  return `No compatible pattern overlaps were learned for ${labels}. WFC matches complete layered cells by exact sprite ids and orientations, not semantic tags. Paint a larger representative sample containing recurring overlaps, or add 3×3 samples whose two-cell borders overlap exactly.`;
+  const overlapWidth = library.patternSize - 1;
+  return `No compatible pattern overlaps were learned for ${labels}. WFC matches complete layered cells by exact sprite ids and orientations, not semantic tags. Paint a larger representative sample containing recurring overlaps, or add patterns whose ${overlapWidth}-cell borders overlap exactly.`;
 }
 
 function randomGenerator(seed: number): () => number {
@@ -251,97 +267,190 @@ function randomGenerator(seed: number): () => number {
   };
 }
 
-function weightedChoice(possibilities: Set<number>, library: TerrainWfcLibrary, random: () => number): number {
-  const total = [...possibilities].reduce((sum, patternId) => sum + library.patterns[patternId].weight, 0);
-  let cursor = random() * total;
-  for (const patternId of possibilities) {
-    cursor -= library.patterns[patternId].weight;
-    if (cursor <= 0) return patternId;
-  }
-  const fallback = possibilities.values().next().value;
-  if (fallback === undefined) throw new Error("Cannot choose from an empty WFC cell");
-  return fallback;
+interface EntropyQueueEntry {
+  entropy: number;
+  index: number;
+  revision: number;
+  tieBreaker: number;
 }
 
-function entropy(possibilities: Set<number>, library: TerrainWfcLibrary): number {
-  let sum = 0;
-  let weightedLogs = 0;
-  for (const patternId of possibilities) {
-    const weight = library.patterns[patternId].weight;
-    sum += weight;
-    weightedLogs += weight * Math.log(weight);
+class EntropyQueue {
+  private readonly entries: EntropyQueueEntry[] = [];
+
+  public push(entry: EntropyQueueEntry): void {
+    this.entries.push(entry);
+    let index = this.entries.length - 1;
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2);
+      if (!this.precedes(this.entries[index], this.entries[parent])) break;
+      [this.entries[index], this.entries[parent]] = [this.entries[parent], this.entries[index]];
+      index = parent;
+    }
   }
-  return Math.log(sum) - weightedLogs / sum;
+
+  public pop(): EntropyQueueEntry | undefined {
+    const first = this.entries[0];
+    const last = this.entries.pop();
+    if (!first || !last || this.entries.length === 0) return first;
+    this.entries[0] = last;
+    let index = 0;
+    while (true) {
+      const left = index * 2 + 1;
+      const right = left + 1;
+      let smallest = index;
+      if (left < this.entries.length && this.precedes(this.entries[left], this.entries[smallest])) smallest = left;
+      if (right < this.entries.length && this.precedes(this.entries[right], this.entries[smallest])) smallest = right;
+      if (smallest === index) break;
+      [this.entries[index], this.entries[smallest]] = [this.entries[smallest], this.entries[index]];
+      index = smallest;
+    }
+    return first;
+  }
+
+  private precedes(left: EntropyQueueEntry, right: EntropyQueueEntry): boolean {
+    return left.entropy < right.entropy || (left.entropy === right.entropy && left.tieBreaker < right.tieBreaker);
+  }
 }
 
 function solvePatterns(library: TerrainWfcLibrary, width: number, height: number, seed: number): number[] {
   const waveWidth = width - library.patternSize + 1;
   const waveHeight = height - library.patternSize + 1;
-  const wave = Array.from({ length: waveWidth * waveHeight }, () => new Set(library.patterns.map((pattern) => pattern.id)));
-  const supportMarks = new Uint32Array(library.patterns.length);
-  let supportRevision = 0;
+  const cellCount = waveWidth * waveHeight;
+  const patternCount = library.patterns.length;
+  const viablePatternIds = [...terrainWfcViablePatternIds(library)];
+  const viable = new Uint8Array(patternCount);
+  for (const patternId of viablePatternIds) viable[patternId] = 1;
+  const viableAdjacency = directions.map((direction) =>
+    library.adjacency[direction].map((neighbors) => neighbors.filter((patternId) => viable[patternId] === 1))
+  );
+  const allowed = new Uint8Array(cellCount * patternCount);
+  const compatible = new Uint32Array(cellCount * patternCount * directions.length);
+  const remaining = new Uint32Array(cellCount);
+  const weightSums = new Float64Array(cellCount);
+  const weightLogSums = new Float64Array(cellCount);
+  const revisions = new Uint32Array(cellCount);
+  const entropyQueue = new EntropyQueue();
   const random = randomGenerator(seed);
+  let initialWeightSum = 0;
+  let initialWeightLogSum = 0;
+  for (const patternId of viablePatternIds) {
+    const weight = library.patterns[patternId].weight;
+    initialWeightSum += weight;
+    initialWeightLogSum += weight * Math.log(weight);
+  }
+  for (let cellIndex = 0; cellIndex < cellCount; cellIndex += 1) {
+    remaining[cellIndex] = viablePatternIds.length;
+    weightSums[cellIndex] = initialWeightSum;
+    weightLogSums[cellIndex] = initialWeightLogSum;
+    for (const patternId of viablePatternIds) {
+      const stateIndex = cellIndex * patternCount + patternId;
+      allowed[stateIndex] = 1;
+      for (let directionIndex = 0; directionIndex < directions.length; directionIndex += 1) {
+        compatible[stateIndex * directions.length + directionIndex] = viableAdjacency[directionIndex][patternId].length;
+      }
+    }
+  }
 
-  function propagate(initialIndices: number[]): void {
-    const queue = [...initialIndices];
-    const queued = new Set(queue);
-    while (queue.length > 0) {
-      const index = queue.shift();
-      if (index === undefined) break;
-      queued.delete(index);
-      const x = index % waveWidth;
-      const y = Math.floor(index / waveWidth);
-      for (const direction of directions) {
+  function queueEntropy(index: number): void {
+    if (remaining[index] <= 1) return;
+    const sum = weightSums[index];
+    entropyQueue.push({
+      entropy: Math.log(sum) - weightLogSums[index] / sum,
+      index,
+      revision: revisions[index],
+      tieBreaker: random()
+    });
+  }
+
+  function weightedChoice(index: number): number {
+    let cursor = random() * weightSums[index];
+    let fallback = -1;
+    const stateStart = index * patternCount;
+    for (let patternId = 0; patternId < patternCount; patternId += 1) {
+      if (allowed[stateStart + patternId] === 0) continue;
+      fallback = patternId;
+      cursor -= library.patterns[patternId].weight;
+      if (cursor <= 0) return patternId;
+    }
+    if (fallback < 0) throw new Error("Cannot choose from an empty WFC cell");
+    return fallback;
+  }
+
+  function collapseAndPropagate(index: number, chosenPatternId: number): void {
+    const removedCells: number[] = [];
+    const removedPatterns: number[] = [];
+    const dirtyCells: number[] = [];
+    const dirty = new Uint8Array(cellCount);
+
+    function ban(cellIndex: number, patternId: number): void {
+      const stateIndex = cellIndex * patternCount + patternId;
+      if (allowed[stateIndex] === 0) return;
+      allowed[stateIndex] = 0;
+      remaining[cellIndex] -= 1;
+      const weight = library.patterns[patternId].weight;
+      weightSums[cellIndex] -= weight;
+      weightLogSums[cellIndex] -= weight * Math.log(weight);
+      revisions[cellIndex] += 1;
+      removedCells.push(cellIndex);
+      removedPatterns.push(patternId);
+      if (dirty[cellIndex] === 0) {
+        dirty[cellIndex] = 1;
+        dirtyCells.push(cellIndex);
+      }
+      if (remaining[cellIndex] === 0) {
+        const x = cellIndex % waveWidth;
+        const y = Math.floor(cellIndex / waveWidth);
+        throw new Error(`WFC contradiction at ${x},${y}`);
+      }
+    }
+
+    for (let patternId = 0; patternId < patternCount; patternId += 1) {
+      if (patternId !== chosenPatternId) ban(index, patternId);
+    }
+
+    let queueIndex = 0;
+    while (queueIndex < removedCells.length) {
+      const sourceIndex = removedCells[queueIndex];
+      const removedPatternId = removedPatterns[queueIndex];
+      queueIndex += 1;
+      const x = sourceIndex % waveWidth;
+      const y = Math.floor(sourceIndex / waveWidth);
+      for (let directionIndex = 0; directionIndex < directions.length; directionIndex += 1) {
+        const direction = directions[directionIndex];
         const [offsetX, offsetY] = directionOffsets[direction];
         const neighborX = x + offsetX;
         const neighborY = y + offsetY;
         if (neighborX < 0 || neighborX >= waveWidth || neighborY < 0 || neighborY >= waveHeight) continue;
         const neighborIndex = neighborY * waveWidth + neighborX;
-        const neighbor = wave[neighborIndex];
-        supportRevision += 1;
-        if (supportRevision === 0xffffffff) {
-          supportMarks.fill(0);
-          supportRevision = 1;
-        }
-        for (const patternId of wave[index]) {
-          for (const supportedId of library.adjacency[direction][patternId]) supportMarks[supportedId] = supportRevision;
-        }
-        let changed = false;
-        for (const candidate of [...neighbor]) {
-          if (supportMarks[candidate] !== supportRevision) {
-            neighbor.delete(candidate);
-            changed = true;
-          }
-        }
-        if (neighbor.size === 0) throw new Error(`WFC contradiction at ${neighborX},${neighborY}`);
-        if (changed && !queued.has(neighborIndex)) {
-          queue.push(neighborIndex);
-          queued.add(neighborIndex);
+        const oppositeDirectionIndex = (directionIndex + 2) % directions.length;
+        for (const neighborPatternId of viableAdjacency[directionIndex][removedPatternId]) {
+          const neighborStateIndex = neighborIndex * patternCount + neighborPatternId;
+          if (allowed[neighborStateIndex] === 0) continue;
+          const supportIndex = neighborStateIndex * directions.length + oppositeDirectionIndex;
+          if (compatible[supportIndex] === 0) throw new Error("WFC support count became inconsistent");
+          compatible[supportIndex] -= 1;
+          if (compatible[supportIndex] === 0) ban(neighborIndex, neighborPatternId);
         }
       }
     }
+    for (const dirtyIndex of dirtyCells) queueEntropy(dirtyIndex);
   }
 
-  propagate(wave.map((_, index) => index));
+  for (let index = 0; index < cellCount; index += 1) queueEntropy(index);
   while (true) {
-    let selectedIndex = -1;
-    let selectedEntropy = Number.POSITIVE_INFINITY;
-    for (const [index, possibilities] of wave.entries()) {
-      if (possibilities.size <= 1) continue;
-      const value = entropy(possibilities, library) + random() * 1e-9;
-      if (value < selectedEntropy) {
-        selectedEntropy = value;
-        selectedIndex = index;
-      }
+    let selected: EntropyQueueEntry | undefined;
+    while ((selected = entropyQueue.pop())) {
+      if (selected.revision === revisions[selected.index] && remaining[selected.index] > 1) break;
     }
-    if (selectedIndex < 0) break;
-    wave[selectedIndex] = new Set([weightedChoice(wave[selectedIndex], library, random)]);
-    propagate([selectedIndex]);
+    if (!selected) break;
+    collapseAndPropagate(selected.index, weightedChoice(selected.index));
   }
-  return wave.map((possibilities) => {
-    const patternId = possibilities.values().next().value;
-    if (patternId === undefined) throw new Error("WFC completed with an empty cell");
-    return patternId;
+  return Array.from({ length: cellCount }, (_, cellIndex) => {
+    const stateStart = cellIndex * patternCount;
+    for (let patternId = 0; patternId < patternCount; patternId += 1) {
+      if (allowed[stateStart + patternId] === 1) return patternId;
+    }
+    throw new Error("WFC completed with an empty cell");
   });
 }
 

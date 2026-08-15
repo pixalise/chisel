@@ -6,13 +6,13 @@ Chisel owns the complete nature-authoring workflow: tileset assets, layered trai
 
 Overlapping WFC does not place an authored sample as a stamp and does not infer semantic rules from tags such as `WALKABLE`, `WATER`, or `FOLIAGE`. It analyzes the exact layered cells painted into a sample.
 
-Chisel currently uses a fixed 3×3 analysis window:
+Chisel offers 2×2, 3×3, and 4×4 analysis windows. For a selected `N×N` size:
 
-1. Slide a 3×3 window across every valid position in every sample.
-2. Store each distinct 3×3 window as a pattern.
+1. Slide an `N×N` window across every valid position in every sample.
+2. Store each distinct `N×N` window as a pattern.
 3. Count repeated occurrences to derive pattern frequency.
-4. Compare every pair of patterns in all four directions.
-5. Permit two patterns to be neighbors when their two-cell-wide overlap is exactly equal.
+4. Index the exact overlap signatures in all four directions.
+5. Permit two patterns to be neighbors when their `(N-1)`-cell-wide overlap is exactly equal.
 6. Collapse the lowest-entropy output position and propagate its constraints.
 7. Restart with a derived seed if a contradiction occurs.
 
@@ -33,7 +33,7 @@ the compiler extracts nine overlapping 3×3 windows. Those windows include `B` i
 - **Cell**: one position in the authored or generated grid.
 - **Layered cell**: the ordered stack at one position, such as grass on layer 0 and a transparent bush fragment on layer 1.
 - **Sample**: a representative map painted by the author. Samples can be rectangular and range from 3×3 to 64×64.
-- **Pattern**: one distinct overlapping 3×3 window extracted from a sample.
+- **Pattern**: one distinct overlapping 2×2, 3×3, or 4×4 window extracted from a sample.
 - **Occurrence**: one observation of a pattern. Repeated occurrences affect its frequency.
 - **Adjacency**: a legal north, east, south, or west relationship between two overlapping patterns.
 - **Viable pattern**: a pattern belonging to a constraint cycle that can continue in every direction.
@@ -42,16 +42,16 @@ the compiler extracts nine overlapping 3×3 windows. Those windows include `B` i
 
 ## The mental model
 
-Think of an authored sample as a short piece of terrain grammar written with pictures. Chisel does not copy the sample and does not identify objects by looking at them. It records which exact 3×3 arrangements occurred and which arrangements can overlap by two cells.
+Think of an authored sample as a short piece of terrain grammar written with pictures. Chisel does not copy the sample and does not identify objects by looking at them. It records which exact `N×N` arrangements occurred and which arrangements can overlap by `N-1` cells.
 
 ```text
 authored layered sample
           │
-          ├─ slide a 3×3 window over every position
+          ├─ slide the selected N×N window over every position
           ▼
-weighted library of exact 3×3 patterns
+weighted library of exact N×N patterns
           │
-          ├─ compare two-cell overlaps north/east/south/west
+          ├─ index exact (N-1)-cell overlaps north/east/south/west
           ▼
 compatibility graph
           │
@@ -66,7 +66,17 @@ This has three important consequences:
 2. Two sprites with the same tags are still different symbols. Tags describe meaning to later systems; exact sprite stacks determine WFC compatibility.
 3. The quality of the output is mostly determined by the coverage and balance of the examples, not by the number of tags attached to the tiles.
 
-A useful test while painting is: _if a 3×3 camera moved one cell at a time over this feature, has it seen every way the feature is allowed to begin, continue, turn, touch something else, and end?_
+A useful test while painting is: _if the selected sampling window moved one cell at a time over this feature, has it seen every way the feature is allowed to begin, continue, turn, touch something else, and end?_
+
+## Choose the sampling size
+
+Sampling size controls how much local structure must match; it does not control output dimensions.
+
+- **2×2** matches one row or column between neighboring patterns. It is the loosest and fastest choice, produces the most recombination, and works well for chaotic nature, sparse foliage, and early iteration. It can separate structures that need more than one cell of context.
+- **3×3** matches two rows or columns. It is the balanced choice for clusters, small clearings, shores, and ordinary multi-cell terrain relationships.
+- **4×4** matches three rows or columns. It preserves larger silhouettes and multi-cell props more faithfully, but repeats more of the input, produces a larger pattern library, and needs a richer sample to avoid contradictions.
+
+Start a natural-terrain sample at 2×2. Move to 3×3 only when the output breaks relationships that need two cells of context; use 4×4 when preserving a larger local silhouette is more important than free recombination. Always compare the same seeds across sizes before deciding.
 
 ## Add tilesets
 
@@ -111,26 +121,23 @@ Layer 1: PLANTS:418
 Layer 0: GRASS:0
 ```
 
-That complete stack is one symbol to the WFC compiler. Neighboring fragments of the same bush occupy their own layered cells. When all required 3×3 overlaps are present, the generator can reconstruct the multi-cell bush rather than scattering unrelated fragments.
+That complete stack is one symbol to the WFC compiler. Neighboring fragments of the same bush occupy their own layered cells. When all required overlaps are present, the generator can reconstruct the multi-cell bush rather than scattering unrelated fragments.
 
 Overlay absence also matters. Grass with no overlay is different from grass with a bush fragment. Paint generous empty space around props so the compiler observes transitions from ordinary grass into every side of the prop and back out again.
 
 ## Why the video-style samples work
 
-The included Farbound reference data uses the supplied Pixel Art Top Down tileset and contains two examples:
+The Farbound project contains three compact 16×16 forest examples using the same two-layer tile vocabulary:
 
-- `OVERLAP_VEGETATION` is 20×28 with two layers. It teaches open grass, sparse ground detail, isolated bushes, adjacent bushes, and several bush sizes.
-- `OVERLAP_RUINS` is 28×20 with two layers. It teaches open grass, long paths, corners, branches, T-junctions, intersections, path endpoints at graves, vegetation near paths, and open areas between structures.
+- `FOREST_SPARSE` teaches isolated landmarks, pairs, one small group, and generous open ground.
+- `FOREST_NORMAL` teaches several different cluster silhouettes plus open transitions between them.
+- `FOREST_DENSE` teaches irregular connected groups and small internal gaps without relying on one repeated block.
 
-Both examples use the exact same plain-grass layered cell repeatedly. Their pattern graphs therefore connect through a shared neutral language. WFC may leave a path region, travel through ordinary grass patterns, and enter a vegetation region even though those features came from different samples.
+All three use the exact same plain-ground layered cell and a neutral border at least three cells deep. Every pattern can therefore leave a feature, travel through repeatable open ground, and enter another feature. Generate from one density sample when a sector needs a specific character; select multiple samples only when a blended distribution is intentional because every selected sample contributes equal normalized weight.
 
-The two examples produce:
+At 2×2 these examples prioritize free natural recombination. At 3×3 and 4×4 they preserve progressively larger pieces of the painted cluster silhouettes. The diagnostics remain fully viable at every supported sampling size.
 
-- 936 extracted observations;
-- 249 unique demo patterns after deduplication;
-- 249 globally viable demo patterns.
-
-The earlier 3×3 lattice demonstration failed aesthetically because it taught exactly one flower in every 3×3 area. That constraint has only grid-like solutions. A large example naturally contributes both feature-bearing windows and plain empty windows, allowing features to be absent as well as present.
+The earlier lattice demonstration failed aesthetically because it taught exactly one feature in every sampling window. That constraint has only grid-like solutions. A representative example contributes both feature-bearing windows and all-ground windows, allowing features to be absent as well as present.
 
 ## Authoring feature islands
 
@@ -146,7 +153,7 @@ The safest reusable structure is a feature island surrounded by a shared neutral
 . . . . . . .
 ```
 
-Here `.` is the exact neutral layered cell and `B` is a bush fragment stack. With a 3×3 window, at least two neutral cells around the feature let the compiler observe all entry and exit contexts. Three or four cells of breathing room are easier to reason about.
+Here `.` is the exact neutral layered cell and `B` is a bush fragment stack. Leave at least `N-1` neutral cells around a feature for an `N×N` window so the compiler can observe all entry and exit contexts. Extra breathing room is easier to reason about.
 
 Add several forms to the same sample:
 
@@ -210,7 +217,7 @@ Here `G` is ordinary ground, `W` is repeatable water fill, and `S`/`C` are the a
 
 Good water examples should include:
 
-- large enough `W` regions to learn the all-water 3×3 pattern;
+- large enough `W` regions to learn the all-water pattern at the selected sampling size;
 - large enough `G` regions to learn the all-ground pattern;
 - long straight shores in every allowed direction;
 - every inner and outer corner supported by the art;
@@ -224,7 +231,7 @@ If water must always form one globally connected body, local overlapping constra
 
 ## Empty space is a pattern
 
-Empty space is not a lack of authored information. A repeated 3×3 area of neutral ground is the pattern that allows WFC to produce breathing room of arbitrary size.
+Empty space is not a lack of authored information. A repeated neutral area at least as large as the selected sampling window is the pattern that allows WFC to produce breathing room of arbitrary size.
 
 Compare these rule libraries:
 
@@ -391,7 +398,7 @@ Do not judge the library from one attractive seed. Generate a small review set�
 - Are important destinations reachable?
 - Are water bodies, cliffs, and map boundaries consistent with world-level rules?
 
-The first three can be improved primarily through samples and candidate selection. The fourth normally needs post-generation validation because a 3×3 local model cannot guarantee arbitrary global properties such as one connected road between two distant entrances.
+The first three can be improved primarily through samples and candidate selection. The fourth normally needs post-generation validation because a local overlapping model cannot guarantee arbitrary global properties such as one connected road between two distant entrances.
 
 Change one variable at a time while tuning:
 
@@ -423,7 +430,7 @@ No legal endpoint was observed. Paint caps, gates, graves, doors, or deliberate 
 
 ### Props appear as fragments
 
-The prop is larger than the learned context or lacks enough surrounding observations. Paint the complete layered prop more than once, surround it with neutral cells, and consider a larger analysis strategy if a single object is substantially larger than 3×3.
+The prop is larger than the learned context or lacks enough surrounding observations. Paint the complete layered prop more than once, surround it with neutral cells, and select a larger sampling size when the object needs more local context.
 
 ### Generation frequently contradicts
 
@@ -434,7 +441,7 @@ The library is highly constrained or contains incompatible sub-languages. Add sh
 1. Use a repeated neutral layered cell shared by every sample that should mix.
 2. Start with a 12×12 to 24×24 example, not isolated 3×3 rules.
 3. Leave at least two cells of neutral context around feature islands.
-4. Include the all-neutral 3×3 pattern.
+4. Include an all-neutral region at least as large as the selected sampling size.
 5. Paint every desired straight, corner, junction, and endpoint.
 6. Show isolated, paired, and clustered forms separately when all are desired.
 7. Repeat common structures and keep rare structures rare in the input.
