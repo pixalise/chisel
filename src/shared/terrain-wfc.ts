@@ -290,11 +290,11 @@ export function compileTerrainPieceLibrary(
 ): TerrainCompiledLibrary {
   const selected = pieceSet.pieceSlugs.map((slug) => {
     const piece = pieces.find((entry) => entry.slug === slug);
-    if (!piece) throw new Error(`Piece set '${pieceSet.slug}' references missing piece '${slug}'`);
+    if (!piece) throw new Error(`Collection '${pieceSet.slug}' references missing piece '${slug}'`);
     const parsed = terrainPieceSchema.parse(piece);
     return parsed;
   });
-  if (selected.length === 0) throw new Error(`Piece set '${pieceSet.slug}' contains no pieces`);
+  if (selected.length === 0) throw new Error(`Collection '${pieceSet.slug}' contains no pieces`);
   const variants = selected.flatMap((piece) => pieceOrientations(piece).map((orientation) => transformPiece(piece, orientation, 0)));
   variants.forEach((variant, id) => {
     variant.id = id;

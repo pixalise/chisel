@@ -20,7 +20,7 @@ export const TerrainExampleGuide: FC = () => (
       {[
         ["1 · Catalog", "A GROUND socket plus bound ground, tree, bush, and rock sprites."],
         ["2 · Pieces", "Weighted 1×1 details, a forced 2×2 grove, a rotating log, tile layers, and gameplay metadata."],
-        ["3 · Collections", "One forest vocabulary and an advanced rule preventing horizontal rock rows."],
+        ["3 · Collections", "One forest vocabulary plus visual deny and allow-only adjacency examples."],
         ["4 · Generate", "Three anchors, a required grove stamp, a tree-count zone, and per-cell terrain tag constraints."],
         ["5 · Library", "Select any valid result, freeze it, and verify that the approved geography no longer changes."]
       ].map(([title, copy]) => (

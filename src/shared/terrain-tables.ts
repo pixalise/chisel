@@ -132,7 +132,7 @@ export const TERRAIN_PIECES_TABLE = table(
 
 export const TERRAIN_PIECE_SETS_TABLE = table(
   TERRAIN_PIECE_SETS_TABLE_ID,
-  "Terrain Piece Sets",
+  "Terrain Collections",
   "Terrain piece collections selected by site templates.",
   Object.values(TERRAIN_PIECE_SET_COLUMNS)
 );

@@ -404,6 +404,7 @@ export const TerrainGeneratorScreen: FC = () => {
                   overrides={workspace.adjacencyOverrides}
                   pieces={workspace.pieces}
                   sets={workspace.pieceSets}
+                  tilesets={workspace.tilesets}
                 />
               </TabsContent>
               <TabsContent className="space-y-4" value="generate">

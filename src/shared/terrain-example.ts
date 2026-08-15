@@ -100,7 +100,7 @@ function examplePieces(ground: TerrainTileRef, tree: TerrainTileRef, rock: Terra
     2,
     1,
     [terrainCell(ground, tree, ["LOG"]), terrainCell(ground, tree, ["LOG"])],
-    0.75,
+    0.05,
     ["GROUND", "LOG", "WALKABLE"],
     "ROTATE"
   );
@@ -177,6 +177,13 @@ export function installCompleteTerrainExample(workspace: TerrainWorkspaceView): 
         direction: "east",
         targetPiece: "EXAMPLE_ROCK_DOT",
         mode: "DENY"
+      },
+      {
+        slug: "EXAMPLE_LOG_NEEDS_OPEN_NORTH",
+        sourcePiece: "EXAMPLE_FALLEN_LOG",
+        direction: "north",
+        targetPiece: "EXAMPLE_OPEN_GROUND",
+        mode: "ALLOW_ONLY"
       }
     ],
     templates: [...workspace.templates.filter((entry) => entry.slug !== terrainExampleTemplateSlug), exampleTemplate()],

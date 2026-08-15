@@ -31,7 +31,8 @@ describe("complete terrain example", () => {
     expect(workspace.sockets.map((entry) => entry.slug)).toEqual(["GROUND"]);
     expect(workspace.pieces.some((entry) => entry.width > 1 && entry.allowRotations)).toBe(true);
     expect(workspace.pieceSets).toHaveLength(1);
-    expect(workspace.adjacencyOverrides).toHaveLength(1);
+    expect(workspace.adjacencyOverrides).toHaveLength(2);
+    expect(workspace.adjacencyOverrides.map((entry) => entry.mode).sort()).toEqual(["ALLOW_ONLY", "DENY"]);
     expect(template.anchors).toHaveLength(3);
     expect(template.stamps).toHaveLength(1);
     expect(template.zones).toHaveLength(1);

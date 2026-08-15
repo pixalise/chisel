@@ -35,7 +35,7 @@ Terrain Generator is divided into five focused pages:
 4. **Generate** — choose a template and create candidate batches. Anchors, stamps, zones, and per-cell tag constraints remain under **Edit advanced constraints**.
 5. **Approved** — review frozen maps and submodules independently from the live grammar.
 
-An empty project with bound sprites opens with an unsaved `EXAMPLE_FOREST_SITE`. It can immediately generate eight candidates. The example uses weighted 1×1 pieces, mixed-size transformed modules, one collection, an adjacency exception, cell tag constraints, three anchors, a required stamp, and a semantic zone. Use **Reset full example** to reconstruct it after experimenting. It does not modify project files until **Save authoring** is selected.
+An empty project with bound sprites opens with an unsaved `EXAMPLE_FOREST_SITE`. It can immediately generate eight candidates. The example uses weighted 1×1 pieces, mixed-size transformed modules, one collection, deny and allow-only adjacency exceptions, cell tag constraints, three anchors, a required stamp, and a semantic zone. Use **Reset full example** to reconstruct it after experimenting. It does not modify project files until **Save authoring** is selected.
 
 ## Tile catalog
 
@@ -83,11 +83,13 @@ Adjacency exceptions are a narrow escape hatch applied after socket equality:
 - `DENY` removes a source/direction/target pairing;
 - `ALLOW_ONLY` limits a source edge to the named target piece.
 
+The Advanced adjacency section previews these as rule cards in a responsive grid. Each card renders the source and target pieces, the affected direction, and a compact bottom-left X for `DENY` or lock for `ALLOW_ONLY`; its exact metadata appears below. Removing a rule always requires confirmation.
+
 Prefer meaningful sockets over a large exception list.
 
 ## Collections
 
-A collection is the complete vocabulary available to one solve. Use collections to make biome densities and transition families explicit without duplicating tiles or generator code. They are stored internally as piece-set definitions, but the editor keeps that implementation detail out of the normal workflow.
+A collection is the complete vocabulary available to one solve. Use collections to make biome densities and transition families explicit without duplicating tiles or generator code.
 
 Weights are normalized by module area, so a large module does not become disproportionately common merely because it occupies more cells.
 

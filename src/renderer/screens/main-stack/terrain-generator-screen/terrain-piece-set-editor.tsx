@@ -2,9 +2,28 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Settings2, Trash2 } from "lucide-react";
 import { type FC, useEffect, useState } from "react";
-import type { TerrainAdjacencyOverride, TerrainDirection, TerrainPiece, TerrainPieceSet } from "../../../../shared/terrain-authoring";
+import type {
+  TerrainAdjacencyOverride,
+  TerrainDirection,
+  TerrainPiece,
+  TerrainPieceSet,
+  TerrainTilesetView
+} from "../../../../shared/terrain-authoring";
+import { TerrainAdjacencyRulePreview } from "./terrain-adjacency-rule-preview";
 
 interface TerrainPieceSetEditorProps {
   onOverridesChange: (overrides: TerrainAdjacencyOverride[]) => void;
@@ -12,10 +31,11 @@ interface TerrainPieceSetEditorProps {
   overrides: TerrainAdjacencyOverride[];
   pieces: TerrainPiece[];
   sets: TerrainPieceSet[];
+  tilesets: TerrainTilesetView[];
 }
 
 export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => {
-  const { onOverridesChange, onSetsChange, overrides, pieces, sets } = props;
+  const { onOverridesChange, onSetsChange, overrides, pieces, sets, tilesets } = props;
   const [selectedSetSlug, setSelectedSetSlug] = useState(sets[0]?.slug ?? "");
   const [sourcePiece, setSourcePiece] = useState("");
   const [targetPiece, setTargetPiece] = useState("");
@@ -31,9 +51,9 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
 
   function addSet(): void {
     let index = sets.length + 1;
-    while (sets.some((entry) => entry.slug === `PIECE_SET_${index}`)) index += 1;
+    while (sets.some((entry) => entry.slug === `COLLECTION_${index}`)) index += 1;
     const next: TerrainPieceSet = {
-      slug: `PIECE_SET_${index}`,
+      slug: `COLLECTION_${index}`,
       label: "New collection",
       pieceSlugs: pieces.slice(0, 1).map((piece) => piece.slug),
       biomeTags: [],
@@ -194,20 +214,68 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
               <Plus className="size-4" /> Add
             </Button>
           </div>
-          <div className="space-y-1">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
             {overrides.map((entry) => (
-              <div className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1 text-xs" key={entry.slug}>
-                <span>
-                  {entry.sourcePiece} · {entry.direction} · {entry.mode} · {entry.targetPiece}
-                </span>
-                <Button
-                  onClick={() => onOverridesChange(overrides.filter((override) => override.slug !== entry.slug))}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                >
-                  <Trash2 className="size-3" />
-                </Button>
+              <div
+                className="relative min-w-0 space-y-2 rounded-md border border-border bg-card p-2 pt-10"
+                data-adjacency-rule={entry.slug}
+                key={entry.slug}
+              >
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      aria-label={`Delete ${entry.slug}`}
+                      className="absolute right-2 top-2 z-10"
+                      size="icon"
+                      title={`Delete ${entry.slug}`}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete adjacency exception?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Delete {entry.slug}: {entry.sourcePiece} {entry.direction} {entry.mode === "DENY" ? "cannot meet" : "may only meet"}{" "}
+                        {entry.targetPiece}. This takes effect the next time terrain is generated.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => onOverridesChange(overrides.filter((override) => override.slug !== entry.slug))}
+                      >
+                        Delete exception
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <TerrainAdjacencyRulePreview
+                  rule={entry}
+                  source={pieces.find((piece) => piece.slug === entry.sourcePiece)}
+                  target={pieces.find((piece) => piece.slug === entry.targetPiece)}
+                  tilesets={tilesets}
+                />
+                <div className="min-w-0 space-y-1 px-1 pb-1 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge variant={entry.mode === "DENY" ? "destructive" : "secondary"}>
+                      {entry.mode === "DENY" ? "Deny" : "Allow only"}
+                    </Badge>
+                    <span className="font-mono text-[10px] uppercase text-muted-foreground">{entry.direction}</span>
+                  </div>
+                  <p className="truncate font-medium" title={entry.sourcePiece}>
+                    {entry.sourcePiece}
+                  </p>
+                  <p className="truncate text-muted-foreground" title={entry.targetPiece}>
+                    → {entry.targetPiece}
+                  </p>
+                  <p className="truncate font-mono text-[10px] text-muted-foreground" title={entry.slug}>
+                    {entry.slug}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
