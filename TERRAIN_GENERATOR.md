@@ -35,8 +35,6 @@ Terrain Generator is divided into five focused pages:
 4. **Generate** — choose a template, starting seed, and batch size. **Generate** reproduces that seed range; **Generate more** appends the next range. Anchors, stamps, zones, and per-cell tag constraints remain under **Edit advanced constraints**.
 5. **Annotations** — polish approved maps with sparse cell overrides, then paint separate spatial dressings for runtime content placement.
 
-An empty project with identified sprites opens with an unsaved `EXAMPLE_FOREST_SITE`. It can immediately generate eight candidates. The example uses weighted 1×1 pieces, a 2×2 module with a three-cell collision mask, mixed-size transforms, one collection, deny and allow-only adjacency exceptions, cell tag constraints, three anchors, a required stamp, and a validation zone. Use **Reset full example** to reconstruct it after experimenting. It does not modify project files until **Save authoring** is selected.
-
 ## Tile catalog
 
 Select a sprite in the tileset catalog to author:

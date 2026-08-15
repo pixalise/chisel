@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RouteEnum } from "@/constants/route-enum";
 import { TerrainCandidateBatch } from "@/screens/main-stack/terrain-generator-screen/terrain-candidate-batch";
 import { TerrainCompatibilityInspector } from "@/screens/main-stack/terrain-generator-screen/terrain-compatibility-inspector";
-import { TerrainExampleGuide } from "@/screens/main-stack/terrain-generator-screen/terrain-example-guide";
 import { TerrainPieceEditor } from "@/screens/main-stack/terrain-generator-screen/terrain-piece-editor";
 import { TerrainPiecePainter } from "@/screens/main-stack/terrain-generator-screen/terrain-piece-painter";
 import { TerrainPieceSetEditor } from "@/screens/main-stack/terrain-generator-screen/terrain-piece-set-editor";
@@ -15,7 +14,7 @@ import { TerrainSocketCatalog } from "@/screens/main-stack/terrain-generator-scr
 import { TerrainTemplateEditor } from "@/screens/main-stack/terrain-generator-screen/terrain-template-editor";
 import { TerrainTileCatalog } from "@/screens/main-stack/terrain-generator-screen/terrain-tile-catalog";
 import terrainGeneratorService from "@/services/terrain-generator-service";
-import { AlertTriangle, BookOpen, Dices, Layers3, Library, Save, Tags } from "lucide-react";
+import { AlertTriangle, Dices, Layers3, Library, Save, Tags } from "lucide-react";
 import { type FC, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import type {
@@ -25,7 +24,6 @@ import type {
   TerrainTileRef,
   TerrainWorkspaceView
 } from "../../../../shared/terrain-authoring";
-import { installCompleteTerrainExample, terrainExampleTemplateSlug } from "../../../../shared/terrain-example";
 import {
   compileTerrainPieceLibrary,
   generateTerrainCandidateBatch,
@@ -54,8 +52,6 @@ export const TerrainGeneratorScreen: FC = () => {
     () => workspace?.templates.find((entry) => entry.slug === selectedTemplateSlug),
     [selectedTemplateSlug, workspace?.templates]
   );
-  const hasExample = workspace?.templates.some((entry) => entry.slug === terrainExampleTemplateSlug) === true;
-
   useEffect(() => {
     let cancelled = false;
     setIsBusy(true);
@@ -63,18 +59,7 @@ export const TerrainGeneratorScreen: FC = () => {
       .load()
       .then((loaded) => {
         if (cancelled) return;
-        const shouldInstallExample =
-          loaded.templates.length === 0 && loaded.pieceSets.length === 0 && Object.keys(loaded.tileBindings).length > 0;
-        const ready = shouldInstallExample ? installCompleteTerrainExample(loaded) : loaded;
-        setWorkspace(ready);
-        const exampleTemplate = ready.templates.find((entry) => entry.slug === terrainExampleTemplateSlug);
-        if (exampleTemplate) {
-          setSelectedTemplateSlug(exampleTemplate.slug);
-          setSelectedPieceSlug(ready.pieces.find((entry) => entry.slug === "EXAMPLE_OPEN_GROUND")?.slug);
-          setActivePage("generate");
-          if (shouldInstallExample)
-            setMessage("Loaded an unsaved complete forest example. Hit Generate batch, then inspect the five pages.");
-        }
+        setWorkspace(loaded);
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(caught instanceof Error ? caught.message : String(caught));
@@ -89,24 +74,6 @@ export const TerrainGeneratorScreen: FC = () => {
 
   function mutateWorkspace(update: (current: TerrainWorkspaceView) => TerrainWorkspaceView): void {
     setWorkspace((current) => (current ? update(current) : current));
-  }
-
-  function loadExample(): void {
-    if (!workspace) return;
-    setError("");
-    try {
-      const ready = installCompleteTerrainExample(workspace);
-      setWorkspace(ready);
-      setSelectedTemplateSlug(terrainExampleTemplateSlug);
-      setSelectedPieceSlug("EXAMPLE_OPEN_GROUND");
-      setCandidateResults([]);
-      setGeneratedTemplateSlug(undefined);
-      setCompatibility(undefined);
-      setActivePage("generate");
-      setMessage("Loaded the complete forest example into the editor. It remains unsaved until you choose Save authoring.");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    }
   }
 
   async function saveWorkspace(): Promise<void> {
@@ -228,9 +195,6 @@ export const TerrainGeneratorScreen: FC = () => {
                 <Badge variant="outline">{workspace.approvedAssets.length} approved</Badge>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button disabled={Object.keys(workspace.tileBindings).length === 0} onClick={loadExample} type="button" variant="outline">
-                  <BookOpen className="size-4" /> {hasExample ? "Reset full example" : "Load full example"}
-                </Button>
                 <Button disabled={isBusy} onClick={() => void saveWorkspace()} type="button">
                   <Save className="size-4" /> Save authoring
                 </Button>
@@ -403,7 +367,6 @@ export const TerrainGeneratorScreen: FC = () => {
                 />
               </TabsContent>
               <TabsContent className="space-y-4" value="generate">
-                {hasExample && <TerrainExampleGuide />}
                 <TerrainTemplateEditor
                   canGenerateMore={generatedTemplateSlug === template?.slug && candidateResults.length > 0}
                   onChange={(templates) =>
