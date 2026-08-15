@@ -8,6 +8,7 @@ export const TERRAIN_PIECE_SETS_TABLE_ID = "terrain_piece_sets";
 export const TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID = "terrain_adjacency_overrides";
 export const TERRAIN_SITE_TEMPLATES_TABLE_ID = "terrain_site_templates";
 export const TERRAIN_APPROVED_ASSETS_TABLE_ID = "terrain_approved_assets";
+export const TERRAIN_SPATIAL_LAYOUTS_TABLE_ID = "terrain_spatial_layouts";
 
 const SYSTEM_TABLE_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
@@ -108,6 +109,12 @@ export const TERRAIN_APPROVED_ASSET_COLUMNS = {
   definition: column("terrain_approved_definition", "definition", ColumnType.json)
 } as const;
 
+export const TERRAIN_SPATIAL_LAYOUT_COLUMNS = {
+  label: column("terrain_layout_label", "label", ColumnType.string),
+  sourceAsset: column("terrain_layout_source", "source_asset", ColumnType.ref, { refTableId: TERRAIN_APPROVED_ASSETS_TABLE_ID }),
+  definition: column("terrain_layout_definition", "definition", ColumnType.json)
+} as const;
+
 export const TERRAIN_TILE_BINDINGS_TABLE = table(
   TERRAIN_TILE_BINDINGS_TABLE_ID,
   "Terrain Sprite Metadata",
@@ -157,6 +164,13 @@ export const TERRAIN_APPROVED_ASSETS_TABLE = table(
   Object.values(TERRAIN_APPROVED_ASSET_COLUMNS)
 );
 
+export const TERRAIN_SPATIAL_LAYOUTS_TABLE = table(
+  TERRAIN_SPATIAL_LAYOUTS_TABLE_ID,
+  "Terrain Spatial Layouts",
+  "Post-approval zone masks, markers, and fixed or rule-driven content placements over frozen geography.",
+  Object.values(TERRAIN_SPATIAL_LAYOUT_COLUMNS)
+);
+
 export const SYSTEM_TERRAIN_TABLES = [
   TERRAIN_TILE_BINDINGS_TABLE,
   TERRAIN_SOCKETS_TABLE,
@@ -164,7 +178,8 @@ export const SYSTEM_TERRAIN_TABLES = [
   TERRAIN_PIECE_SETS_TABLE,
   TERRAIN_ADJACENCY_OVERRIDES_TABLE,
   TERRAIN_SITE_TEMPLATES_TABLE,
-  TERRAIN_APPROVED_ASSETS_TABLE
+  TERRAIN_APPROVED_ASSETS_TABLE,
+  TERRAIN_SPATIAL_LAYOUTS_TABLE
 ];
 
 export const EDITOR_ONLY_TERRAIN_TABLE_IDS = new Set(SYSTEM_TERRAIN_TABLES.map((entry) => entry.id));

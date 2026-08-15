@@ -33,7 +33,7 @@ Terrain Generator is divided into five focused pages:
 2. **Pieces** — paint modules and inspect compatibility with the cart icon.
 3. **Collections** — choose the pieces solved together. Adjacency exceptions remain under Advanced.
 4. **Generate** — choose a template, starting seed, and batch size. **Generate** reproduces that seed range; **Generate more** appends the next range. Anchors, stamps, zones, and per-cell tag constraints remain under **Edit advanced constraints**.
-5. **Approved** — review frozen maps and submodules independently from the live grammar.
+5. **Approved** — preview frozen maps and submodules, then paint separate spatial dressings for runtime content placement.
 
 An empty project with identified sprites opens with an unsaved `EXAMPLE_FOREST_SITE`. It can immediately generate eight candidates. The example uses weighted 1×1 pieces, a 2×2 module with a three-cell collision mask, mixed-size transforms, one collection, deny and allow-only adjacency exceptions, cell tag constraints, three anchors, a required stamp, and a validation zone. Use **Reset full example** to reconstruct it after experimenting. It does not modify project files until **Save authoring** is selected.
 
@@ -138,6 +138,17 @@ Approve a useful result as:
 
 Approval deep-copies concrete tile stacks, resolved metadata, placements, anchors, and metrics. Later changes to sockets, pieces, weights, templates, or the solver cannot alter an approved asset.
 
+Every approved asset has a rendered preview in the library. Selecting it opens the spatial annotation editor. A spatial dressing references—but never edits—the frozen asset and can define:
+
+- painted `PLACEMENT`, `EXCLUSION`, and `RESERVED` zones with semantic tags;
+- typed point markers such as POIs, quest sites, spawn hints, or landmarks, including radius and direction;
+- fixed placements that reference one concrete content-table row;
+- rule placements that name an engine-owned runtime rule set.
+
+An approved asset may have multiple interchangeable dressings. This lets one terrain result support different quest, encounter, or prop arrangements while retaining exactly the same geography. Chisel owns the immutable coordinates, tags, references, overlays, and validation. The engine interprets rule-set slugs, instantiates content, applies runtime eligibility rules, and owns spawned instance state.
+
+Template stamps are intentionally separate: they force terrain pieces during WFC generation and become part of the frozen geography. Spatial placements happen after approval and never rerun or modify WFC.
+
 ## Chisel-only data boundary
 
 The current terrain tables are:
@@ -149,12 +160,13 @@ The current terrain tables are:
 - `terrain_adjacency_overrides`
 - `terrain_site_templates`
 - `terrain_approved_assets`
+- `terrain_spatial_layouts`
 
-All seven are editor-only system tables. Runtime export excludes them. Deleting a tileset is refused while an authored piece or approved asset uses it; if only unused tile bindings remain, Chisel removes those bindings with the asset.
+All eight are editor-only system tables. Runtime export excludes them. Deleting an approved asset also deletes the spatial dressings that reference it. Deleting a tileset is refused while an authored piece or approved asset uses it; if only unused tile bindings remain, Chisel removes those bindings with the asset.
 
 ## Recommended first setup for a new tileset
 
-1. Bind ground, foliage, rock, water, and detail sprites with stable slugs, collision, and semantic tags.
+1. Bind ground, foliage, rock, water, and detail sprites with stable slugs and semantic tags.
 2. Define the smallest useful socket vocabulary.
 3. Make several 1×1 pieces to prove continuous ground and basic transitions.
 4. Add 2×1, 2×2, or larger pieces for deliberate clusters and silhouettes.
@@ -162,3 +174,4 @@ All seven are editor-only system tables. Runtime export excludes them. Deleting 
 6. Create one collection and generate a small unconstrained template.
 7. Add anchors, zones, tag constraints, and required stamps only after the local grammar is healthy.
 8. Review a candidate batch and freeze only geography worth keeping.
+9. Select an approved map, create one or more spatial dressings, then paint placement/exclusion zones and add only the markers or placements the engine needs.

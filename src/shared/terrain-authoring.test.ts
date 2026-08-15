@@ -7,6 +7,7 @@ import {
   terrainPieceSchema,
   terrainSiteTemplateSchema,
   terrainSocketDefinitionSchema,
+  terrainSpatialLayoutSchema,
   terrainTileBindingSchema
 } from "./terrain-authoring";
 
@@ -131,5 +132,40 @@ describe("socket terrain authoring contract", () => {
         metrics: { walkableComponents: 1, reachableAnchors: 0, requiredAnchors: 0, distinctPieces: 1 }
       })
     ).toMatchObject({ slug: "SITE_1", kind: "MAP" });
+  });
+
+  it("keeps post-approval spatial annotations separate from frozen geography", () => {
+    expect(
+      terrainSpatialLayoutSchema.parse({
+        slug: "FOREST_DRESSING",
+        label: "Forest dressing",
+        sourceAsset: "FOREST_SITE",
+        zones: [
+          {
+            slug: "CURIOSITY_AREA",
+            kind: "PLACEMENT",
+            cells: [0, 1, 3, 4],
+            tags: ["FOREST_INTERIOR", "CURIOSITY_ALLOWED"],
+            ruleSet: "FOREST_CURIOSITIES"
+          }
+        ],
+        markers: [{ slug: "QUEST_HOOK", kind: "POI", x: 1, y: 1, radius: 2, direction: "north", tags: ["QUEST_ALLOWED"] }],
+        placements: [
+          {
+            slug: "CURIOSITY_SLOT",
+            mode: "RULE",
+            x: 1,
+            y: 1,
+            width: 1,
+            height: 1,
+            orientation: 0,
+            contentTable: "",
+            contentSlug: "",
+            ruleSet: "FOREST_CURIOSITIES",
+            tags: ["OPTIONAL"]
+          }
+        ]
+      })
+    ).toMatchObject({ sourceAsset: "FOREST_SITE", zones: [{ cells: [0, 1, 3, 4] }] });
   });
 });

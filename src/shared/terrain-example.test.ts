@@ -18,6 +18,7 @@ function emptyWorkspace(): TerrainWorkspaceView {
     adjacencyOverrides: [],
     templates: [],
     approvedAssets: [],
+    spatialLayouts: [],
     problems: []
   };
 }

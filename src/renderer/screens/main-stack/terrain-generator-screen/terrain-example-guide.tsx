@@ -22,7 +22,7 @@ export const TerrainExampleGuide: FC = () => (
         ["2 · Pieces", "Weighted 1×1 details, a forced 2×2 grove, a rotating log, tile layers, and gameplay metadata."],
         ["3 · Collections", "One forest vocabulary plus visual deny and allow-only adjacency examples."],
         ["4 · Generate", "Seeded batches plus a terrain-backed preview of anchors, a grove stamp, a tree zone, and tag constraints."],
-        ["5 · Library", "Select any valid result, freeze it, and verify that the approved geography no longer changes."]
+        ["5 · Approved", "Preview frozen geography, then add separate zones, markers, fixed content, and runtime rule slots."]
       ].map(([title, copy]) => (
         <div className="rounded border border-border bg-background/70 p-2" key={title}>
           <p className="flex items-center gap-1 text-xs font-semibold">

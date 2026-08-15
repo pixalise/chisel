@@ -280,6 +280,72 @@ export const terrainApprovedAssetSchema = z
   });
 export type TerrainApprovedAsset = z.infer<typeof terrainApprovedAssetSchema>;
 
+export const terrainSpatialZoneSchema = z
+  .object({
+    slug: terrainSlugSchema,
+    kind: z.enum(["PLACEMENT", "EXCLUSION", "RESERVED"]),
+    cells: z.array(z.number().int().nonnegative()),
+    tags: z.array(terrainSlugSchema),
+    ruleSet: z.union([terrainSlugSchema, z.literal("")])
+  })
+  .strict()
+  .superRefine((zone, context) => {
+    if (new Set(zone.cells).size !== zone.cells.length) {
+      context.addIssue({ code: "custom", message: "Zone cells must be unique", path: ["cells"] });
+    }
+  });
+export type TerrainSpatialZone = z.infer<typeof terrainSpatialZoneSchema>;
+
+export const terrainSpatialMarkerSchema = z
+  .object({
+    slug: terrainSlugSchema,
+    kind: terrainSlugSchema,
+    x: z.number().int().nonnegative(),
+    y: z.number().int().nonnegative(),
+    radius: z.number().int().min(0).max(32),
+    direction: terrainDirectionSchema,
+    tags: z.array(terrainSlugSchema)
+  })
+  .strict();
+export type TerrainSpatialMarker = z.infer<typeof terrainSpatialMarkerSchema>;
+
+export const terrainSpatialPlacementSchema = z
+  .object({
+    slug: terrainSlugSchema,
+    mode: z.enum(["FIXED", "RULE"]),
+    x: z.number().int().nonnegative(),
+    y: z.number().int().nonnegative(),
+    width: terrainPieceDimensionSchema,
+    height: terrainPieceDimensionSchema,
+    orientation: z.number().int().min(0).max(7),
+    contentTable: z.string().trim().max(96),
+    contentSlug: z.union([terrainSlugSchema, z.literal("")]),
+    ruleSet: z.union([terrainSlugSchema, z.literal("")]),
+    tags: z.array(terrainSlugSchema)
+  })
+  .strict()
+  .superRefine((placement, context) => {
+    if (placement.mode === "FIXED" && (!placement.contentTable || !placement.contentSlug)) {
+      context.addIssue({ code: "custom", message: "Fixed placements require a content table and row slug" });
+    }
+    if (placement.mode === "RULE" && !placement.ruleSet) {
+      context.addIssue({ code: "custom", message: "Rule placements require a rule-set slug" });
+    }
+  });
+export type TerrainSpatialPlacement = z.infer<typeof terrainSpatialPlacementSchema>;
+
+export const terrainSpatialLayoutSchema = z
+  .object({
+    slug: terrainSlugSchema,
+    label: z.string().trim().min(1).max(128),
+    sourceAsset: terrainSlugSchema,
+    zones: z.array(terrainSpatialZoneSchema),
+    markers: z.array(terrainSpatialMarkerSchema),
+    placements: z.array(terrainSpatialPlacementSchema)
+  })
+  .strict();
+export type TerrainSpatialLayout = z.infer<typeof terrainSpatialLayoutSchema>;
+
 export interface TerrainTilesetView {
   id: string;
   name: string;
@@ -301,6 +367,7 @@ export interface TerrainWorkspaceView {
   adjacencyOverrides: TerrainAdjacencyOverride[];
   templates: TerrainSiteTemplate[];
   approvedAssets: TerrainApprovedAsset[];
+  spatialLayouts: TerrainSpatialLayout[];
   problems: string[];
 }
 

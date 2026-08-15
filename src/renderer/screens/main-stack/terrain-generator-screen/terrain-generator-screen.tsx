@@ -206,9 +206,13 @@ export const TerrainGeneratorScreen: FC = () => {
     if (!workspace) return;
     setError("");
     try {
-      const saved = await terrainGeneratorService.saveApprovedAssets(workspace.approvedAssets.filter((entry) => entry.slug !== slug));
+      const saved = await terrainGeneratorService.save({
+        ...workspace,
+        approvedAssets: workspace.approvedAssets.filter((entry) => entry.slug !== slug),
+        spatialLayouts: workspace.spatialLayouts.filter((entry) => entry.sourceAsset !== slug)
+      });
       setWorkspace(saved);
-      setMessage(`Removed approved asset '${slug}'.`);
+      setMessage(`Removed approved asset '${slug}' and its spatial dressings.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     }
@@ -462,7 +466,13 @@ export const TerrainGeneratorScreen: FC = () => {
                 />
               </TabsContent>
               <TabsContent value="library">
-                <TerrainApprovedLibrary assets={workspace.approvedAssets} onDelete={deleteApprovedAsset} />
+                <TerrainApprovedLibrary
+                  assets={workspace.approvedAssets}
+                  layouts={workspace.spatialLayouts}
+                  onDelete={deleteApprovedAsset}
+                  onLayoutsChange={(spatialLayouts) => mutateWorkspace((current) => ({ ...current, spatialLayouts }))}
+                  tilesets={workspace.tilesets}
+                />
               </TabsContent>
             </Tabs>
           </>
