@@ -198,6 +198,7 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
   const selectedCellX = piece ? selectedCellIndex % piece.width : 0;
   const selectedCellY = piece ? Math.floor(selectedCellIndex / piece.width) : 0;
   const blockingCellCount = piece?.cells.filter((cell) => cell.blocking).length ?? 0;
+  const logicalCellCount = piece?.cells.filter((cell) => cell.tiles[0] === null).length ?? 0;
 
   return (
     <div className="space-y-3 rounded-md border border-border p-3">
@@ -267,6 +268,9 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
+              <Badge variant={logicalCellCount > 0 ? "secondary" : "outline"}>
+                {logicalCellCount} logical-only {logicalCellCount === 1 ? "cell" : "cells"}
+              </Badge>
               <Badge variant={blockingCellCount > 0 ? "destructive" : "outline"}>
                 {blockingCellCount} of {piece.cells.length} cells blocking
               </Badge>
@@ -293,7 +297,7 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
             </div>
             <p className="w-full text-[11px] text-muted-foreground">
               {brushMode === "terrain"
-                ? "Left-drag paints the selected sprite. Right-drag or Ctrl-drag erases the active render layer."
+                ? "Left-drag paints the selected sprite. Right-drag or Ctrl-drag erases the active layer. An erased base remains a valid logical cell controlled by its flags, collision, and sockets."
                 : "Left-drag marks piece cells as blocking. Right-drag or Ctrl-drag makes them walkable. Red X cells become collision areas in generated terrain."}
             </p>
           </div>
@@ -340,7 +344,12 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
                 <p className="text-xs font-semibold">
                   Selected cell {selectedCellX},{selectedCellY}
                 </p>
-                <Badge variant={selectedCell.blocking ? "destructive" : "outline"}>{selectedCell.blocking ? "Blocking" : "Walkable"}</Badge>
+                <div className="flex flex-wrap gap-1">
+                  <Badge variant={selectedCell.blocking ? "destructive" : "outline"}>
+                    {selectedCell.blocking ? "Blocking" : "Walkable"}
+                  </Badge>
+                  {selectedCell.tiles[0] === null && <Badge variant="secondary">Logical only</Badge>}
+                </div>
               </div>
               <Label className="flex items-center gap-2 text-sm">
                 <Checkbox checked={selectedCell.blocking} onCheckedChange={(checked) => updateCell({ blocking: checked === true })} />

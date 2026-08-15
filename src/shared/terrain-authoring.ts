@@ -45,6 +45,7 @@ export type TerrainSocketDefinition = z.infer<typeof terrainSocketDefinitionSche
 
 export const terrainPieceDimensionSchema = z.number().int().min(1).max(8);
 export type TerrainPieceDimension = z.infer<typeof terrainPieceDimensionSchema>;
+export const terrainPieceWeightSchema = z.number().positive().max(1_000_000);
 
 export const terrainPieceCellSchema = z
   .object({
@@ -76,7 +77,7 @@ export const terrainPieceSchema = z
     sockets: terrainSocketProfilesSchema,
     allowRotations: z.boolean(),
     allowReflections: z.boolean(),
-    weight: z.number().positive().max(1_000_000),
+    weight: terrainPieceWeightSchema,
     biomeTags: z.array(terrainSlugSchema),
     siteTags: z.array(terrainSlugSchema),
     semanticFlags: z.array(terrainSlugSchema),
@@ -90,13 +91,6 @@ export const terrainPieceSchema = z
     piece.cells.forEach((cell, index) => {
       if (cell.tiles.length !== piece.layerCount) {
         context.addIssue({ code: "custom", message: "Piece cell layers must match layer count", path: ["cells", index, "tiles"] });
-      }
-      if (cell.tiles[0] === null) {
-        context.addIssue({
-          code: "custom",
-          message: "Terrain pieces must paint every first-layer cell",
-          path: ["cells", index, "tiles", 0]
-        });
       }
     });
     const expected = { north: piece.width, east: piece.height, south: piece.width, west: piece.height } as const;
@@ -116,6 +110,7 @@ export const terrainPieceSetSchema = z
   .object({
     slug: terrainSlugSchema,
     pieceSlugs: z.array(terrainSlugSchema).min(1),
+    pieceWeights: z.record(terrainSlugSchema, terrainPieceWeightSchema).default({}),
     biomeTags: z.array(terrainSlugSchema),
     siteTags: z.array(terrainSlugSchema)
   })
@@ -185,7 +180,7 @@ export const terrainSiteTemplateSchema = z
     width: terrainTemplateDimensionSchema,
     height: terrainTemplateDimensionSchema,
     pieceSet: terrainSlugSchema,
-    firstSeed: z.number().int().min(0).max(0xffffffff),
+    firstSeed: z.number().int().min(0).max(0xffffffff).optional(),
     candidateCount: z.number().int().min(1).max(24),
     cells: z.array(terrainTemplateCellSchema),
     anchors: z.array(terrainTemplateAnchorSchema),
@@ -263,7 +258,7 @@ export const terrainApprovedAssetSchema = z
     slug: terrainSlugSchema,
     kind: z.enum(["MAP", "SUBMODULE"]),
     sourceTemplate: terrainSlugSchema,
-    seed: z.number().int().nonnegative(),
+    seed: z.number().int().nonnegative().optional(),
     width: terrainTemplateDimensionSchema,
     height: terrainTemplateDimensionSchema,
     layerCount: terrainLayerCountSchema,

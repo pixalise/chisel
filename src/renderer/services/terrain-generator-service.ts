@@ -188,6 +188,11 @@ class TerrainGeneratorService {
     for (const pieceSet of pieceSets) {
       for (const piece of pieceSet.pieceSlugs)
         if (!pieceSlugs.has(piece)) problems.push(`Collection '${pieceSet.slug}' references missing piece '${piece}'`);
+      for (const weightedPiece of Object.keys(pieceSet.pieceWeights)) {
+        if (!pieceSet.pieceSlugs.includes(weightedPiece)) {
+          problems.push(`Collection '${pieceSet.slug}' has a weight for inactive piece '${weightedPiece}'`);
+        }
+      }
     }
     for (const override of adjacencyOverrides) {
       if (!pieceSlugs.has(override.sourcePiece) || !pieceSlugs.has(override.targetPiece)) {

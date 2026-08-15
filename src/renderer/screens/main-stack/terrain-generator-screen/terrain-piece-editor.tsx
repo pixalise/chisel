@@ -80,20 +80,10 @@ export const TerrainPieceEditor: FC<TerrainPieceEditorProps> = (props) => {
       </div>
       {piece && (
         <div className="space-y-2 border-t border-border pt-3">
-          <div className="grid gap-2 md:grid-cols-[minmax(10rem,1fr)_7rem_7rem_7rem_7rem_minmax(10rem,1fr)_auto_auto] md:items-end">
+          <div className="grid gap-2 md:grid-cols-[minmax(10rem,1fr)_7rem_7rem_7rem_minmax(10rem,1fr)_auto_auto] md:items-end">
             <Label className="space-y-1">
               Stable slug
               <Input onChange={(event) => onChange({ ...piece, slug: normalizeSlug(event.target.value) })} value={piece.slug} />
-            </Label>
-            <Label className="space-y-1">
-              Weight
-              <Input
-                min={0.001}
-                onChange={(event) => onChange({ ...piece, weight: Number(event.target.value) })}
-                step="0.1"
-                type="number"
-                value={piece.weight}
-              />
             </Label>
             <Label className="flex h-9 items-center gap-2 text-xs">
               <Checkbox

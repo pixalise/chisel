@@ -15,7 +15,7 @@ collection + optional adjacency exceptions
                 │
                 ▼
 site template (stamps, anchors, zones, tag constraints)
-                │ generate deterministic seeds
+                │ generate fresh random batches
                 ▼
 candidate contact sheet + validation metrics
                 │ approve
@@ -32,7 +32,7 @@ Terrain Generator is divided into five focused pages:
 1. **Catalog** — bind tiles and define the socket vocabulary.
 2. **Pieces** — paint modules and inspect compatibility with the cart icon.
 3. **Collections** — choose the pieces solved together. Adjacency exceptions remain under Advanced.
-4. **Generate** — choose a template, starting seed, and batch size. **Generate** reproduces that seed range; **Generate more** appends the next range. Anchors, stamps, zones, and per-cell tag constraints remain under **Edit advanced constraints**.
+4. **Generate** — choose a template and batch size. Every **Generate** click creates a fresh random contact sheet. Anchors, stamps, zones, and per-cell tag constraints remain under **Edit advanced constraints**.
 5. **Annotations** — polish approved maps with sparse cell overrides, then paint separate spatial dressings for runtime content placement.
 
 ## Tile catalog
@@ -58,14 +58,14 @@ Keep the vocabulary semantic and small. Visual variants normally reuse a socket.
 
 A piece is a rectangular module from 1×1 through 8×8 cells. It contains:
 
-- one or more painted render layers, with every first-layer cell filled;
+- one or more render layers; the first layer may remain unpainted for an intentional logical-only cell;
 - an explicit socket for every segment along its north, east, south, and west edges;
 - optional rotations and reflections;
-- a positive selection weight;
+- a positive legacy/default selection weight, overridden by collection-specific weights;
 - biome tags, site tags, semantic flags, and an optional mutation family;
 - per-cell movement blocking, elevation, and semantic flags.
 
-The piece painter has two explicit modes. **Paint terrain** applies render sprites and layers. **Paint collision** applies a red per-cell collision mask: left-drag blocks cells, while right-drag or Ctrl-drag clears them. A 2×2 piece may therefore block any combination of its four cells, and that mask rotates or reflects with the piece.
+The piece painter has two explicit modes. **Paint terrain** applies render sprites and layers. Erasing the base creates a valid logical-only cell that still carries sockets, semantic flags, elevation, and collision. **Paint collision** applies a red per-cell collision mask: left-drag blocks cells, while right-drag or Ctrl-drag clears them. A 2×2 piece may therefore block any combination of its four cells, and that mask rotates or reflects with the piece.
 
 For directional art, shadows, text, or asymmetrical collision, enable only visually valid transforms. The compiler transforms both artwork and socket profiles.
 
@@ -92,7 +92,7 @@ Prefer meaningful sockets over a large exception list.
 
 A collection is the complete vocabulary available to one solve. Use collections to make biome densities and transition families explicit without duplicating tiles or generator code.
 
-Collection setup lists every valid authored piece—both 1×1 tiles and larger modules—as a visual card. Search by slug, dimensions, tags, or mutation family; filter cards by active/inactive status; and click a card to toggle whether that piece participates in the collection. A collection must retain at least one active piece.
+Collection setup lists every valid authored piece—both 1×1 tiles and larger modules—as a visual card. Search by slug, dimensions, tags, or mutation family; filter cards by active/inactive status; and click a card to toggle whether that piece participates in the collection. Every active card has a positive relative weight scoped to that collection, so the same piece can be common in one solve and rare in another. A collection must retain at least one active piece.
 
 Weights are normalized by module area, so a large module does not become disproportionately common merely because it occupies more cells.
 
@@ -100,7 +100,7 @@ Weights are normalized by module area, so a large module does not become disprop
 
 A site template supplies large-scale intent that local WFC cannot infer. It selects one collection and defines:
 
-- map dimensions, reproducible starting seed, and candidate batch size;
+- map dimensions and candidate batch size;
 - per-cell required and forbidden semantic tags;
 - required piece stamps with fixed transform and location;
 - entrance, exit, and extension anchors;
@@ -114,7 +114,7 @@ The advanced constraint preview draws the latest generated candidate as a terrai
 
 ## Generation
 
-Generation is deterministic for a template and seed. The authored start seed always recreates the same batch; requesting more candidates continues from the next seed without replacing the current contact sheet.
+Every Generate click starts from fresh randomness and replaces the current contact sheet. Random state remains an internal solver detail rather than authored template data.
 
 1. Compile every enabled transform into per-cell states.
 2. Pre-ban module origins that would clip a boundary.
@@ -123,11 +123,11 @@ Generation is deterministic for a template and seed. The authored start seed alw
 5. Compose tile stacks, collision, elevation, and semantic metadata.
 6. Validate anchors, zones, elevation steps, and walkable components.
 
-Contradictions are retried with deterministic derived seeds. If every attempt fails, fix the grammar or constraints; the generator does not emit an invalid partial map.
+Contradictions are retried from the current random solve. If every attempt fails, fix the grammar or constraints; the generator does not emit an invalid partial map.
 
 ## Candidate review and approval
 
-Generate a batch rather than judging one seed. The contact sheet reports validation issues and metrics including walkable components, reachable anchors, and distinct piece usage.
+Generate a batch rather than judging one result. The contact sheet reports validation issues and metrics including walkable components, reachable anchors, and distinct piece usage.
 
 Approve a useful result as:
 

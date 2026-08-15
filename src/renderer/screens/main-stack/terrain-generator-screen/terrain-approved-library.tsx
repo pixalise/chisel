@@ -79,7 +79,7 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
                 <div className="pr-9">
                   <p className="truncate text-sm font-medium">{asset.slug}</p>
                   <p className="text-xs text-muted-foreground">
-                    {asset.kind} · {asset.width}×{asset.height} · seed {asset.seed} · {asset.sourceTemplate}
+                    {asset.kind} · {asset.width}×{asset.height} · {asset.sourceTemplate}
                   </p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {asset.metrics.distinctPieces} piece types · {asset.metrics.walkableComponents} walkable components ·{" "}

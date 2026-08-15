@@ -45,8 +45,8 @@ function piece(
   });
 }
 
-function set(slug: string, pieceSlugs: string[]): TerrainPieceSet {
-  return { slug, pieceSlugs, biomeTags: [], siteTags: [] };
+function set(slug: string, pieceSlugs: string[], pieceWeights: Record<string, number> = {}): TerrainPieceSet {
+  return { slug, pieceSlugs, pieceWeights, biomeTags: [], siteTags: [] };
 }
 
 function bindings(): Record<string, TerrainTileBinding> {
@@ -90,6 +90,47 @@ describe("Simple-Tiled socket WFC", () => {
     expect(library.variants.every((variant) => variant.cells.filter((cell) => cell.blocking).length === 1)).toBe(true);
   });
 
+  it("uses collection-specific piece weights independently of piece defaults and orientation count", () => {
+    const common = piece("COMMON", 0, "GROUND", { weight: 50 });
+    const rare = piece("RARE", 1, "GROUND", { weight: 50 });
+    common.allowRotations = true;
+    const library = compileTerrainPieceLibrary([common, rare], set("WEIGHTED", [common.slug, rare.slug], { COMMON: 8, RARE: 2 }), []);
+    const commonStates = library.states.filter((state) => state.pieceSlug === common.slug);
+    const rareStates = library.states.filter((state) => state.pieceSlug === rare.slug);
+    expect(commonStates).toHaveLength(4);
+    expect(commonStates.every((state) => state.weight === 2)).toBe(true);
+    expect(rareStates).toHaveLength(1);
+    expect(rareStates[0].weight).toBe(2);
+  });
+
+  it("generates logical cells whose first render layer is intentionally unpainted", () => {
+    const water = piece("WATER", 0, "WATER", { semanticFlags: ["WATER"] });
+    water.cells[0].tiles = [null];
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: [water],
+        pieceSets: [set("WATER_SET", [water.slug], { WATER: 1 })],
+        adjacencyOverrides: [],
+        tileBindings: {}
+      },
+      {
+        slug: "WATER_SITE",
+        width: 3,
+        height: 3,
+        pieceSet: "WATER_SET",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells: createTerrainTemplateCells(3, 3),
+        anchors: [],
+        stamps: [],
+        zones: []
+      },
+      4
+    );
+    expect(candidate.cells.every((stack) => stack[0] === null)).toBe(true);
+    expect(candidate.cellMetadata.every((metadata) => metadata.tags.includes("WATER"))).toBe(true);
+  });
+
   it("applies deny and allow-only exceptions after socket matching", () => {
     const a = piece("A", 0, "GROUND");
     const b = piece("B", 1, "GROUND");
@@ -127,11 +168,12 @@ describe("Simple-Tiled socket WFC", () => {
     const first = generateTerrainCandidate(workspace, template, 42);
     const second = generateTerrainCandidate(workspace, template, 42);
     expect(first).toEqual(second);
-    expect(generateTerrainCandidateBatch(workspace, template, template.firstSeed).map((result) => result.seed)).toEqual([1, 2]);
+    expect(generateTerrainCandidateBatch(workspace, template, 1).map((result) => result.seed)).toEqual([1, 2]);
     const frozen = freezeTerrainCandidate(first, "APPROVED", "MAP");
     first.cells[0][0] = tile(3);
     expect(frozen.cells[0][0]).not.toEqual(tile(3));
     expect(frozen.cellOverrides).toEqual([]);
+    expect(frozen).not.toHaveProperty("seed");
   });
 
   it("uses resolved cell tags and anchor sockets as macro constraints", () => {

@@ -17,9 +17,8 @@ import { TerrainTemplateConstraintCards } from "./terrain-template-constraint-ca
 import { type TerrainConstraintHighlight, TerrainTemplateConstraintPreview } from "./terrain-template-constraint-preview";
 
 interface TerrainTemplateEditorProps {
-  canGenerateMore: boolean;
   onChange: (templates: TerrainSiteTemplate[]) => void;
-  onGenerate: (template: TerrainSiteTemplate, append: boolean) => void;
+  onGenerate: (template: TerrainSiteTemplate) => void;
   onSelect: (slug?: string) => void;
   pieces: TerrainPiece[];
   previewCandidate?: TerrainCandidate;
@@ -31,19 +30,7 @@ interface TerrainTemplateEditorProps {
 }
 
 export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => {
-  const {
-    canGenerateMore,
-    onChange,
-    onGenerate,
-    onSelect,
-    pieces,
-    previewCandidate,
-    selectedTemplate,
-    sets,
-    sockets,
-    templates,
-    tilesets
-  } = props;
+  const { onChange, onGenerate, onSelect, pieces, previewCandidate, selectedTemplate, sets, sockets, templates, tilesets } = props;
   const [width, setWidth] = useState(12);
   const [height, setHeight] = useState(12);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -74,7 +61,6 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
       width,
       height,
       pieceSet: pieceSet.slug,
-      firstSeed: 1,
       candidateCount: 12,
       cells: createTerrainTemplateCells(width, height),
       anchors: [],
@@ -130,7 +116,7 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
       </div>
       {selectedTemplate && (
         <>
-          <div className="grid gap-2 lg:grid-cols-[minmax(10rem,1fr)_14rem_8rem_7rem_auto_auto_auto] lg:items-end">
+          <div className="grid gap-2 lg:grid-cols-[minmax(10rem,1fr)_14rem_7rem_auto_auto] lg:items-end">
             <Label className="space-y-1 text-xs">
               Stable slug
               <Input onChange={(event) => update({ slug: normalizeSlug(event.target.value) })} value={selectedTemplate.slug} />
@@ -150,16 +136,6 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
               </select>
             </Label>
             <Label className="space-y-1 text-xs">
-              Start seed
-              <Input
-                max={0xffffffff}
-                min={0}
-                onChange={(event) => update({ firstSeed: Number(event.target.value) })}
-                type="number"
-                value={selectedTemplate.firstSeed}
-              />
-            </Label>
-            <Label className="space-y-1 text-xs">
               Batch
               <Input
                 max={24}
@@ -169,11 +145,8 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
                 value={selectedTemplate.candidateCount}
               />
             </Label>
-            <Button onClick={() => onGenerate(selectedTemplate, false)} type="button">
+            <Button onClick={() => onGenerate(selectedTemplate)} type="button">
               <Dices className="size-4" /> Generate
-            </Button>
-            <Button disabled={!canGenerateMore} onClick={() => onGenerate(selectedTemplate, true)} type="button" variant="outline">
-              <Plus className="size-4" /> Generate more
             </Button>
             <Button
               onClick={() => {

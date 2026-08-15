@@ -52,9 +52,11 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
   function addSet(): void {
     let index = sets.length + 1;
     while (sets.some((entry) => entry.slug === `COLLECTION_${index}`)) index += 1;
+    const initialPieces = pieces.slice(0, 1);
     const next: TerrainPieceSet = {
       slug: `COLLECTION_${index}`,
-      pieceSlugs: pieces.slice(0, 1).map((piece) => piece.slug),
+      pieceSlugs: initialPieces.map((piece) => piece.slug),
+      pieceWeights: Object.fromEntries(initialPieces.map((piece) => [piece.slug, piece.weight])),
       biomeTags: [],
       siteTags: []
     };
@@ -134,7 +136,8 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
               </Label>
             </div>
             <TerrainCollectionPiecePicker
-              onChange={(pieceSlugs) => updateSet({ pieceSlugs })}
+              onChange={(pieceSlugs, pieceWeights) => updateSet({ pieceSlugs, pieceWeights })}
+              pieceWeights={selectedSet.pieceWeights}
               pieces={pieces}
               selectedPieceSlugs={selectedSet.pieceSlugs}
               tilesets={tilesets}

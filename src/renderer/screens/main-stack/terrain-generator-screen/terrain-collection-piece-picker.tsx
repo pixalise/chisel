@@ -8,7 +8,8 @@ import type { TerrainPiece, TerrainTilesetView } from "../../../../shared/terrai
 import { TerrainPiecePreview } from "./terrain-piece-preview";
 
 interface TerrainCollectionPiecePickerProps {
-  onChange: (pieceSlugs: string[]) => void;
+  onChange: (pieceSlugs: string[], pieceWeights: Record<string, number>) => void;
+  pieceWeights: Record<string, number>;
   pieces: TerrainPiece[];
   selectedPieceSlugs: string[];
   tilesets: TerrainTilesetView[];
@@ -17,7 +18,7 @@ interface TerrainCollectionPiecePickerProps {
 type PieceStatusFilter = "all" | "active" | "inactive";
 
 export const TerrainCollectionPiecePicker: FC<TerrainCollectionPiecePickerProps> = (props) => {
-  const { onChange, pieces, selectedPieceSlugs, tilesets } = props;
+  const { onChange, pieceWeights, pieces, selectedPieceSlugs, tilesets } = props;
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<PieceStatusFilter>("all");
   const selected = new Set(selectedPieceSlugs);
@@ -46,10 +47,18 @@ export const TerrainCollectionPiecePicker: FC<TerrainCollectionPiecePickerProps>
   function togglePiece(piece: TerrainPiece): void {
     if (selected.has(piece.slug)) {
       if (activePieceCount <= 1) return;
-      onChange(selectedPieceSlugs.filter((slug) => slug !== piece.slug));
+      onChange(
+        selectedPieceSlugs.filter((slug) => slug !== piece.slug),
+        Object.fromEntries(Object.entries(pieceWeights).filter(([slug]) => slug !== piece.slug))
+      );
     } else {
-      onChange([...selectedPieceSlugs, piece.slug]);
+      onChange([...selectedPieceSlugs, piece.slug], { ...pieceWeights, [piece.slug]: pieceWeights[piece.slug] ?? piece.weight });
     }
+  }
+
+  function updateWeight(piece: TerrainPiece, weight: number): void {
+    if (!Number.isFinite(weight) || weight <= 0) return;
+    onChange(selectedPieceSlugs, { ...pieceWeights, [piece.slug]: Math.min(weight, 1_000_000) });
   }
 
   return (
@@ -58,7 +67,7 @@ export const TerrainCollectionPiecePicker: FC<TerrainCollectionPiecePickerProps>
         <div>
           <p className="text-xs font-semibold">Collection pieces</p>
           <p className="text-[11px] text-muted-foreground">
-            Every valid authored 1×1 tile and larger module is listed. Click a card to include or exclude it from this solve.
+            Every authored piece is listed. Include the pieces used by this solve, then set their relative collection weights.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -92,54 +101,75 @@ export const TerrainCollectionPiecePicker: FC<TerrainCollectionPiecePickerProps>
           {visiblePieces.map((piece) => {
             const active = selected.has(piece.slug);
             const isLastActive = active && activePieceCount <= 1;
+            const weight = pieceWeights[piece.slug] ?? piece.weight;
             return (
-              <button
-                aria-pressed={active}
+              <div
                 className={cn(
-                  "relative min-w-0 space-y-2 rounded-md border bg-card p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "relative min-w-0 space-y-2 rounded-md border bg-card p-2 transition-colors",
                   active
-                    ? "border-primary bg-primary/5 ring-1 ring-primary hover:bg-primary/10"
+                    ? "border-primary bg-primary/5 ring-1 ring-primary"
                     : "border-border opacity-70 hover:border-primary/60 hover:bg-muted/30 hover:opacity-100",
                   isLastActive && "cursor-not-allowed"
                 )}
                 data-active={active}
                 data-collection-piece={piece.slug}
-                disabled={isLastActive}
                 key={piece.slug}
-                onClick={() => togglePiece(piece)}
-                title={
-                  isLastActive ? "A collection must keep at least one active piece" : `${active ? "Exclude" : "Include"} ${piece.slug}`
-                }
-                type="button"
               >
-                <div className="relative overflow-hidden rounded bg-slate-950">
-                  <TerrainPiecePreview
-                    ariaLabel={`${piece.slug} collection preview`}
-                    piece={piece}
-                    showCollision
-                    size={112}
-                    tilesets={tilesets}
-                  />
-                  <span
-                    className={cn(
-                      "absolute right-2 top-2 flex size-6 items-center justify-center rounded-full border",
-                      active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background/90 text-muted-foreground"
-                    )}
-                  >
-                    {active && <Check className="size-4" />}
-                  </span>
-                </div>
-                <p className="truncate font-mono text-xs font-semibold" title={piece.slug}>
-                  {piece.slug}
-                </p>
-                <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
-                  <span>
-                    {piece.width}×{piece.height}
-                  </span>
-                  <span>· weight {piece.weight}</span>
-                  <Badge variant={active ? "secondary" : "outline"}>{active ? "Active" : "Inactive"}</Badge>
-                </div>
-              </button>
+                <button
+                  aria-pressed={active}
+                  className="block w-full space-y-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  disabled={isLastActive}
+                  onClick={() => togglePiece(piece)}
+                  title={
+                    isLastActive ? "A collection must keep at least one active piece" : `${active ? "Exclude" : "Include"} ${piece.slug}`
+                  }
+                  type="button"
+                >
+                  <div className="relative overflow-hidden rounded bg-slate-950">
+                    <TerrainPiecePreview
+                      ariaLabel={`${piece.slug} collection preview`}
+                      piece={piece}
+                      showCollision
+                      size={112}
+                      tilesets={tilesets}
+                    />
+                    <span
+                      className={cn(
+                        "absolute right-2 top-2 flex size-6 items-center justify-center rounded-full border",
+                        active
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background/90 text-muted-foreground"
+                      )}
+                    >
+                      {active && <Check className="size-4" />}
+                    </span>
+                  </div>
+                  <p className="truncate font-mono text-xs font-semibold" title={piece.slug}>
+                    {piece.slug}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+                    <span>
+                      {piece.width}×{piece.height}
+                    </span>
+                    <Badge variant={active ? "secondary" : "outline"}>{active ? "Active" : "Inactive"}</Badge>
+                  </div>
+                </button>
+                {active && (
+                  <label className="flex items-center justify-between gap-2 border-t border-border pt-2 text-[11px] font-medium">
+                    Collection weight
+                    <Input
+                      aria-label={`${piece.slug} collection weight`}
+                      className="h-7 w-24"
+                      max={1_000_000}
+                      min={0.001}
+                      onChange={(event) => updateWeight(piece, event.currentTarget.valueAsNumber)}
+                      step="0.1"
+                      type="number"
+                      value={weight}
+                    />
+                  </label>
+                )}
+              </div>
             );
           })}
         </div>

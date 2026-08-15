@@ -34,6 +34,12 @@ import {
 
 type TerrainPage = "catalog" | "pieces" | "collections" | "generate";
 
+function randomTerrainSeed(): number {
+  const value = new Uint32Array(1);
+  crypto.getRandomValues(value);
+  return value[0];
+}
+
 export const TerrainGeneratorScreen: FC = () => {
   const navigate = useNavigate();
   const [workspace, setWorkspace] = useState<TerrainWorkspaceView>();
@@ -99,7 +105,10 @@ export const TerrainGeneratorScreen: FC = () => {
       pieces: current.pieces.map((entry) => (entry.slug === previousSlug ? next : entry)),
       pieceSets: current.pieceSets.map((entry) => ({
         ...entry,
-        pieceSlugs: entry.pieceSlugs.map((slug) => (slug === previousSlug ? next.slug : slug))
+        pieceSlugs: entry.pieceSlugs.map((slug) => (slug === previousSlug ? next.slug : slug)),
+        pieceWeights: Object.fromEntries(
+          Object.entries(entry.pieceWeights).map(([slug, weight]) => [slug === previousSlug ? next.slug : slug, weight])
+        )
       })),
       adjacencyOverrides: current.adjacencyOverrides.map((entry) => ({
         ...entry,
@@ -126,6 +135,7 @@ export const TerrainGeneratorScreen: FC = () => {
       const inspectionSet = containingSet ?? {
         slug: "CURRENT_INSPECTION",
         pieceSlugs: pieces.map((entry) => entry.slug),
+        pieceWeights: Object.fromEntries(pieces.map((entry) => [entry.slug, entry.weight])),
         biomeTags: [],
         siteTags: []
       };
@@ -137,18 +147,14 @@ export const TerrainGeneratorScreen: FC = () => {
     }
   }
 
-  function generateBatch(source: TerrainSiteTemplate, append: boolean): void {
+  function generateBatch(source: TerrainSiteTemplate): void {
     if (!workspace) return;
     setError("");
     try {
-      const continuing = append && generatedTemplateSlug === source.slug && candidateResults.length > 0;
-      const firstSeed = continuing ? (candidateResults[candidateResults.length - 1].seed + 1) >>> 0 : source.firstSeed;
-      const generated = generateTerrainCandidateBatch(workspace, source, firstSeed);
-      setCandidateResults(continuing ? [...candidateResults, ...generated] : generated);
+      const generated = generateTerrainCandidateBatch(workspace, source, randomTerrainSeed());
+      setCandidateResults(generated);
       setGeneratedTemplateSlug(source.slug);
-      setMessage(
-        `${continuing ? "Added" : "Generated"} ${generated.length} candidates for '${source.slug}' using seeds ${generated[0].seed}-${generated[generated.length - 1].seed}.`
-      );
+      setMessage(`Generated ${generated.length} fresh random candidates for '${source.slug}'.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     }
@@ -291,7 +297,8 @@ export const TerrainGeneratorScreen: FC = () => {
                       pieces: current.pieces.filter((entry) => entry.slug !== piece.slug),
                       pieceSets: current.pieceSets.map((entry) => ({
                         ...entry,
-                        pieceSlugs: entry.pieceSlugs.filter((slug) => slug !== piece.slug)
+                        pieceSlugs: entry.pieceSlugs.filter((slug) => slug !== piece.slug),
+                        pieceWeights: Object.fromEntries(Object.entries(entry.pieceWeights).filter(([slug]) => slug !== piece.slug))
                       })),
                       adjacencyOverrides: current.adjacencyOverrides.filter(
                         (entry) => entry.sourcePiece !== piece.slug && entry.targetPiece !== piece.slug
@@ -368,7 +375,6 @@ export const TerrainGeneratorScreen: FC = () => {
               </TabsContent>
               <TabsContent className="space-y-4" value="generate">
                 <TerrainTemplateEditor
-                  canGenerateMore={generatedTemplateSlug === template?.slug && candidateResults.length > 0}
                   onChange={(templates) =>
                     mutateWorkspace((current) => {
                       const renamed =

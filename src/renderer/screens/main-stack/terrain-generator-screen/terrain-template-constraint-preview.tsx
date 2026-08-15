@@ -195,7 +195,7 @@ export const TerrainTemplateConstraintPreview: FC<TerrainTemplateConstraintPrevi
           <p className="text-xs font-medium">Constraint preview</p>
           <p className="text-[11px] text-muted-foreground">Click a cell to edit it. All authored constraints are overlaid together.</p>
         </div>
-        <Badge variant="outline">{backdrop ? `Terrain seed ${backdrop.seed}` : "Generate for terrain backdrop"}</Badge>
+        <Badge variant="outline">{backdrop ? "Random terrain backdrop" : "Generate for terrain backdrop"}</Badge>
       </div>
       <div className="max-h-[38rem] overflow-auto rounded bg-slate-950 p-3">
         <canvas

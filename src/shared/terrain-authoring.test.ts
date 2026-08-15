@@ -5,6 +5,7 @@ import {
   createTerrainTemplateCells,
   terrainApprovedAssetSchema,
   terrainPieceSchema,
+  terrainPieceSetSchema,
   terrainSiteTemplateSchema,
   terrainSocketDefinitionSchema,
   terrainSpatialLayoutSchema,
@@ -66,6 +67,39 @@ describe("socket terrain authoring contract", () => {
 
   it("creates a cell with one empty render layer and neutral metadata", () => {
     expect(createTerrainPieceCell(1)).toEqual({ tiles: [null], blocking: false, elevation: 0, semanticFlags: [] });
+  });
+
+  it("accepts an intentionally unpainted logical first-layer cell", () => {
+    expect(
+      terrainPieceSchema.parse({
+        slug: "LOGICAL_WATER",
+        width: 1,
+        height: 1,
+        layerCount: 1,
+        cells: [{ ...createTerrainPieceCell(1), semanticFlags: ["WATER"] }],
+        sockets: { north: ["WATER"], east: ["WATER"], south: ["WATER"], west: ["WATER"] },
+        allowRotations: false,
+        allowReflections: false,
+        weight: 1,
+        biomeTags: [],
+        siteTags: [],
+        semanticFlags: [],
+        mutationFamily: ""
+      })
+    ).toMatchObject({ slug: "LOGICAL_WATER", cells: [{ tiles: [null], semanticFlags: ["WATER"] }] });
+  });
+
+  it("defaults legacy collection weights and accepts per-collection overrides", () => {
+    expect(terrainPieceSetSchema.parse({ slug: "LEGACY", pieceSlugs: ["GROUND"], biomeTags: [], siteTags: [] }).pieceWeights).toEqual({});
+    expect(
+      terrainPieceSetSchema.parse({
+        slug: "WEIGHTED",
+        pieceSlugs: ["GROUND", "ROCK"],
+        pieceWeights: { GROUND: 8, ROCK: 1 },
+        biomeTags: [],
+        siteTags: []
+      }).pieceWeights
+    ).toEqual({ GROUND: 8, ROCK: 1 });
   });
 
   it("appends a transparent render layer without changing piece metadata", () => {

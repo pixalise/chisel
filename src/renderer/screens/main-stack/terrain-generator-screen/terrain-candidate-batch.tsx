@@ -82,15 +82,10 @@ export const TerrainCandidateBatch: FC<TerrainCandidateBatchProps> = (props) => 
         <div>
           <h3 className="text-sm font-semibold">Candidate contact sheet</h3>
           <p className="text-xs text-muted-foreground">
-            Each seed solves the selected terrain collection; invalid candidates remain inspectable but cannot be approved.
+            Every Generate click creates a fresh random batch; invalid candidates remain inspectable but cannot be approved.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {results.length > 0 && (
-            <Badge variant="outline">
-              Seeds {results[0].seed}–{results[results.length - 1].seed}
-            </Badge>
-          )}
           <Badge variant="outline">{results.length} candidates</Badge>
         </div>
       </div>
@@ -100,13 +95,13 @@ export const TerrainCandidateBatch: FC<TerrainCandidateBatchProps> = (props) => 
         </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {results.map((result) => {
+        {results.map((result, index) => {
           const candidate = result.candidate;
           const valid = candidate !== undefined && candidate.issues.length === 0;
           return (
             <div className="space-y-2 rounded border border-border bg-card p-2" key={result.seed}>
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs">Seed {result.seed}</span>
+                <span className="font-mono text-xs">Candidate {index + 1}</span>
                 <Badge variant={valid ? "secondary" : "destructive"}>{valid ? "valid" : "rejected"}</Badge>
               </div>
               {candidate && (

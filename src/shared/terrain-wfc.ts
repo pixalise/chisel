@@ -1,6 +1,7 @@
 import {
   terrainDirections,
   terrainPieceSchema,
+  terrainPieceSetSchema,
   terrainSiteTemplateSchema,
   terrainTileKey,
   type TerrainAdjacencyOverride,
@@ -288,14 +289,16 @@ export function compileTerrainPieceLibrary(
   pieceSet: TerrainPieceSet,
   overrides: TerrainAdjacencyOverride[]
 ): TerrainCompiledLibrary {
-  const selected = pieceSet.pieceSlugs.map((slug) => {
+  const parsedPieceSet = terrainPieceSetSchema.parse(pieceSet);
+  const selected = parsedPieceSet.pieceSlugs.map((slug) => {
     const piece = pieces.find((entry) => entry.slug === slug);
-    if (!piece) throw new Error(`Collection '${pieceSet.slug}' references missing piece '${slug}'`);
+    if (!piece) throw new Error(`Collection '${parsedPieceSet.slug}' references missing piece '${slug}'`);
     const parsed = terrainPieceSchema.parse(piece);
     return parsed;
   });
-  if (selected.length === 0) throw new Error(`Collection '${pieceSet.slug}' contains no pieces`);
+  if (selected.length === 0) throw new Error(`Collection '${parsedPieceSet.slug}' contains no pieces`);
   const variants = selected.flatMap((piece) => pieceOrientations(piece).map((orientation) => transformPiece(piece, orientation, 0)));
+  const variantCounts = new Map(selected.map((piece) => [piece.slug, pieceOrientations(piece).length]));
   variants.forEach((variant, id) => {
     variant.id = id;
   });
@@ -314,7 +317,9 @@ export function compileTerrainPieceLibrary(
           variantHeight: variant.height,
           cell: variant.cells[y * variant.width + x],
           edges: stateEdges(variant, x, y),
-          weight: variant.piece.weight / (variant.width * variant.height)
+          weight:
+            (parsedPieceSet.pieceWeights[variant.piece.slug] ?? variant.piece.weight) /
+            (variant.width * variant.height * (variantCounts.get(variant.piece.slug) ?? 1))
         });
       }
     }
@@ -760,7 +765,6 @@ export function freezeTerrainCandidate(candidate: TerrainCandidate, slug: string
     slug,
     kind,
     sourceTemplate: candidate.sourceTemplate,
-    seed: candidate.seed,
     width: candidate.width,
     height: candidate.height,
     layerCount: candidate.layerCount,
