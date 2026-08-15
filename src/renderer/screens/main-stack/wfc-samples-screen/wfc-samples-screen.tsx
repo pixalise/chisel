@@ -152,7 +152,7 @@ export const WfcSamplesScreen: FC = () => {
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">{workspace.tilesets.length} tilesets</Badge>
                 <Badge variant="secondary">{workspace.samples.length} samples</Badge>
-                <Badge variant="outline">{Object.keys(workspace.tileBindings).length} tagged tiles</Badge>
+                <Badge variant="outline">{Object.keys(workspace.tileBindings).length} bound tiles</Badge>
               </div>
               <Button disabled={isBusy} onClick={() => void saveWorkspace()} type="button">
                 <Save className="size-4" />

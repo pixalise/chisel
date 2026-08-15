@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { TerrainSample, TerrainTileRef } from "./terrain-authoring";
-import { compileTerrainWfcLibrary, generateTerrainWfcOutput, terrainWfcAdjacencyProblem } from "./terrain-wfc";
+import { terrainTileKey, type TerrainSample, type TerrainTileBinding, type TerrainTileRef } from "./terrain-authoring";
+import {
+  compileTerrainWfcLibrary,
+  generateTerrainWfcOutput,
+  generateTerrainWfcSectorOutput,
+  terrainWfcAdjacencyProblem
+} from "./terrain-wfc";
 
 function tile(localId: number): TerrainTileRef {
   return { tilesetId: "TERRAIN", localId, orientation: 0 };
@@ -19,174 +24,144 @@ function sample(slug: string, width: number, height: number, ids: number[]): Ter
   };
 }
 
-describe("native terrain overlapping WFC", () => {
-  it("deduplicates recurring 3x3 patterns while retaining occurrences", () => {
-    const library = compileTerrainWfcLibrary({ samples: [sample("GROUND", 5, 5, Array(25).fill(1))] });
+function bindings(symbols: Record<number, string>): Record<string, TerrainTileBinding> {
+  return Object.fromEntries(
+    Object.entries(symbols).map(([localId, wfcSymbol]) => [
+      terrainTileKey("TERRAIN", Number(localId)),
+      { slug: `TILE_${localId}`, wfcSymbol, blocking: false, tags: [] }
+    ])
+  );
+}
+
+function logicalCell(localId: number, tileBindings: Record<string, TerrainTileBinding>): string {
+  return `${tileBindings[terrainTileKey("TERRAIN", localId)].wfcSymbol}@0`;
+}
+
+describe("logical overlapping terrain WFC", () => {
+  it("deduplicates visual variants that share one logical WFC symbol", () => {
+    const tileBindings = bindings({ 1: "GROUND", 2: "GROUND" });
+    const source = sample("GROUND", 4, 4, [1, 2, 1, 2, 2, 1, 2, 1, 1, 2, 1, 2, 2, 1, 2, 1]);
+    const library = compileTerrainWfcLibrary({ samples: [source], tileBindings }, { patternSize: 2 });
 
     expect(library.patterns).toHaveLength(1);
-    expect(library.patterns[0].sampleOccurrences).toEqual({ GROUND: 9 });
-    expect(library.patterns[0].weight).toBeCloseTo(1);
-    expect(library.adjacency.north[0]).toEqual([0]);
-  });
-
-  it("deduplicates a pattern shared by samples without losing provenance", () => {
-    const library = compileTerrainWfcLibrary({
-      samples: [sample("LEFT", 3, 3, Array(9).fill(7)), sample("RIGHT", 3, 3, Array(9).fill(7))]
-    });
-
-    expect(library.patterns).toHaveLength(1);
-    expect(library.patterns[0].sampleOccurrences).toEqual({ LEFT: 1, RIGHT: 1 });
-    expect(library.patterns[0].weight).toBeCloseTo(2);
-  });
-
-  it("extracts every overlapping window from a sample", () => {
-    const library = compileTerrainWfcLibrary({
-      samples: [
-        sample(
-          "UNIQUE",
-          5,
-          5,
-          Array.from({ length: 25 }, (_, index) => index + 1)
-        )
-      ]
-    });
-
-    expect(library.patterns).toHaveLength(9);
-    expect(library.patterns[0].cells.map((entry) => entry[0]?.localId)).toEqual([1, 2, 3, 6, 7, 8, 11, 12, 13]);
+    expect(library.patterns[0].symbols).toEqual(Array(4).fill("GROUND@0"));
+    expect(library.visualVariants["GROUND@0"]).toHaveLength(2);
   });
 
   it.each([
     [2, 16],
     [3, 9],
     [4, 4]
-  ] as const)("extracts selectable %dx%d overlapping windows", (patternSize, expectedPatterns) => {
-    const library = compileTerrainWfcLibrary(
-      {
-        samples: [
-          sample(
-            "UNIQUE",
-            5,
-            5,
-            Array.from({ length: 25 }, (_, index) => index + 1)
-          )
-        ]
-      },
-      { patternSize }
-    );
+  ] as const)("extracts selectable %dx%d logical windows", (patternSize, expectedPatterns) => {
+    const ids = Array.from({ length: 25 }, (_, index) => index + 1);
+    const tileBindings = bindings(Object.fromEntries(ids.map((id) => [id, `SYMBOL_${id}`])));
+    const library = compileTerrainWfcLibrary({ samples: [sample("UNIQUE", 5, 5, ids)], tileBindings }, { patternSize });
 
     expect(library.patternSize).toBe(patternSize);
     expect(library.patterns).toHaveLength(expectedPatterns);
-    expect(library.patterns[0].cells).toHaveLength(patternSize * patternSize);
+    expect(library.patterns[0].symbols).toHaveLength(patternSize * patternSize);
   });
 
-  it.each([2, 3, 4] as const)("indexes exact %dx%d overlaps in every direction", (patternSize) => {
-    const dimension = patternSize + 1;
-    const library = compileTerrainWfcLibrary(
-      {
-        samples: [
-          sample(
-            "UNIQUE",
-            dimension,
-            dimension,
-            Array.from({ length: dimension * dimension }, (_, index) => index + 1)
-          )
-        ]
-      },
-      { patternSize }
-    );
-
-    expect(library.adjacency.east[0]).toEqual([1]);
-    expect(library.adjacency.south[0]).toEqual([2]);
-    expect(library.adjacency.west[1]).toEqual([0]);
-    expect(library.adjacency.north[2]).toEqual([0]);
-  });
-
-  it.each([2, 3, 4] as const)("generates only observed %dx%d windows", (patternSize) => {
+  it("generates only observed logical windows while resolving sprite variants afterward", () => {
+    const tileBindings = bindings({ 1: "GROUND", 2: "TREE", 3: "TREE" });
     const source = sample(
-      "TEXTURE",
+      "FOREST",
       6,
       6,
       [1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 3, 1, 1, 1, 1, 2, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 2, 1, 3, 1, 1, 1, 1, 1, 1, 1]
     );
     source.periodicInput = true;
-    const library = compileTerrainWfcLibrary({ samples: [source] }, { patternSize });
-    const output = generateTerrainWfcOutput(library, { width: 18, height: 18, seed: 91 });
-    const patternKeys = new Set(
-      library.patterns.map((pattern) => pattern.cells.map((cell) => cell.map((entry) => entry?.localId ?? "-").join("/")).join("|"))
-    );
+    const library = compileTerrainWfcLibrary({ samples: [source], tileBindings }, { patternSize: 2 });
+    const output = generateTerrainWfcOutput(library, { width: 24, height: 24, seed: 91 });
+    const patternKeys = new Set(library.patterns.map((pattern) => pattern.symbols.join("|")));
+    const ids = new Set(output.cells.map((cell) => cell[0]?.localId));
 
-    for (let anchorY = 0; anchorY <= output.height - patternSize; anchorY += 1) {
-      for (let anchorX = 0; anchorX <= output.width - patternSize; anchorX += 1) {
-        const cells = [];
-        for (let y = 0; y < patternSize; y += 1) {
-          for (let x = 0; x < patternSize; x += 1) cells.push(output.cells[(anchorY + y) * output.width + anchorX + x]);
-        }
-        const key = cells.map((cell) => cell.map((entry) => entry?.localId ?? "-").join("/")).join("|");
+    for (let anchorY = 0; anchorY < output.height - 1; anchorY += 1) {
+      for (let anchorX = 0; anchorX < output.width - 1; anchorX += 1) {
+        const key = [
+          output.cells[anchorY * output.width + anchorX][0]?.localId,
+          output.cells[anchorY * output.width + anchorX + 1][0]?.localId,
+          output.cells[(anchorY + 1) * output.width + anchorX][0]?.localId,
+          output.cells[(anchorY + 1) * output.width + anchorX + 1][0]?.localId
+        ]
+          .map((localId) => logicalCell(localId ?? 0, tileBindings))
+          .join("|");
         expect(patternKeys.has(key)).toBe(true);
       }
     }
+    expect(ids.has(2)).toBe(true);
+    expect(ids.has(3)).toBe(true);
   });
 
-  it("rejects samples smaller than the selected overlap", () => {
-    expect(() => compileTerrainWfcLibrary({ samples: [sample("SMALL", 3, 3, Array(9).fill(1))] }, { patternSize: 4 })).toThrow(
-      "at least 4×4"
+  it("generates deterministic sectors and fills their seams with constrained WFC", () => {
+    const tileBindings = bindings({ 1: "GROUND", 2: "TREE", 3: "TREE" });
+    const source = sample(
+      "FOREST",
+      6,
+      6,
+      [1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 3, 1, 1, 1, 1, 2, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 2, 1, 3, 1, 1, 1, 1, 1, 1, 1]
+    );
+    source.periodicInput = true;
+    const library = compileTerrainWfcLibrary({ samples: [source], tileBindings }, { patternSize: 2 });
+    const first = generateTerrainWfcSectorOutput(library, { width: 24, height: 24, sectorSize: 8, seed: 17 });
+    const second = generateTerrainWfcSectorOutput(library, { width: 24, height: 24, sectorSize: 8, seed: 17 });
+
+    expect(first).toEqual(second);
+    expect(first.sectorCount).toBeGreaterThan(1);
+    expect(first.seamWidth).toBe(1);
+    expect(first.cells).toHaveLength(24 * 24);
+  });
+
+  it("requires every painted sprite to have a logical WFC symbol", () => {
+    expect(() => compileTerrainWfcLibrary({ samples: [sample("MISSING", 3, 3, Array(9).fill(1))], tileBindings: {} })).toThrow(
+      "needs a tile binding and WFC symbol"
     );
   });
 
-  it("rotates pattern positions and sprite orientations together", () => {
-    const rotating = sample("ROTATING", 3, 3, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    rotating.allowRotations = true;
-    const library = compileTerrainWfcLibrary({ samples: [rotating] });
-
-    expect(library.patterns).toHaveLength(4);
-    const clockwise = library.patterns.find((pattern) => pattern.cells.map((entry) => entry[0]?.localId).join(",") === "7,4,1,8,5,2,9,6,3");
-    expect(clockwise?.cells.every((entry) => entry[0]?.orientation === 1)).toBe(true);
+  it("rejects samples smaller than the selected overlap", () => {
+    expect(() =>
+      compileTerrainWfcLibrary(
+        { samples: [sample("SMALL", 3, 3, Array(9).fill(1))], tileBindings: bindings({ 1: "GROUND" }) },
+        { patternSize: 4 }
+      )
+    ).toThrow("at least 4×4");
   });
 
-  it("generates deterministic output from compiled adjacency", () => {
-    const library = compileTerrainWfcLibrary({ samples: [sample("GROUND", 5, 5, Array(25).fill(4))] });
-    const first = generateTerrainWfcOutput(library, { width: 12, height: 8, seed: 42 });
-    const second = generateTerrainWfcOutput(library, { width: 12, height: 8, seed: 42 });
+  it("rotates logical positions and orientations together", () => {
+    const rotating = sample("ROTATING", 3, 3, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    rotating.allowRotations = true;
+    const tileBindings = bindings(Object.fromEntries(Array.from({ length: 9 }, (_, index) => [index + 1, `S_${index + 1}`])));
+    const library = compileTerrainWfcLibrary({ samples: [rotating], tileBindings }, { patternSize: 3 });
 
-    expect(first).toEqual(second);
-    expect(first.cells.map((entry) => entry[0]?.localId)).toEqual(Array(96).fill(4));
+    expect(library.patterns).toHaveLength(4);
+    expect(library.patterns.some((pattern) => pattern.symbols[0] === "S_7@1")).toBe(true);
   });
 
   it("rejects incomplete samples", () => {
     const incomplete = sample("INCOMPLETE", 3, 3, Array(9).fill(1));
     incomplete.cells[4][0] = null;
-    expect(() => compileTerrainWfcLibrary({ samples: [incomplete] })).toThrow("base layer fully painted");
+    expect(() => compileTerrainWfcLibrary({ samples: [incomplete], tileBindings: bindings({ 1: "GROUND" }) })).toThrow(
+      "base layer fully painted"
+    );
   });
 
-  it("explains when isolated 3x3 samples teach no compatible neighbors", () => {
+  it("explains when isolated logical samples teach no compatible neighbors", () => {
     const first = sample("FIRST", 3, 3, [1, 1, 2, 3, 1, 1, 2, 3, 3]);
     const second = sample("SECOND", 3, 3, [3, 4, 3, 1, 2, 1, 2, 3, 2]);
-    first.allowRotations = true;
-    first.allowReflections = true;
-    second.allowRotations = true;
-    second.allowReflections = true;
-    const library = compileTerrainWfcLibrary({ samples: [first, second] });
+    const tileBindings = bindings({ 1: "A", 2: "B", 3: "C", 4: "D" });
+    const library = compileTerrainWfcLibrary({ samples: [first, second], tileBindings });
 
-    expect(terrainWfcAdjacencyProblem(library)).toContain("complete layered cells");
-    expect(() => generateTerrainWfcOutput(library, { width: 20, height: 20, seed: 1 })).toThrow("No pattern belongs to a cycle");
+    expect(terrainWfcAdjacencyProblem(library)).toContain("No logical pattern");
+    expect(() => generateTerrainWfcOutput(library, { width: 20, height: 20, seed: 1 })).toThrow("No logical pattern");
   });
 
-  it("wraps periodic input while extracting overlapping patterns", () => {
-    const periodic = sample("PERIODIC", 3, 3, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    periodic.periodicInput = true;
-    const library = compileTerrainWfcLibrary({ samples: [periodic] });
-
-    expect(library.patterns).toHaveLength(9);
-    expect(library.sampleStats.PERIODIC).toEqual({ extractedOccurrences: 9, uniquePatterns: 9, viablePatterns: 9 });
-    expect(generateTerrainWfcOutput(library, { width: 12, height: 12, seed: 7 }).cells).toHaveLength(144);
-  });
-
-  it("matches and reconstructs complete layered cells", () => {
+  it("matches complete layered logical cells", () => {
     const layered = sample("LAYERED", 5, 5, Array(25).fill(1));
     layered.layerCount = 2;
     layered.cells = layered.cells.map((cell, index) => [cell[0], index % 2 === 0 ? tile(2) : null]);
     layered.periodicInput = true;
-    const library = compileTerrainWfcLibrary({ samples: [layered] });
+    const tileBindings = bindings({ 1: "GROUND", 2: "TREE" });
+    const library = compileTerrainWfcLibrary({ samples: [layered], tileBindings });
     const output = generateTerrainWfcOutput(library, { width: 10, height: 10, seed: 3 });
 
     expect(output.cells.every((cell) => cell.length === 2 && cell[0]?.localId === 1)).toBe(true);

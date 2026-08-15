@@ -67,6 +67,7 @@ export const TERRAIN_TILE_BINDING_COLUMNS = {
   tileset: column("terrain_binding_tileset", "tileset", ColumnType.assetRef, { assetCategory: AssetCategoryEnum.tileset }),
   localId: column("terrain_binding_local", "local_id", ColumnType.integer, { min: 0 }),
   tileSlug: column("terrain_binding_slug", "tile_slug", ColumnType.string),
+  wfcSymbol: column("terrain_binding_wfc", "wfc_symbol", ColumnType.string),
   blocking: column("terrain_binding_block", "blocking", ColumnType.boolean),
   tags: column("terrain_binding_tags", "tags", ColumnType.enumArray, { defaultValue: [], required: false })
 } as const;
@@ -110,7 +111,7 @@ export const TERRAIN_APPROVED_PATCH_COLUMNS = {
 export const TERRAIN_TILE_BINDINGS_TABLE = table(
   TERRAIN_TILE_BINDINGS_TABLE_ID,
   "Terrain Tile Bindings",
-  "Stable slugs, collision flags, and semantic tags for tileset sprites.",
+  "Stable slugs, logical WFC symbols, collision flags, and semantic tags for tileset sprites.",
   Object.values(TERRAIN_TILE_BINDING_COLUMNS)
 );
 

@@ -1,15 +1,29 @@
-import type { TerrainSample, TerrainSampleCell, TerrainTileRef, TerrainWorkspaceView } from "./terrain-authoring";
+import {
+  terrainTileKey,
+  type TerrainSample,
+  type TerrainSampleCell,
+  type TerrainTileBinding,
+  type TerrainTileRef,
+  type TerrainWorkspaceView
+} from "./terrain-authoring";
 
 export const terrainWfcPatternSizes = [2, 3, 4] as const;
 export type TerrainWfcPatternSize = (typeof terrainWfcPatternSizes)[number];
-export const terrainWfcDefaultPatternSize: TerrainWfcPatternSize = 3;
+export const terrainWfcDefaultPatternSize: TerrainWfcPatternSize = 2;
+export const terrainWfcSectorSizes = [6, 8, 10, 12, 16] as const;
+export type TerrainWfcSectorSize = (typeof terrainWfcSectorSizes)[number];
 
 export type TerrainWfcDirection = "north" | "east" | "south" | "west";
 
 export interface TerrainWfcPattern {
-  cells: TerrainSampleCell[];
   id: number;
   sampleOccurrences: Record<string, number>;
+  symbols: string[];
+  weight: number;
+}
+
+export interface TerrainWfcVisualVariant {
+  cell: TerrainSampleCell;
   weight: number;
 }
 
@@ -19,6 +33,7 @@ export interface TerrainWfcLibrary {
   patterns: TerrainWfcPattern[];
   sampleStats: Record<string, TerrainWfcSampleStats>;
   sampleSlugs: string[];
+  visualVariants: Record<string, TerrainWfcVisualVariant[]>;
 }
 
 export interface TerrainWfcSampleStats {
@@ -31,6 +46,8 @@ export interface TerrainWfcOutput {
   attempts: number;
   cells: TerrainSampleCell[];
   height: number;
+  seamWidth: number;
+  sectorCount: number;
   seed: number;
   width: number;
 }
@@ -41,6 +58,10 @@ interface GridTransform {
   matrix: Matrix;
   quarterTurns: number;
   reflected: boolean;
+}
+
+interface SolveOptions {
+  constraints?: Array<string | undefined>;
 }
 
 const identityMatrix: Matrix = [1, 0, 0, 1];
@@ -130,12 +151,23 @@ function transformPattern(cells: TerrainSampleCell[], size: number, transform: G
   return transformed;
 }
 
-function tileKey(tile: TerrainTileRef): string {
+function tileVisualKey(tile: TerrainTileRef): string {
   return `${tile.tilesetId}:${tile.localId}:${tile.orientation}`;
 }
 
-function cellKey(cell: TerrainSampleCell): string {
-  return cell.map((tile) => (tile ? tileKey(tile) : "-")).join("/");
+function visualCellKey(cell: TerrainSampleCell): string {
+  return cell.map((tile) => (tile ? tileVisualKey(tile) : "-")).join("/");
+}
+
+function logicalCellKey(cell: TerrainSampleCell, bindings: Record<string, TerrainTileBinding>): string {
+  return cell
+    .map((tile) => {
+      if (!tile) return "-";
+      const binding = bindings[terrainTileKey(tile.tilesetId, tile.localId)];
+      if (!binding) throw new Error(`Painted tile '${tile.tilesetId}:${tile.localId}' needs a tile binding and WFC symbol`);
+      return `${binding.wfcSymbol}@${tile.orientation}`;
+    })
+    .join("/");
 }
 
 function patternOverlapKey(pattern: TerrainWfcPattern, size: number, direction: TerrainWfcDirection, side: "source" | "neighbor"): string {
@@ -146,15 +178,14 @@ function patternOverlapKey(pattern: TerrainWfcPattern, size: number, direction: 
       const neighborX = x - offsetX;
       const neighborY = y - offsetY;
       if (neighborX < 0 || neighborX >= size || neighborY < 0 || neighborY >= size) continue;
-      const index = side === "source" ? y * size + x : neighborY * size + neighborX;
-      cells.push(cellKey(pattern.cells[index]));
+      cells.push(pattern.symbols[side === "source" ? y * size + x : neighborY * size + neighborX]);
     }
   }
   return cells.join("|");
 }
 
 export function compileTerrainWfcLibrary(
-  workspace: Pick<TerrainWorkspaceView, "samples">,
+  workspace: Pick<TerrainWorkspaceView, "samples" | "tileBindings">,
   options: { patternSize?: TerrainWfcPatternSize } = {}
 ): TerrainWfcLibrary {
   if (workspace.samples.length === 0) throw new Error("Create at least one WFC sample before compiling a preview");
@@ -162,13 +193,15 @@ export function compileTerrainWfcLibrary(
   if (!terrainWfcPatternSizes.includes(patternSize)) throw new Error(`Unsupported WFC overlap size ${patternSize}`);
   const patterns: TerrainWfcPattern[] = [];
   const patternByKey = new Map<string, TerrainWfcPattern>();
+  const visualVariantMaps = new Map<string, Map<string, TerrainWfcVisualVariant>>();
   const sampleStats: Record<string, TerrainWfcSampleStats> = {};
   for (const sample of workspace.samples) {
     if (sample.width < patternSize || sample.height < patternSize) {
       throw new Error(`Sample '${sample.slug}' must be at least ${patternSize}×${patternSize} for a ${patternSize}×${patternSize} overlap`);
     }
-    if (sample.cells.some((cell) => cell[0] === null))
+    if (sample.cells.some((cell) => cell[0] === null)) {
       throw new Error(`Sample '${sample.slug}' must have its base layer fully painted before compiling`);
+    }
     const occurrences: TerrainSampleCell[][] = [];
     const patternRows = sample.periodicInput ? sample.height : sample.height - patternSize + 1;
     const patternColumns = sample.periodicInput ? sample.width : sample.width - patternSize + 1;
@@ -187,15 +220,28 @@ export function compileTerrainWfcLibrary(
     }
     const contribution = 1 / occurrences.length;
     for (const cells of occurrences) {
-      const key = cells.map(cellKey).join("|");
+      const symbols = cells.map((cell) => logicalCellKey(cell, workspace.tileBindings));
+      const key = symbols.join("|");
       let pattern = patternByKey.get(key);
       if (!pattern) {
-        pattern = { cells, id: patterns.length, sampleOccurrences: {}, weight: 0 };
+        pattern = { symbols, id: patterns.length, sampleOccurrences: {}, weight: 0 };
         patterns.push(pattern);
         patternByKey.set(key, pattern);
       }
       pattern.sampleOccurrences[sample.slug] = (pattern.sampleOccurrences[sample.slug] ?? 0) + 1;
       pattern.weight += contribution;
+      for (const [index, symbol] of symbols.entries()) {
+        let variants = visualVariantMaps.get(symbol);
+        if (!variants) {
+          variants = new Map();
+          visualVariantMaps.set(symbol, variants);
+        }
+        const cell = cells[index];
+        const visualKey = visualCellKey(cell);
+        const variant = variants.get(visualKey);
+        if (variant) variant.weight += contribution;
+        else variants.set(visualKey, { cell, weight: contribution });
+      }
     }
     sampleStats[sample.slug] = { extractedOccurrences: occurrences.length, uniquePatterns: 0, viablePatterns: 0 };
   }
@@ -226,7 +272,8 @@ export function compileTerrainWfcLibrary(
     patternSize,
     patterns,
     sampleStats,
-    sampleSlugs: workspace.samples.map((sample) => sample.slug)
+    sampleSlugs: workspace.samples.map((sample) => sample.slug),
+    visualVariants: Object.fromEntries([...visualVariantMaps].map(([symbol, variants]) => [symbol, [...variants.values()]]))
   };
 }
 
@@ -247,13 +294,12 @@ export function terrainWfcViablePatternIds(library: Pick<TerrainWfcLibrary, "adj
 
 export function terrainWfcAdjacencyProblem(library: TerrainWfcLibrary): string | undefined {
   if (terrainWfcViablePatternIds(library).size === 0) {
-    return `No pattern belongs to a cycle that can continue in every direction. WFC matches complete layered cells by exact sprite ids and orientations. Paint a larger representative sample with recurring empty space and features that return to that space, or enable periodic input only when opposite sample edges are designed to meet.`;
+    return "No logical pattern belongs to a cycle that can continue in every direction. Paint recurring open space around features, or use periodic input only when opposite edges are intentionally compatible.";
   }
   const emptyDirections = directions.filter((direction) => library.adjacency[direction].every((neighbors) => neighbors.length === 0));
   if (emptyDirections.length === 0) return undefined;
   const labels = emptyDirections.map((direction) => direction[0].toUpperCase()).join(", ");
-  const overlapWidth = library.patternSize - 1;
-  return `No compatible pattern overlaps were learned for ${labels}. WFC matches complete layered cells by exact sprite ids and orientations, not semantic tags. Paint a larger representative sample containing recurring overlaps, or add patterns whose ${overlapWidth}-cell borders overlap exactly.`;
+  return `No compatible logical overlaps were learned for ${labels}. Adjacent patterns must share the same WFC symbols across their ${library.patternSize - 1}-cell border.`;
 }
 
 function randomGenerator(seed: number): () => number {
@@ -312,7 +358,7 @@ class EntropyQueue {
   }
 }
 
-function solvePatterns(library: TerrainWfcLibrary, width: number, height: number, seed: number): number[] {
+function solvePatterns(library: TerrainWfcLibrary, width: number, height: number, seed: number, options: SolveOptions = {}): number[] {
   const waveWidth = width - library.patternSize + 1;
   const waveHeight = height - library.patternSize + 1;
   const cellCount = waveWidth * waveHeight;
@@ -376,7 +422,7 @@ function solvePatterns(library: TerrainWfcLibrary, width: number, height: number
     return fallback;
   }
 
-  function collapseAndPropagate(index: number, chosenPatternId: number): void {
+  function banAndPropagate(initialBans: Array<readonly [number, number]>): number[] {
     const removedCells: number[] = [];
     const removedPatterns: number[] = [];
     const dirtyCells: number[] = [];
@@ -398,16 +444,11 @@ function solvePatterns(library: TerrainWfcLibrary, width: number, height: number
         dirtyCells.push(cellIndex);
       }
       if (remaining[cellIndex] === 0) {
-        const x = cellIndex % waveWidth;
-        const y = Math.floor(cellIndex / waveWidth);
-        throw new Error(`WFC contradiction at ${x},${y}`);
+        throw new Error(`WFC contradiction at ${cellIndex % waveWidth},${Math.floor(cellIndex / waveWidth)}`);
       }
     }
 
-    for (let patternId = 0; patternId < patternCount; patternId += 1) {
-      if (patternId !== chosenPatternId) ban(index, patternId);
-    }
-
+    for (const [cellIndex, patternId] of initialBans) ban(cellIndex, patternId);
     let queueIndex = 0;
     while (queueIndex < removedCells.length) {
       const sourceIndex = removedCells[queueIndex];
@@ -433,7 +474,32 @@ function solvePatterns(library: TerrainWfcLibrary, width: number, height: number
         }
       }
     }
-    for (const dirtyIndex of dirtyCells) queueEntropy(dirtyIndex);
+    return dirtyCells;
+  }
+
+  if (options.constraints) {
+    if (options.constraints.length !== width * height) throw new Error("WFC constraint grid does not match output dimensions");
+    const bans: Array<readonly [number, number]> = [];
+    for (let anchorY = 0; anchorY < waveHeight; anchorY += 1) {
+      for (let anchorX = 0; anchorX < waveWidth; anchorX += 1) {
+        const waveIndex = anchorY * waveWidth + anchorX;
+        for (const patternId of viablePatternIds) {
+          const pattern = library.patterns[patternId];
+          let conflicts = false;
+          for (let y = 0; y < library.patternSize && !conflicts; y += 1) {
+            for (let x = 0; x < library.patternSize; x += 1) {
+              const fixed = options.constraints[(anchorY + y) * width + anchorX + x];
+              if (fixed !== undefined && fixed !== pattern.symbols[y * library.patternSize + x]) {
+                conflicts = true;
+                break;
+              }
+            }
+          }
+          if (conflicts) bans.push([waveIndex, patternId]);
+        }
+      }
+    }
+    banAndPropagate(bans);
   }
 
   for (let index = 0; index < cellCount; index += 1) queueEntropy(index);
@@ -443,7 +509,12 @@ function solvePatterns(library: TerrainWfcLibrary, width: number, height: number
       if (selected.revision === revisions[selected.index] && remaining[selected.index] > 1) break;
     }
     if (!selected) break;
-    collapseAndPropagate(selected.index, weightedChoice(selected.index));
+    const chosenPatternId = weightedChoice(selected.index);
+    const bans: Array<readonly [number, number]> = [];
+    for (let patternId = 0; patternId < patternCount; patternId += 1) {
+      if (patternId !== chosenPatternId) bans.push([selected.index, patternId]);
+    }
+    for (const dirtyIndex of banAndPropagate(bans)) queueEntropy(dirtyIndex);
   }
   return Array.from({ length: cellCount }, (_, cellIndex) => {
     const stateStart = cellIndex * patternCount;
@@ -454,9 +525,9 @@ function solvePatterns(library: TerrainWfcLibrary, width: number, height: number
   });
 }
 
-function reconstructOutput(library: TerrainWfcLibrary, patternIds: number[], width: number, height: number): TerrainSampleCell[] {
+function reconstructSymbols(library: TerrainWfcLibrary, patternIds: number[], width: number, height: number): string[] {
   const waveWidth = width - library.patternSize + 1;
-  const cells = Array<TerrainSampleCell | undefined>(width * height).fill(undefined);
+  const cells = Array<string | undefined>(width * height).fill(undefined);
   for (const [anchorIndex, patternId] of patternIds.entries()) {
     const anchorX = anchorIndex % waveWidth;
     const anchorY = Math.floor(anchorIndex / waveWidth);
@@ -464,17 +535,67 @@ function reconstructOutput(library: TerrainWfcLibrary, patternIds: number[], wid
     for (let y = 0; y < library.patternSize; y += 1) {
       for (let x = 0; x < library.patternSize; x += 1) {
         const outputIndex = (anchorY + y) * width + anchorX + x;
-        const value = pattern.cells[y * library.patternSize + x];
-        const existing = cells[outputIndex];
-        if (existing && cellKey(existing) !== cellKey(value)) throw new Error("Compatible WFC patterns reconstructed conflicting cells");
+        const value = pattern.symbols[y * library.patternSize + x];
+        if (cells[outputIndex] !== undefined && cells[outputIndex] !== value) {
+          throw new Error("Compatible WFC patterns reconstructed conflicting logical cells");
+        }
         cells[outputIndex] = value;
       }
     }
   }
   return cells.map((cell) => {
-    if (!cell) throw new Error("WFC output contains an unresolved cell");
+    if (cell === undefined) throw new Error("WFC output contains an unresolved logical cell");
     return cell;
   });
+}
+
+function chooseVisualCells(library: TerrainWfcLibrary, symbols: string[], seed: number): TerrainSampleCell[] {
+  const random = randomGenerator(seed);
+  return symbols.map((symbol) => {
+    const variants = library.visualVariants[symbol];
+    if (!variants?.length) throw new Error(`Logical WFC cell '${symbol}' has no visual variants`);
+    const weightSum = variants.reduce((sum, variant) => sum + variant.weight, 0);
+    let cursor = random() * weightSum;
+    for (const variant of variants) {
+      cursor -= variant.weight;
+      if (cursor <= 0) return variant.cell.map((tile) => (tile ? { ...tile } : null));
+    }
+    return variants[variants.length - 1].cell.map((tile) => (tile ? { ...tile } : null));
+  });
+}
+
+function solveSymbolsWithRetries(
+  library: TerrainWfcLibrary,
+  width: number,
+  height: number,
+  seed: number,
+  maxAttempts: number,
+  constraints?: Array<string | undefined>
+): { attempts: number; seed: number; symbols: string[] } {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const attemptSeed = (seed + Math.imul(attempt, 0x9e3779b1)) >>> 0;
+    try {
+      return {
+        attempts: attempt + 1,
+        seed: attemptSeed,
+        symbols: reconstructSymbols(library, solvePatterns(library, width, height, attemptSeed, { constraints }), width, height)
+      };
+    } catch (caught) {
+      lastError = caught;
+    }
+  }
+  const detail = lastError instanceof Error ? lastError.message : String(lastError);
+  throw new Error(`WFC could not produce a ${width}×${height} result after ${maxAttempts} attempts: ${detail}`);
+}
+
+function validateOutputRequest(library: TerrainWfcLibrary, width: number, height: number): void {
+  if (width < library.patternSize || height < library.patternSize) {
+    throw new Error(`WFC preview must be at least ${library.patternSize}×${library.patternSize} cells`);
+  }
+  if (library.patterns.length === 0) throw new Error("The WFC library contains no patterns");
+  const adjacencyProblem = terrainWfcAdjacencyProblem(library);
+  if (adjacencyProblem) throw new Error(adjacencyProblem);
 }
 
 export function generateTerrainWfcOutput(
@@ -483,22 +604,60 @@ export function generateTerrainWfcOutput(
 ): TerrainWfcOutput {
   const width = Math.floor(options.width);
   const height = Math.floor(options.height);
-  if (width < library.patternSize || height < library.patternSize) {
-    throw new Error(`WFC preview must be at least ${library.patternSize}×${library.patternSize} cells`);
-  }
-  if (library.patterns.length === 0) throw new Error("The WFC library contains no patterns");
-  const adjacencyProblem = terrainWfcAdjacencyProblem(library);
-  if (adjacencyProblem) throw new Error(adjacencyProblem);
+  validateOutputRequest(library, width, height);
+  const solved = solveSymbolsWithRetries(library, width, height, options.seed, options.maxAttempts ?? 20);
+  return {
+    attempts: solved.attempts,
+    cells: chooseVisualCells(library, solved.symbols, solved.seed ^ 0x85ebca6b),
+    height,
+    seamWidth: 0,
+    sectorCount: 1,
+    seed: solved.seed,
+    width
+  };
+}
+
+export function generateTerrainWfcSectorOutput(
+  library: TerrainWfcLibrary,
+  options: { height: number; maxAttempts?: number; sectorSize: TerrainWfcSectorSize; seed: number; width: number }
+): TerrainWfcOutput {
+  const width = Math.floor(options.width);
+  const height = Math.floor(options.height);
+  validateOutputRequest(library, width, height);
+  if (!terrainWfcSectorSizes.includes(options.sectorSize)) throw new Error(`Unsupported WFC sector size ${options.sectorSize}`);
+  if (options.sectorSize < library.patternSize) throw new Error("Sector size must be at least the WFC sampling size");
+  const seamWidth = library.patternSize - 1;
+  const stride = options.sectorSize + seamWidth;
   const maxAttempts = options.maxAttempts ?? 20;
   let lastError: unknown;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const seed = (options.seed + Math.imul(attempt, 0x9e3779b1)) >>> 0;
+    const assemblySeed = (options.seed + Math.imul(attempt, 0x9e3779b1)) >>> 0;
+    const constraints = Array<string | undefined>(width * height).fill(undefined);
+    let sectorCount = 0;
     try {
+      for (let sectorY = 0; sectorY < height; sectorY += stride) {
+        for (let sectorX = 0; sectorX < width; sectorX += stride) {
+          const sectorWidth = Math.min(options.sectorSize, width - sectorX);
+          const sectorHeight = Math.min(options.sectorSize, height - sectorY);
+          if (sectorWidth < library.patternSize || sectorHeight < library.patternSize) continue;
+          const sectorSeed = (assemblySeed ^ Math.imul(sectorX + 1, 0x85ebca6b) ^ Math.imul(sectorY + 1, 0xc2b2ae35)) >>> 0;
+          const sector = solveSymbolsWithRetries(library, sectorWidth, sectorHeight, sectorSeed, 8);
+          sectorCount += 1;
+          for (let y = 0; y < sectorHeight; y += 1) {
+            for (let x = 0; x < sectorWidth; x += 1) {
+              constraints[(sectorY + y) * width + sectorX + x] = sector.symbols[y * sectorWidth + x];
+            }
+          }
+        }
+      }
+      const stitched = solveSymbolsWithRetries(library, width, height, assemblySeed ^ 0x27d4eb2f, 1, constraints);
       return {
         attempts: attempt + 1,
-        cells: reconstructOutput(library, solvePatterns(library, width, height, seed), width, height),
+        cells: chooseVisualCells(library, stitched.symbols, assemblySeed ^ 0x165667b1),
         height,
-        seed,
+        seamWidth,
+        sectorCount,
+        seed: assemblySeed,
         width
       };
     } catch (caught) {
@@ -506,7 +665,7 @@ export function generateTerrainWfcOutput(
     }
   }
   const detail = lastError instanceof Error ? lastError.message : String(lastError);
-  throw new Error(`WFC could not produce a ${width}×${height} preview after ${maxAttempts} attempts: ${detail}`);
+  throw new Error(`Sector stitching could not produce a ${width}×${height} result after ${maxAttempts} assemblies: ${detail}`);
 }
 
 export function terrainOrientationMatrix(orientation: number): Matrix {

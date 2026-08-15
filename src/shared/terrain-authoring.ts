@@ -25,6 +25,7 @@ export type TerrainSampleCell = z.infer<typeof terrainSampleCellSchema>;
 export const terrainTileBindingSchema = z
   .object({
     slug: terrainSlugSchema,
+    wfcSymbol: terrainSlugSchema,
     blocking: z.boolean(),
     tags: z.array(terrainSlugSchema)
   })

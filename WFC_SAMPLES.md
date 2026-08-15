@@ -1,471 +1,179 @@
-# Native overlapping-WFC sample pipeline
+# Logical sector-WFC authoring
 
-Chisel owns the complete nature-authoring workflow: tileset assets, layered training examples, optional per-tile metadata, pattern compilation, candidate generation, and approval.
+Chisel uses WFC as an offline nature generator. Authors paint small examples, generate many deterministic candidates, and approve only the useful rendered patches. The game receives frozen patches and tilesets; it does not run WFC or ship its source samples.
 
-## What overlapping WFC learns
-
-Overlapping WFC does not place an authored sample as a stamp and does not infer semantic rules from tags such as `WALKABLE`, `WATER`, or `FOLIAGE`. It analyzes the exact layered cells painted into a sample.
-
-Chisel offers 2×2, 3×3, and 4×4 analysis windows. For a selected `N×N` size:
-
-1. Slide an `N×N` window across every valid position in every sample.
-2. Store each distinct `N×N` window as a pattern.
-3. Count repeated occurrences to derive pattern frequency.
-4. Index the exact overlap signatures in all four directions.
-5. Permit two patterns to be neighbors when their `(N-1)`-cell-wide overlap is exactly equal.
-6. Collapse the lowest-entropy output position and propagate its constraints.
-7. Restart with a derived seed if a contradiction occurs.
-
-For this 5×5 input:
+## The pipeline
 
 ```text
-A A A A A
-A A B A A
-A A A A A
-A C C C A
-A A A A A
+painted sprite samples
+        │ map each sprite to a logical WFC symbol
+        ▼
+logical samples such as GROUND / TREE / ROCK
+        │ extract overlapping N×N patterns
+        ▼
+generate several small sectors independently
+        │ keep sector interiors fixed
+        ▼
+solve the N-1-cell gaps between sectors
+        │ choose concrete sprite variants deterministically
+        ▼
+review and approve a frozen layered patch
 ```
 
-the compiler extracts nine overlapping 3×3 windows. Those windows include `B` in every relative position around its source location, the beginning and end of the `C` run, and plain `A` space. That is the key difference between a real training example and nine isolated 3×3 samples.
+This is deliberately different from treating every sprite ID as its own WFC symbol. Four tree sprites may all use the logical symbol `TREE`. WFC decides where `TREE` is legal; after the logical layout is complete, Chisel chooses among the four observed tree sprites. That provides visual variety without multiplying the structural rule graph.
 
-## Vocabulary
+## Tile binding fields
 
-- **Cell**: one position in the authored or generated grid.
-- **Layered cell**: the ordered stack at one position, such as grass on layer 0 and a transparent bush fragment on layer 1.
-- **Sample**: a representative map painted by the author. Samples can be rectangular and range from 3×3 to 64×64.
-- **Pattern**: one distinct overlapping 2×2, 3×3, or 4×4 window extracted from a sample.
-- **Occurrence**: one observation of a pattern. Repeated occurrences affect its frequency.
-- **Adjacency**: a legal north, east, south, or west relationship between two overlapping patterns.
-- **Viable pattern**: a pattern belonging to a constraint cycle that can continue in every direction.
-- **Entropy**: uncertainty at an output position, accounting for both the remaining patterns and their weights.
-- **Contradiction**: an output position whose domain has been reduced to zero patterns.
+Select a sprite in the tileset palette and author:
 
-## The mental model
+- **Stable slug**: the identity exported with tileset gameplay metadata.
+- **WFC symbol**: the logical placement state used by the pattern compiler.
+- **Blocks movement**: runtime collision meaning.
+- **Semantic tags**: optional runtime or biome meaning.
 
-Think of an authored sample as a short piece of terrain grammar written with pictures. Chisel does not copy the sample and does not identify objects by looking at them. It records which exact `N×N` arrangements occurred and which arrangements can overlap by `N-1` cells.
+Every sprite painted into a sample needs a binding and a WFC symbol. Sprites with the same symbol are visual variants only when their complete layer position has the same logical meaning.
+
+Good groupings:
 
 ```text
-authored layered sample
-          │
-          ├─ slide the selected N×N window over every position
-          ▼
-weighted library of exact N×N patterns
-          │
-          ├─ index exact (N-1)-cell overlaps north/east/south/west
-          ▼
-compatibility graph
-          │
-          ├─ lowest-entropy collapse + constraint propagation
-          ▼
-new terrain assembled from observed local relationships
+GRASS_A, GRASS_B, GRASS_C       -> GROUND
+PINE_A, PINE_B, PINE_C          -> TREE
+ROCK_SMALL_A, ROCK_SMALL_B      -> ROCK
 ```
 
-This has three important consequences:
-
-1. WFC can recombine local relationships into a map that was never painted, but it cannot invent a local relationship it never observed.
-2. Two sprites with the same tags are still different symbols. Tags describe meaning to later systems; exact sprite stacks determine WFC compatibility.
-3. The quality of the output is mostly determined by the coverage and balance of the examples, not by the number of tags attached to the tiles.
-
-A useful test while painting is: _if the selected sampling window moved one cell at a time over this feature, has it seen every way the feature is allowed to begin, continue, turn, touch something else, and end?_
-
-## Choose the sampling size
-
-Sampling size controls how much local structure must match; it does not control output dimensions.
-
-- **2×2** matches one row or column between neighboring patterns. It is the loosest and fastest choice, produces the most recombination, and works well for chaotic nature, sparse foliage, and early iteration. It can separate structures that need more than one cell of context.
-- **3×3** matches two rows or columns. It is the balanced choice for clusters, small clearings, shores, and ordinary multi-cell terrain relationships.
-- **4×4** matches three rows or columns. It preserves larger silhouettes and multi-cell props more faithfully, but repeats more of the input, produces a larger pattern library, and needs a richer sample to avoid contradictions.
-
-Start a natural-terrain sample at 2×2. Move to 3×3 only when the output breaks relationships that need two cells of context; use 4×4 when preserving a larger local silhouette is more important than free recombination. Always compare the same seeds across sizes before deciding.
-
-## Add tilesets
-
-1. Open **Asset Library** and add an asset.
-2. Choose the **Tileset** category.
-3. Choose a PNG spritesheet and set its square tile size in pixels.
-
-The image width and height must both be divisible by the tile size. Chisel derives grid dimensions and local tile IDs from that information. Tilesets are managed assets under `.chisel/assets/TILESET` and keep stable asset slugs.
-
-A sample may reference multiple tilesets. This is how a base terrain sheet, a transparent plant sheet, and a transparent prop sheet participate in one training example.
-
-## Optional tile metadata
-
-The palette can enrich a sprite with:
-
-- a stable semantic tile slug;
-- a movement-blocking flag;
-- optional tags.
-
-Metadata is not required for overlapping-pattern matching. The compiler compares exact layered cell contents. Tags such as `WALKABLE`, `WATER`, `SHORE`, `FOLIAGE`, or project-specific concepts are available to biome setup and runtime enrichment, but they never make two different sprites overlap-compatible.
-
-## Paint large layered samples
-
-Create a sample by choosing width, height, and layer count.
-
-- Layer 0 is the required base and must be fully painted.
-- Overlay layers are optional at each position and preserve transparency.
-- The painter renders all layers together.
-- Select the active paint layer from the painter header.
-- Left-click or drag to paint.
-- Ctrl+left-click, right-click, or drag to erase the active layer.
-- The painter uses a fixed cell scale and scrolls for large examples; it does not zoom.
-
-For useful texture synthesis, start around 12×12. Samples around 20×20 through 32×32 usually provide enough repeated context for paths, clearings, clusters, and transitions while remaining understandable to edit. A 3×3 sample contributes only one observation before transformations and is primarily useful for an explicitly hand-authored rule library.
-
-### Layered-cell example
-
-Suppose one position contains:
+Bad grouping:
 
 ```text
-Layer 1: PLANTS:418
-Layer 0: GRASS:0
+GRASS, DEEP_WATER, CLIFF_CORNER -> TERRAIN
 ```
 
-That complete stack is one symbol to the WFC compiler. Neighboring fragments of the same bush occupy their own layered cells. When all required overlaps are present, the generator can reconstruct the multi-cell bush rather than scattering unrelated fragments.
+The bad grouping erases a structural distinction that WFC must preserve. If two sprites obey different placement rules, give them different symbols.
 
-Overlay absence also matters. Grass with no overlay is different from grass with a bush fragment. Paint generous empty space around props so the compiler observes transitions from ordinary grass into every side of the prop and back out again.
+Orientation remains part of the logical state. `SHORE@0` and a rotated `SHORE@1` are different states because their connection directions differ.
 
-## Why the video-style samples work
+## Layers
 
-The Farbound project contains three compact 16×16 forest examples using the same two-layer tile vocabulary:
-
-- `FOREST_SPARSE` teaches isolated landmarks, pairs, one small group, and generous open ground.
-- `FOREST_NORMAL` teaches several different cluster silhouettes plus open transitions between them.
-- `FOREST_DENSE` teaches irregular connected groups and small internal gaps without relying on one repeated block.
-
-All three use the exact same plain-ground layered cell and a neutral border at least three cells deep. Every pattern can therefore leave a feature, travel through repeatable open ground, and enter another feature. Generate from one density sample when a sector needs a specific character; select multiple samples only when a blended distribution is intentional because every selected sample contributes equal normalized weight.
-
-At 2×2 these examples prioritize free natural recombination. At 3×3 and 4×4 they preserve progressively larger pieces of the painted cluster silhouettes. The diagnostics remain fully viable at every supported sampling size.
-
-The earlier lattice demonstration failed aesthetically because it taught exactly one feature in every sampling window. That constraint has only grid-like solutions. A representative example contributes both feature-bearing windows and all-ground windows, allowing features to be absent as well as present.
-
-## Authoring feature islands
-
-The safest reusable structure is a feature island surrounded by a shared neutral cell:
+Layer 0 is required and must be painted everywhere. Overlay layers are optional. The logical state of one cell is the ordered stack of symbols on all layers:
 
 ```text
-. . . . . . .
-. . . . . . .
-. . B B . . .
-. . B B . . .
-. . . . . . .
-. . . . . . .
-. . . . . . .
+GROUND@0 / -             ordinary ground
+GROUND@0 / TREE@0        a tree anchor over ground
+GROUND@0 / ROCK@0        a rock anchor over ground
 ```
 
-Here `.` is the exact neutral layered cell and `B` is a bush fragment stack. Leave at least `N-1` neutral cells around a feature for an `N×N` window so the compiler can observe all entry and exit contexts. Extra breathing room is easier to reason about.
+Overlay absence is meaningful. Ground without a tree and ground with a tree are different logical cells.
 
-Add several forms to the same sample:
+For large visual objects, paint one logical anchor or prefab reference whenever possible. Do not make WFC reconstruct a tree from unrelated crown and trunk fragments unless those fragments truly occupy separate game cells and every legal arrangement is intentionally sampled.
+
+## What overlapping sampling learns
+
+For a selected `N×N` size, Chisel:
+
+1. Slides an `N×N` window across every selected sample.
+2. Replaces each painted sprite with its logical WFC symbol.
+3. Deduplicates identical logical windows and records their frequencies.
+4. Lets two patterns touch when their shared `N-1` rows or columns match exactly.
+5. Uses lowest-entropy collapse and constraint propagation to build new logical layouts.
+
+For 2×2 sampling, horizontally adjacent patterns share one exact column:
 
 ```text
-isolated       pair           cluster
-
-. B . . .      . B B .       . B B .
-. . . . .      . . . .       . B B .
-. . . . .      . . . .       . . B .
+Pattern A        Pattern B
+A B              B C
+D E              E F
 ```
 
-WFC can only produce arrangements represented by some chain of observed overlaps. If only the cluster is painted, isolated bushes are not automatically legal. If only isolated bushes are painted, touching bushes are not automatically legal.
+The shared `B/E` column must match exactly, including every logical layer and orientation.
 
-## Authoring paths and rigid structures
+Sampling size controls local memory:
 
-Include each primitive that should appear in generated output, with neutral space around it.
+- **2×2**: one-cell overlaps, broad recombination, best default for loose nature.
+- **3×3**: two-cell overlaps, preserves small groups and short boundaries.
+- **4×4**: three-cell overlaps, preserves larger local shapes but needs richer input and repeats more readily.
+
+It does not control output size. Start with 2×2 for forests, rocks, flowers, and irregular clearings. Increase it only when the output breaks a relationship that needs more context.
+
+## Sector generation and stitching
+
+Chisel does not ask one monolithic solve to invent the whole candidate. It generates small square sectors independently. Between neighboring sectors it leaves a gap `N-1` cells wide, fixes the sector interiors as constraints, and runs one final WFC solve to fill those gaps.
+
+This gives two useful properties:
+
+- distant areas can vary independently instead of inheriting one long collapse history;
+- every filled seam is checked against the same logical pattern grammar.
+
+The **Sector** selector controls the independent interior size. Smaller sectors increase large-scale variation and the number of stitched seams. Larger sectors preserve longer structures within each solve and do less stitching. For 32×32 nature patches, begin with 8×8 sectors.
+
+If stitching repeatedly contradicts, the sample does not teach enough ways to return to a shared neutral state. Add more open `GROUND`, more entrances and exits around clusters, or separate incompatible sample families.
+
+## Authoring useful nature samples
+
+Use logical anchors rather than drawing only finished showcase compositions. A compact forest sample should contain:
+
+- a large repeatable `GROUND` region;
+- isolated `TREE` cells;
+- pairs and irregular clusters;
+- several gaps between clusters;
+- every cluster returning to ordinary `GROUND` on all sides.
+
+Example:
 
 ```text
-straight        corner          T-junction       cross
-
-. P .           . P .           P P P            . P .
-. P .           . P P           . P .            P P P
-. P .           . . .           . P .            . P .
+. . . . . . . .
+. T . . . T T .
+. . . . . T . .
+. . T . . . . .
+. . T T . . T .
+. . . T . . . .
+. T . . . . T .
+. . . . . . . .
 ```
 
-Also include intentional endpoints:
+`.` is `GROUND`; `T` is `GROUND/TREE`. Use several concrete tree sprites for the `T` positions but bind them all to `TREE`. A second sparse sample and a third dense sample can use the same symbols with different spatial frequency.
+
+The generator cannot infer a relationship that never appears. If touching trees are absent, it will not invent groves. If the all-ground pattern is absent, it may be forced to place vegetation continuously. If every tree appears at one fixed interval, that interval becomes the grammar and produces a lattice.
+
+## Water, shores, and cliffs
+
+Keep structurally different terrain distinct:
 
 ```text
-. G .
-. P .
-. P .
+ordinary land       GROUND
+deep water          WATER
+shore directions    SHORE_N, SHORE_E, SHORE_S, SHORE_W
+cliff directions    CLIFF_N, CLIFF_E, CLIFF_S, CLIFF_W
 ```
 
-`G` may be a gravestone layered over grass. Without an observed endpoint, a path may be forced to continue forever, terminate only at the output boundary, or make the library contradictory. Include long enough straight segments for their middle patterns to repeat, not only one copy of each junction.
+Paint long fills, straight boundaries, every supported corner, and transitions back to shared ground. Visual variants within one directional role may share a symbol. Opposite directions may not.
 
-For cliffs, shorelines, walls, and map edges, apply the same principle:
+Local WFC can make locally valid lake or cliff shapes, but it cannot guarantee a single connected lake, a reachable island, or a road between distant entrances. Those are world-level constraints and belong to game-side planning or candidate rejection.
 
-- teach every desired straight orientation;
-- teach inner and outer corners separately;
-- teach transitions into the shared interior terrain;
-- teach caps or endpoints when termination is legal;
-- keep forbidden transitions absent from every sample.
+## Periodic input and transformations
 
-## Authoring water and shorelines
+Periodic input wraps sample edges while extracting windows. Use it only for an intentionally seamless sample whose opposite sides were painted to meet. It is not a general fix for weak samples.
 
-Water is structural terrain, so it belongs in the WFC sample whenever WFC is expected to determine the shape of lakes, rivers, coasts, or islands.
+Rotations and reflections transform both pattern positions and sprite orientations. Enable them only when lighting, shadows, text, and directional art remain valid after the transform.
 
-The base layer still needs a tile reference in every cell. A transparent ground sprite is a painted base cell, not an empty overlay cell. Chisel's WFC compiler does not use pixel alpha when deciding compatibility: the exact tileset ID, local tile ID, orientation, and complete layer stack are the symbol. Alpha-derived water semantics can be interpreted later without changing the learned overlaps.
+## Candidate review
 
-For a lake, teach at least these families:
+Choose only the samples intended to contribute to a candidate family. Generate multiple fixed seeds and judge:
 
-```text
-deep fill       straight shore    outer corner     inner corner
+- local validity of boundaries and clusters;
+- meaningful changes in topology between seeds;
+- amount of open space;
+- density of trees, rocks, and other anchors;
+- absence of obvious grids or repeated showcase blocks;
+- successful seam stitching in one or very few assembly attempts.
 
-W W W           G G G             G G G            G W W
-W W W           S S S             G S S            G C W
-W W W           W W W             G S W            G G G
-```
+Approve a candidate only after it looks useful. Approval stores the concrete layered sprite grid. Later changes to WFC symbols, source samples, or the compiler cannot silently change that approved patch.
 
-Here `G` is ordinary ground, `W` is repeatable water fill, and `S`/`C` are the appropriate shoreline sprites. The letters describe intent only; every position must use its correct sprite.
+## Runtime boundary
 
-Good water examples should include:
+Only these tables appear in Data Tables and runtime exports:
 
-- large enough `W` regions to learn the all-water pattern at the selected sampling size;
-- large enough `G` regions to learn the all-ground pattern;
-- long straight shores in every allowed direction;
-- every inner and outer corner supported by the art;
-- narrow channels only when they should be legal;
-- small islands and small ponds only when their full boundary can be represented;
-- transitions from shore back into the shared neutral ground used by other samples.
+- `terrain_tilesets`: tileset dimensions and concrete per-sprite gameplay metadata;
+- `terrain_approved_patches`: frozen concrete layered grids.
 
-Avoid painting a single tiny ring of shoreline and expecting arbitrary lakes. Without repeatable water and ground interiors, WFC learns one rigid ring or a small family of phase-shifted rings. For rivers, explicitly teach straight runs, bends, widening, narrowing, junctions, sources, mouths, and any legal connection to a lake or map edge.
+Bindings, WFC symbols, samples, pattern libraries, rejected candidates, sector constraints, and stitch diagnostics remain editor-only.
 
-If water must always form one globally connected body, local overlapping constraints alone do not guarantee that. Let WFC create locally valid water shapes, then use a later connectivity pass to select, join, fill, or reject components according to the biome's global rules.
-
-## Empty space is a pattern
-
-Empty space is not a lack of authored information. A repeated neutral area at least as large as the selected sampling window is the pattern that allows WFC to produce breathing room of arbitrary size.
-
-Compare these rule libraries:
-
-```text
-Exactly one flower per window: 9 flower-position patterns
-At most one flower per window: those 9 patterns + the all-ground pattern
-```
-
-The first forces a lattice. The second permits gaps. Large samples normally capture the all-ground pattern automatically, which is why they are much easier to author successfully.
-
-## Periodic input
-
-Periodic input wraps sample coordinates while extracting windows. A window crossing the right edge continues at the left edge, and a window crossing the bottom continues at the top.
-
-Enable it when:
-
-- the sample is an intentionally seamless texture;
-- opposite edges were deliberately painted to meet;
-- a compact sample represents one repeating world patch.
-
-Leave it disabled when:
-
-- a wall, coast, path, or large prop touches an edge without a matching continuation;
-- opposite edges contain unrelated features;
-- the sample has a neutral border and already contains enough internal repetition.
-
-Periodic input guarantees continuation opportunities, but it can teach false seams. It is a tool, not an automatic quality switch.
-
-## Rotations and reflections
-
-Transform switches create rotated or reflected observations and transform sprite orientations with them.
-
-Enable them when:
-
-- sprites are designed to rotate or reflect;
-- the same structural rule should apply in every direction;
-- orientation metadata is meaningful for runtime rendering.
-
-Leave them disabled when:
-
-- lighting or shadows have a fixed direction;
-- text, gravestone markings, doors, or asymmetric props must remain upright;
-- the tileset already provides separately authored directional art;
-- the transformed sprite would be visually invalid.
-
-Transformations multiply the pattern space. More patterns are useful only when they are visually correct and remain connected.
-
-## Frequency and approval
-
-Repeated observations inside one sample increase a pattern's relative frequency. Paint more ordinary grass than graves when graves should be rare. Paint several path middles when long paths should be common.
-
-Chisel normalizes each sample to one total unit of compiler weight. Therefore:
-
-- frequency inside a sample controls the balance among that sample's patterns;
-- adding a second sample does not automatically dominate merely because it is larger;
-- sample size does not secretly become a biome-level weight.
-
-For substantially different distributions, prefer separate representative samples, generate review candidates from the relevant library, and approve the good results under a biome slug. For example:
-
-```text
-MEADOW_OPEN      mostly grass, sparse flowers
-MEADOW_WOODED    more vegetation clusters
-RUINS_LIGHT      occasional paths and graves
-RUINS_DENSE      frequent paths, junctions, and props
-```
-
-## What should belong to WFC
-
-Use WFC for features whose **local arrangement is part of terrain structure**:
-
-- ground and water regions;
-- shores, cliffs, walls, paths, and their boundaries;
-- repeatable clearings and vegetation clusters;
-- small repeatable ruins whose neighboring terrain matters;
-- transitions between terrain families.
-
-Use stamps or a later placement pass for features whose **identity and global placement matter more than local repetition**:
-
-- a unique castle, dungeon entrance, boss arena, or event site;
-- a large authored ruin that must remain intact;
-- resource nodes with biome-wide spacing or quotas;
-- individual trees, rocks, flowers, and debris that only provide surface variation;
-- objects needing navigation, quest, visibility, or encounter checks before placement.
-
-A hybrid usually gives the best result:
-
-1. WFC establishes terrain regions and coherent boundaries.
-2. Connectivity and navigation passes validate rivers, roads, traversable land, and map edges.
-3. Large stamps reserve and replace suitable areas.
-4. Scatter passes add foliage, rocks, decals, and other dressing according to biome rules.
-5. Runtime enrichment turns semantic tile metadata into collision, movement cost, water behavior, encounters, and rendering layers.
-
-Foliage may appear in both systems. Put representative foliage clusters in WFC when their silhouette or relationship to paths and shores should be preserved. Use scatter placement for abundant independent decoration. Do not make WFC carry thousands of interchangeable one-cell decorations merely to add visual noise; that inflates the pattern library without improving terrain topology.
-
-## Planning a sample library
-
-Prefer several coherent samples with a shared neutral language over one enormous sample containing every biome feature.
-
-An initial meadow library could be:
-
-| Sample          | Purpose                                  | Suggested size |
-| --------------- | ---------------------------------------- | -------------- |
-| `MEADOW_OPEN`   | Mostly neutral grass, sparse detail      | 16×16          |
-| `MEADOW_GROVES` | Isolated, paired, and clustered bushes   | 20×20          |
-| `MEADOW_WATER`  | Pond interiors, shorelines, corners      | 24×24          |
-| `MEADOW_PATHS`  | Straights, corners, junctions, endpoints | 24×24          |
-| `MEADOW_RUINS`  | Repeatable path/ruin relationships       | 24×20          |
-
-All five should reuse the exact same neutral grass stack where they meet. Generate candidates from coherent sample sets and approve only results that match the target biome. The approved patch weight controls how often the game chooses that frozen patch; it does not alter WFC.
-
-Do not connect unrelated visual languages accidentally. If snow and desert never touch directly, do not give them one shared neutral cell merely to improve viability. Add an intentional transition sample or generate them as separate candidate libraries.
-
-## Read the diagnostics
-
-The preview reports:
-
-- **extracted**: transformed window observations collected from a sample;
-- **unique**: distinct patterns to which that sample contributed;
-- **viable**: contributed patterns belonging to a cycle that can continue in every direction;
-- **dead ends**: patterns with no immediate compatible neighbor in one direction;
-- **generation attempts**: how many seeded restarts were required.
-
-Open **Pattern contribution by sample**. A line such as:
-
-```text
-GRASS_MEADOW_1: 0/72 viable (72 extracted)
-```
-
-means the sample is not contributing to ordinary interior generation. A headline count such as `393 unique patterns` is not evidence of variety if only 249 are viable.
-
-Useful targets are:
-
-- every intended primary sample has viable patterns;
-- the viable count is comfortably larger than a handful of phase variants;
-- multiple seeds change topology, not only rotation or translation;
-- ordinary seeds finish in one attempt;
-- the output includes each intended feature without fragmenting multi-cell art.
-
-## Evaluating output systematically
-
-Do not judge the library from one attractive seed. Generate a small review set—ten to twenty seeds at the intended gameplay scale—and evaluate four separate qualities:
-
-### Local correctness
-
-- Are shore, cliff, wall, and path sprites joined correctly?
-- Are multi-cell bushes and props reconstructed intact?
-- Does every visible adjacency exist intentionally in an authored sample?
-
-### Topological variety
-
-- Do paths take materially different routes?
-- Do lakes and clearings change shape and position?
-- Are outputs genuinely different rather than translated, reflected, or rotated copies?
-
-### Distribution
-
-- Is there enough empty space?
-- Are rare features actually rare?
-- Do common terrain patterns dominate without eliminating landmarks?
-
-### Global playability
-
-- Is required land connected?
-- Are important destinations reachable?
-- Are water bodies, cliffs, and map boundaries consistent with world-level rules?
-
-The first three can be improved primarily through samples and candidate selection. The fourth normally needs post-generation validation because a local overlapping model cannot guarantee arbitrary global properties such as one connected road between two distant entrances.
-
-Change one variable at a time while tuning:
-
-1. Save a fixed list of review seeds.
-2. Record pattern counts and contribution diagnostics.
-3. Change one sample or transformation policy.
-4. Regenerate the same seeds.
-5. Compare topology and frequency, not just visual attractiveness.
-
-Fixed review seeds make regressions visible. New random seeds are useful only after the known review set remains healthy.
-
-## Diagnose common failures
-
-### Output is a checkerboard or lattice
-
-The samples encode a fixed-count or fixed-spacing rule. Add repeated neutral windows and examples where the feature is absent. Do not create only translated copies of one tiny arrangement.
-
-### Seeds look identical but rotated
-
-The viable pattern graph contains one deterministic cycle plus its transforms. Paint branching alternatives: empty space, multiple cluster shapes, different path continuations, and transitions returning to common ground.
-
-### A sample has zero viable patterns
-
-Its windows do not form a closed continuation graph. Increase the sample size, repeat its neutral context, complete all sides of feature islands, or use periodic input only after making edges seamless.
-
-### Paths never end
-
-No legal endpoint was observed. Paint caps, gates, graves, doors, or deliberate transitions from path back to neutral ground.
-
-### Props appear as fragments
-
-The prop is larger than the learned context or lacks enough surrounding observations. Paint the complete layered prop more than once, surround it with neutral cells, and select a larger sampling size when the object needs more local context.
-
-### Generation frequently contradicts
-
-The library is highly constrained or contains incompatible sub-languages. Add shared transition regions, reduce invalid transformations, separate unrelated biomes into profiles, or author smaller coherent samples before increasing complexity.
-
-## Practical quality checklist
-
-1. Use a repeated neutral layered cell shared by every sample that should mix.
-2. Start with a 12×12 to 24×24 example, not isolated 3×3 rules.
-3. Leave at least two cells of neutral context around feature islands.
-4. Include an all-neutral region at least as large as the selected sampling size.
-5. Paint every desired straight, corner, junction, and endpoint.
-6. Show isolated, paired, and clustered forms separately when all are desired.
-7. Repeat common structures and keep rare structures rare in the input.
-8. Keep rotations and reflections off until transformed art is verified.
-9. Use periodic input only for deliberately seamless edges.
-10. Check viability per sample before judging the output.
-11. Test at least ten seeds and compare topology, density, and feature integrity.
-12. Increase complexity gradually; preserve a working shared neutral language.
-
-## Approval and runtime tables
-
-Choose the samples that contribute before generating a candidate. Only checked samples are compiled, and each selected sample contributes one normalized unit of pattern weight. This lets one authoring library produce separate meadow, forest, shore, or other candidate families without mixing every sample every time.
-
-Generating a candidate does not put it in game data. Inspect the rendered result, assign a stable patch slug, biome, category, and runtime selection weight, then choose **Approve candidate**. Approval freezes the complete layered grid. Changing a sample later cannot silently alter an already approved patch. Preview cells default to a fixed 48px display size. Explicit 25%–200% zoom levels resize the preview; the mouse wheel never changes zoom. Large outputs use horizontal scrolling while remaining fully expanded vertically with the page.
-
-Only two terrain tables appear in **Data Tables** and game exports:
-
-- `terrain_tilesets` contains each tileset's asset reference, grid dimensions, and compact per-sprite gameplay metadata;
-- `terrain_approved_patches` contains the frozen layered grids selected for deterministic runtime placement.
-
-Chisel still versions normalized bindings, samples, and painted cells as editor-only source data. These internal tables power the authoring workspace, but they are deliberately hidden from Data Tables and removed from every runtime export. The game therefore receives no WFC grammar, pattern library, sample metadata, or rejected candidates.
-
-## Tileset deletion and source commits
-
-Deleting a tileset that is used by an approved patch is refused. If the tileset is not part of any approved patch, deletion also cleans up its bindings and source samples before removing the asset.
-
-Tileset assets, approved runtime data, and internal terrain authoring data participate in ordinary Chisel source commits. There is no parallel terrain registry or external map format.
+Deleting a tileset used by an approved patch is refused. Deleting an unapproved tileset also removes its source bindings and sample references.

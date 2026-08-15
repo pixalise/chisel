@@ -32,6 +32,7 @@ describe("system tables", () => {
     expect(EDITOR_ONLY_TERRAIN_TABLE_IDS).toEqual(new Set(["terrain_tile_bindings", "terrain_wfc_samples", "terrain_wfc_sample_cells"]));
     expect(RUNTIME_TERRAIN_TABLE_IDS).toEqual(new Set([TERRAIN_TILESETS_TABLE_ID, TERRAIN_APPROVED_PATCHES_TABLE_ID]));
     expect(TERRAIN_TILE_BINDING_COLUMNS.tileset.assetCategory).toBe(AssetCategoryEnum.tileset);
+    expect(TERRAIN_TILE_BINDING_COLUMNS.wfcSymbol.required).toBe(true);
     expect(TERRAIN_TILE_BINDING_COLUMNS.tags.required).toBe(false);
   });
 

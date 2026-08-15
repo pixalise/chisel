@@ -107,6 +107,7 @@ class TerrainSampleService {
       }
       tileBindings[terrainTileKey(tilesetId, localId)] = terrainTileBindingSchema.parse({
         slug: stringCell(entry, TERRAIN_TILE_BINDING_COLUMNS.tileSlug),
+        wfcSymbol: stringCell(entry, TERRAIN_TILE_BINDING_COLUMNS.wfcSymbol),
         blocking: booleanCell(entry, TERRAIN_TILE_BINDING_COLUMNS.blocking),
         tags
       });
@@ -221,6 +222,7 @@ class TerrainSampleService {
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.tileset, tilesetId),
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.localId, localId),
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.tileSlug, parsed.slug),
+          rowValue(TERRAIN_TILE_BINDING_COLUMNS.wfcSymbol, parsed.wfcSymbol),
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.blocking, parsed.blocking),
           rowValue(TERRAIN_TILE_BINDING_COLUMNS.tags, parsed.tags)
         ],
@@ -287,7 +289,15 @@ class TerrainSampleService {
               .flatMap(([key, binding]) => {
                 const separator = key.lastIndexOf(":");
                 if (key.slice(0, separator) !== tileset.id) return [];
-                return [{ localId: Number(key.slice(separator + 1)), ...terrainTileBindingSchema.parse(binding) }];
+                const parsed = terrainTileBindingSchema.parse(binding);
+                return [
+                  {
+                    localId: Number(key.slice(separator + 1)),
+                    slug: parsed.slug,
+                    blocking: parsed.blocking,
+                    tags: parsed.tags
+                  }
+                ];
               })
               .sort((left, right) => left.localId - right.localId)
           )
