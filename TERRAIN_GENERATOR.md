@@ -138,7 +138,7 @@ Approve a useful result as:
 
 Approval deep-copies concrete tile stacks, resolved metadata, placements, anchors, and metrics. Later changes to sockets, pieces, weights, templates, or the solver cannot alter an approved asset.
 
-Every approved asset has a rendered preview in the library. Selecting it opens the spatial annotation editor. A spatial dressing references—but never edits—the frozen asset and can define:
+Every approved asset has a rendered preview under **Terrain → Terrain Annotations**. Selecting it opens the spatial annotation editor. A spatial dressing references—but never edits—the frozen asset and can define:
 
 - painted `PLACEMENT`, `EXCLUSION`, and `RESERVED` zones with semantic tags;
 - typed point markers such as POIs, quest sites, spawn hints, or landmarks, including radius and direction;

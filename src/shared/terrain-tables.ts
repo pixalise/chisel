@@ -9,6 +9,7 @@ export const TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID = "terrain_adjacency_overrides
 export const TERRAIN_SITE_TEMPLATES_TABLE_ID = "terrain_site_templates";
 export const TERRAIN_APPROVED_ASSETS_TABLE_ID = "terrain_approved_assets";
 export const TERRAIN_SPATIAL_LAYOUTS_TABLE_ID = "terrain_spatial_layouts";
+export const VISIBLE_TERRAIN_SYSTEM_TABLE_IDS = new Set<string>([TERRAIN_APPROVED_ASSETS_TABLE_ID, TERRAIN_SPATIAL_LAYOUTS_TABLE_ID]);
 
 const SYSTEM_TABLE_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
@@ -32,7 +33,7 @@ function defaultValue(type: ColumnType): DataColumnDefinition["defaultValue"] {
   if (type === ColumnType.integer || type === ColumnType.decimal) return 0;
   if (type === ColumnType.boolean) return false;
   if (type === ColumnType.color) return "#000000";
-  if (type === ColumnType.enumArray) return [];
+  if (type === ColumnType.enumArray || type === ColumnType.arrayRef) return [];
   if (type === ColumnType.json) return {};
   return "";
 }
@@ -74,7 +75,6 @@ export const TERRAIN_TILE_BINDING_COLUMNS = {
 } as const;
 
 export const TERRAIN_SOCKET_COLUMNS = {
-  label: column("terrain_socket_label", "label", ColumnType.string),
   color: column("terrain_socket_color", "color", ColumnType.color),
   description: column("terrain_socket_desc", "description", ColumnType.text, { required: false })
 } as const;
@@ -86,7 +86,6 @@ export const TERRAIN_PIECE_COLUMNS = {
 } as const;
 
 export const TERRAIN_PIECE_SET_COLUMNS = {
-  label: column("terrain_set_label", "label", ColumnType.string),
   definition: column("terrain_set_definition", "definition", ColumnType.json)
 } as const;
 
@@ -110,7 +109,6 @@ export const TERRAIN_APPROVED_ASSET_COLUMNS = {
 } as const;
 
 export const TERRAIN_SPATIAL_LAYOUT_COLUMNS = {
-  label: column("terrain_layout_label", "label", ColumnType.string),
   sourceAsset: column("terrain_layout_source", "source_asset", ColumnType.ref, { refTableId: TERRAIN_APPROVED_ASSETS_TABLE_ID }),
   definition: column("terrain_layout_definition", "definition", ColumnType.json)
 } as const;

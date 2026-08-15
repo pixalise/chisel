@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { describe, expect, it } from "vitest";
-import { assetSchema, createOrUpdateAssetSchema, dataTableRowSchema, rowSlugSchema } from "./schemas";
-import { AssetCategoryEnum } from "./types";
+import { assetSchema, createOrUpdateAssetSchema, dataTableRowSchema, rowSlugSchema, typedDataColumnValueSchema } from "./schemas";
+import { AssetCategoryEnum, ColumnType } from "./types";
 
 describe("row slugs", () => {
   it("accepts constant case slugs", () => {
@@ -28,6 +28,17 @@ describe("row slugs", () => {
   it("requires every data table row to have a slug", () => {
     expect(() => dataTableRowSchema.parse({ id: nanoid(), values: [] })).toThrow();
     expect(() => dataTableRowSchema.parse({ id: nanoid(), slug: "ZOMBIE_BASIC", values: [] })).not.toThrow();
+  });
+});
+
+describe("array references", () => {
+  it("accepts arrays of row slugs and rejects scalar values", () => {
+    expect(
+      typedDataColumnValueSchema.parse({ columnId: nanoid(), type: ColumnType.arrayRef, value: ["FOREST_OPEN", "FOREST_RUINS"] })
+    ).toMatchObject({ type: ColumnType.arrayRef, value: ["FOREST_OPEN", "FOREST_RUINS"] });
+    expect(typedDataColumnValueSchema.safeParse({ columnId: nanoid(), type: ColumnType.arrayRef, value: "FOREST_OPEN" }).success).toBe(
+      false
+    );
   });
 });
 

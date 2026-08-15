@@ -16,4 +16,13 @@ describe("data schema column utils", () => {
       expect(isDefaultValueValidForColumnType(ColumnType.enum, "UNKNOWN", ["ASPECT", "MODIFIER"], false)).toBe(false);
     });
   });
+
+  describe("array reference defaults", () => {
+    it("uses and validates arrays of row slugs", () => {
+      expect(createDefaultValueForColumnType(ColumnType.arrayRef)).toEqual([]);
+      expect(isDefaultValueValidForColumnType(ColumnType.arrayRef, ["FOREST_OPEN", "FOREST_RUINS"], [], false)).toBe(true);
+      expect(isDefaultValueValidForColumnType(ColumnType.arrayRef, ["FOREST_OPEN", 2], [], false)).toBe(false);
+      expect(isDefaultValueValidForColumnType(ColumnType.arrayRef, "FOREST_OPEN", [], false)).toBe(false);
+    });
+  });
 });

@@ -127,7 +127,6 @@ class TerrainGeneratorService {
     const sockets = socketsTable.rows.map((entry) =>
       terrainSocketDefinitionSchema.parse({
         slug: entry.slug,
-        label: stringCell(entry, TERRAIN_SOCKET_COLUMNS.label),
         color: stringCell(entry, TERRAIN_SOCKET_COLUMNS.color),
         description: stringCell(entry, TERRAIN_SOCKET_COLUMNS.description)
       })
@@ -270,11 +269,7 @@ class TerrainGeneratorService {
     const socketRows = sockets.map((entry) =>
       row(
         entry.slug,
-        [
-          rowValue(TERRAIN_SOCKET_COLUMNS.label, entry.label),
-          rowValue(TERRAIN_SOCKET_COLUMNS.color, entry.color),
-          rowValue(TERRAIN_SOCKET_COLUMNS.description, entry.description)
-        ],
+        [rowValue(TERRAIN_SOCKET_COLUMNS.color, entry.color), rowValue(TERRAIN_SOCKET_COLUMNS.description, entry.description)],
         socketIds.get(entry.slug)
       )
     );
@@ -294,11 +289,7 @@ class TerrainGeneratorService {
     const setIds = idsBySlug(pieceSetsTable);
     const setRows = pieceSets.map((entry) => {
       const { slug, ...definition } = entry;
-      return row(
-        slug,
-        [rowValue(TERRAIN_PIECE_SET_COLUMNS.label, entry.label), rowValue(TERRAIN_PIECE_SET_COLUMNS.definition, definition)],
-        setIds.get(slug)
-      );
+      return row(slug, [rowValue(TERRAIN_PIECE_SET_COLUMNS.definition, definition)], setIds.get(slug));
     });
     const overrideIds = idsBySlug(overridesTable);
     const overrideRows = overrides.map((entry) =>
@@ -345,7 +336,6 @@ class TerrainGeneratorService {
       return row(
         slug,
         [
-          rowValue(TERRAIN_SPATIAL_LAYOUT_COLUMNS.label, entry.label),
           rowValue(TERRAIN_SPATIAL_LAYOUT_COLUMNS.sourceAsset, entry.sourceAsset),
           rowValue(TERRAIN_SPATIAL_LAYOUT_COLUMNS.definition, definition)
         ],
@@ -358,8 +348,8 @@ class TerrainGeneratorService {
     await tableService.saveSystemTableRows(TERRAIN_PIECE_SETS_TABLE_ID, setRows);
     await tableService.saveSystemTableRows(TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID, overrideRows);
     await tableService.saveSystemTableRows(TERRAIN_SITE_TEMPLATES_TABLE_ID, templateRows);
-    await tableService.saveSystemTableRows(TERRAIN_APPROVED_ASSETS_TABLE_ID, approvedRows);
     await tableService.saveSystemTableRows(TERRAIN_SPATIAL_LAYOUTS_TABLE_ID, layoutRows);
+    await tableService.saveSystemTableRows(TERRAIN_APPROVED_ASSETS_TABLE_ID, approvedRows);
     return this.load();
   }
 

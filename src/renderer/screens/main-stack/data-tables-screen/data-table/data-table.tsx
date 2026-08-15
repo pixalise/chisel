@@ -244,6 +244,30 @@ function validateCell(
     }
   }
 
+  if (column.type === ColumnType.arrayRef) {
+    if (!column.refTableId) {
+      errors.push(`${column.name} must target a table`);
+    } else if (!Array.isArray(value)) {
+      errors.push(`${column.name} must be an array of references`);
+    } else {
+      const target = refTargetSlugs(column, tables, currentTable, rows);
+      if (!target.table) {
+        errors.push(`${column.name} targets a missing table`);
+      } else {
+        const invalidValues = value.filter((entry) => typeof entry !== "string" || !target.slugs.has(entry));
+        if (invalidValues.length > 0) {
+          errors.push(`${column.name} must only reference rows in ${target.table.name}`);
+        }
+      }
+      if (new Set(value).size !== value.length) {
+        errors.push(`${column.name} cannot contain duplicate references`);
+      }
+      if (typeof column.max === "number" && value.length > column.max) {
+        errors.push(`${column.name} must have at most ${column.max} references`);
+      }
+    }
+  }
+
   if (column.type === ColumnType.enumArray) {
     if (!Array.isArray(value)) {
       errors.push(`${column.name} must be an array`);
@@ -398,7 +422,7 @@ function columnWidthClassName(column: DataColumnDefinition): string {
   if (column.type === ColumnType.enum) {
     return "min-w-36";
   }
-  if (column.type === ColumnType.enumArray) {
+  if (column.type === ColumnType.enumArray || column.type === ColumnType.arrayRef) {
     return "min-w-56";
   }
   if (column.type === ColumnType.translationRef) {

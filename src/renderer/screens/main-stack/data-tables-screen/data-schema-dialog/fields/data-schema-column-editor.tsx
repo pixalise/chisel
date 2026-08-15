@@ -186,7 +186,9 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
         <AssetRefCategoryFilterEditor control={control} disabled={disabled} fieldPrefix={fieldPrefix} />
       )}
 
-      {columnType === ColumnType.ref && <RefTableTargetEditor control={control} disabled={disabled} fieldPrefix={fieldPrefix} />}
+      {(columnType === ColumnType.ref || columnType === ColumnType.arrayRef) && (
+        <RefTableTargetEditor control={control} disabled={disabled} fieldPrefix={fieldPrefix} />
+      )}
 
       {(columnType === ColumnType.enum || columnType === ColumnType.enumArray) && (
         <PossibleValuesEditor

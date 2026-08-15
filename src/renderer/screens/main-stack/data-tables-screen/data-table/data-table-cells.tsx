@@ -15,6 +15,8 @@ import { type DataColumnDefinition } from "../../../../../shared/schemas";
 import { ColumnType } from "../../../../../shared/types";
 import AssetRefCellEditor from "./asset-ref-cell-editor/asset-ref-cell-editor";
 import AssetRefCellValue from "./asset-ref-cell-value";
+import ArrayRefCellEditor from "./array-ref-cell-editor";
+import ArrayRefCellValue from "./array-ref-cell-value";
 
 const cellEditorClassName = "h-7 min-w-24 border border-border bg-background px-1.5 font-mono text-[0.7rem] shadow-sm";
 const emptyEnumValue = "__empty_enum_value__";
@@ -163,6 +165,10 @@ export const CellValue: FC<CellValueProps> = (props) => {
     return <RefCellValue column={column} tables={tables} value={value} />;
   }
 
+  if (column.type === ColumnType.arrayRef) {
+    return <ArrayRefCellValue column={column} tables={tables} value={value} />;
+  }
+
   if (column.type === ColumnType.color) {
     return (
       <span className="inline-flex items-center gap-1.5 font-mono">
@@ -297,6 +303,10 @@ export const CellEditor: FC<CellEditorProps> = (props) => {
 
   if (column.type === ColumnType.ref) {
     return <RefCellEditor column={column} tables={tables} value={value} onCommit={onCommit} />;
+  }
+
+  if (column.type === ColumnType.arrayRef) {
+    return <ArrayRefCellEditor column={column} tables={tables} value={value} onCommit={onCommit} />;
   }
 
   if (isStructuredColumnType(column.type)) {

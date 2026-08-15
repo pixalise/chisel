@@ -74,6 +74,7 @@ describe("LÖVE export", () => {
       version: 1
     });
     const classColumnId = nanoid();
+    const availableClassesColumnId = nanoid();
     const assetColumnId = nanoid();
     const translationColumnId = nanoid();
     const table = dataTableSchema.parse({
@@ -85,6 +86,15 @@ describe("LÖVE export", () => {
           refTableId: targetTable.id,
           required: true,
           type: ColumnType.ref,
+          unique: false
+        },
+        {
+          defaultValue: [],
+          id: availableClassesColumnId,
+          name: "available_classes",
+          refTableId: targetTable.id,
+          required: true,
+          type: ColumnType.arrayRef,
           unique: false
         },
         {
@@ -109,6 +119,7 @@ describe("LÖVE export", () => {
           slug: "PLAYER_SCOUT",
           values: [
             { columnId: classColumnId, type: ColumnType.ref, value: "SCOUT" },
+            { columnId: availableClassesColumnId, type: ColumnType.arrayRef, value: ["SCOUT"] },
             { columnId: assetColumnId, type: ColumnType.assetRef, value: asset.id },
             { columnId: translationColumnId, type: ColumnType.translationRef, value: "UNITS.NAME" }
           ]
@@ -125,6 +136,7 @@ describe("LÖVE export", () => {
     const manifestFile = bundle.files.find((entry) => entry.path === "gamedata/manifest.lua");
 
     expect(tableFile?.content).toContain("CLASS = { 1 }");
+    expect(tableFile?.content).toContain("AVAILABLE_CLASSES = { { 1 } }");
     expect(tableFile?.content).toContain("ICON = { 1 }");
     expect(tableFile?.content).toContain("NAME = { 1 }");
     expect(assetsFile?.content).toContain('path = "gamedata/assets/image/unit_icon.png"');

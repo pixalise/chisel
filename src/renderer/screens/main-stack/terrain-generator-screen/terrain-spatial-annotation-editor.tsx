@@ -68,7 +68,6 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
     }
     const next: TerrainSpatialLayout = {
       slug,
-      label: `${asset.slug} spatial dressing`,
       sourceAsset: asset.slug,
       zones: [],
       markers: [],
@@ -192,14 +191,10 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
       )}
       {selectedLayout && (
         <>
-          <div className="grid gap-2 md:grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)_auto] md:items-end">
+          <div className="grid gap-2 md:grid-cols-[minmax(12rem,1fr)_auto] md:items-end">
             <Label className="space-y-1 text-xs">
               Stable slug
               <Input onChange={(event) => updateLayout({ slug: normalizeSlug(event.target.value) })} value={selectedLayout.slug} />
-            </Label>
-            <Label className="space-y-1 text-xs">
-              Label
-              <Input onChange={(event) => updateLayout({ label: event.target.value })} value={selectedLayout.label} />
             </Label>
             <Button
               aria-label={`Delete ${selectedLayout.slug}`}

@@ -256,6 +256,19 @@ function gdColumnValue(value: unknown, column: DataColumnDefinition, context: Go
     }
     return "0";
   }
+  if (column.type === ColumnType.arrayRef && column.refTableId) {
+    const targetTable = context.tablesById.get(column.refTableId);
+    if (!targetTable || !Array.isArray(value)) {
+      return "[]";
+    }
+    const names = rowConstantNames(targetTable);
+    return `[${value
+      .map((entry) => {
+        const targetName = typeof entry === "string" ? names.get(entry) : undefined;
+        return `${tableClassName(targetTable)}.Id.${targetName ?? INVALID_ENUM_MEMBER}`;
+      })
+      .join(", ")}]`;
+  }
   if (column.type === ColumnType.assetRef) {
     const assetName = typeof value === "string" ? context.assetNamesById.get(value) : undefined;
     return `ChiselAssets.Id.${assetName ?? INVALID_ENUM_MEMBER}`;

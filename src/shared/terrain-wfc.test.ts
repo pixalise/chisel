@@ -46,7 +46,7 @@ function piece(
 }
 
 function set(slug: string, pieceSlugs: string[]): TerrainPieceSet {
-  return { slug, label: slug, pieceSlugs, biomeTags: [], siteTags: [] };
+  return { slug, pieceSlugs, biomeTags: [], siteTags: [] };
 }
 
 function bindings(): Record<string, TerrainTileBinding> {

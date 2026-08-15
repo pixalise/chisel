@@ -325,7 +325,7 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
                       <option value="">Missing…</option>
                       {sockets.map((entry) => (
                         <option key={entry.slug} value={entry.slug}>
-                          {index + 1}: {entry.label}
+                          {index + 1}: {entry.slug}
                         </option>
                       ))}
                     </select>

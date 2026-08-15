@@ -194,6 +194,7 @@ export enum ColumnType {
   boolean = "boolean",
   enum = "enum",
   enumArray = "enumArray",
+  arrayRef = "arrayRef",
   assetRef = "assetRef",
   translationRef = "translationRef",
   ref = "ref",

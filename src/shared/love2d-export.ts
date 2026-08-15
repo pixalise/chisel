@@ -142,6 +142,19 @@ function love2dColumnValue(value: unknown, column: DataColumnDefinition, context
     }
     return String(referenceId(value, context.rowIdsByTableId.get(column.refTableId), `row reference for ${column.name}`));
   }
+  if (column.type === ColumnType.arrayRef) {
+    if (!column.refTableId) {
+      throw new Error(`LÖVE export requires arrayRef column "${column.name}" to declare refTableId.`);
+    }
+    const refTableId = column.refTableId;
+    if (!context.tablesById.has(refTableId)) {
+      throw new Error(`LÖVE export could not find referenced table "${refTableId}" for column "${column.name}".`);
+    }
+    if (!Array.isArray(value)) {
+      throw new Error(`LÖVE export expected ${column.name} to be an array of row references.`);
+    }
+    return luaValue(value.map((entry) => referenceId(entry, context.rowIdsByTableId.get(refTableId), `row reference for ${column.name}`)));
+  }
   if (column.type === ColumnType.assetRef) {
     return String(referenceId(value, context.assetIdsById, `asset reference for ${column.name}`));
   }

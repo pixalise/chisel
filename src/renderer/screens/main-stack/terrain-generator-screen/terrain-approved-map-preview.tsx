@@ -1,6 +1,7 @@
 import { type FC, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import type { TerrainApprovedAsset, TerrainSpatialLayout, TerrainTilesetView } from "../../../../shared/terrain-authoring";
 import { drawTerrainCell } from "./terrain-rendering";
+import { terrainZoneBoundarySegments } from "./terrain-zone-boundary";
 
 interface TerrainApprovedMapPreviewProps {
   activeZoneSlug?: string;
@@ -72,6 +73,19 @@ export const TerrainApprovedMapPreview: FC<TerrainApprovedMapPreviewProps> = (pr
       }
     });
 
+    context.strokeStyle = "rgba(255,255,255,0.13)";
+    context.lineWidth = 1;
+    context.beginPath();
+    for (let x = 0; x <= asset.width; x += 1) {
+      context.moveTo(x * cellSize, 0);
+      context.lineTo(x * cellSize, height);
+    }
+    for (let y = 0; y <= asset.height; y += 1) {
+      context.moveTo(0, y * cellSize);
+      context.lineTo(width, y * cellSize);
+    }
+    context.stroke();
+
     for (const zone of layout?.zones ?? []) {
       const color = zoneColor(zone.kind);
       const active = zone.slug === activeZoneSlug;
@@ -81,10 +95,17 @@ export const TerrainApprovedMapPreview: FC<TerrainApprovedMapPreviewProps> = (pr
         const y = Math.floor(index / asset.width);
         context.fillStyle = color.fill;
         context.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-        context.strokeStyle = active ? "#ffffff" : color.stroke;
-        context.lineWidth = active ? 2 : 1;
-        context.strokeRect(x * cellSize + 1, y * cellSize + 1, cellSize - 2, cellSize - 2);
       }
+      context.strokeStyle = active ? "#ffffff" : color.stroke;
+      context.lineWidth = active ? 3 : 2;
+      context.lineCap = "square";
+      context.lineJoin = "round";
+      context.beginPath();
+      for (const segment of terrainZoneBoundarySegments(zone.cells, asset.width, asset.height)) {
+        context.moveTo(segment.x1 * cellSize, segment.y1 * cellSize);
+        context.lineTo(segment.x2 * cellSize, segment.y2 * cellSize);
+      }
+      context.stroke();
     }
 
     for (const placement of layout?.placements ?? []) {
@@ -128,19 +149,6 @@ export const TerrainApprovedMapPreview: FC<TerrainApprovedMapPreviewProps> = (pr
         context.fillText(marker.kind.slice(0, 1), centerX, centerY);
       }
     }
-
-    context.strokeStyle = "rgba(255,255,255,0.13)";
-    context.lineWidth = 1;
-    context.beginPath();
-    for (let x = 0; x <= asset.width; x += 1) {
-      context.moveTo(x * cellSize, 0);
-      context.lineTo(x * cellSize, height);
-    }
-    for (let y = 0; y <= asset.height; y += 1) {
-      context.moveTo(0, y * cellSize);
-      context.lineTo(width, y * cellSize);
-    }
-    context.stroke();
 
     if (selectedIndex !== undefined) {
       const x = selectedIndex % asset.width;

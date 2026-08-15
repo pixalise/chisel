@@ -1,6 +1,7 @@
 import { type FC } from "react";
 import { ColumnType } from "../../../../../../shared/types";
 import BooleanDefaultValueEditor from "./boolean-default-value-editor";
+import ArrayRefDefaultValueEditor from "./array-ref-default-value-editor";
 import ColorDefaultValueEditor from "./color-default-value-editor";
 import type { ColumnDefaultValueEditorProps } from "./data-schema-column-editor.types";
 import EnumArrayDefaultValueEditor from "./enum-array-default-value-editor";
@@ -46,6 +47,9 @@ const ColumnDefaultValueEditor: FC<ColumnDefaultValueEditorProps> = (props) => {
         onRemoveEnumArrayDefaultValue={onRemoveEnumArrayDefaultValue}
       />
     );
+  }
+  if (columnType === ColumnType.arrayRef) {
+    return <ArrayRefDefaultValueEditor {...typedProps} />;
   }
   if (columnType === ColumnType.boolean) {
     return <BooleanDefaultValueEditor {...typedProps} />;

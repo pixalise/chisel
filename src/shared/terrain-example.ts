@@ -113,7 +113,6 @@ function exampleSockets(existing: TerrainSocketDefinition[]): TerrainSocketDefin
     ...sockets,
     {
       slug: "GROUND",
-      label: "Continuous ground",
       color: "#8B9D5C",
       description: "Terrain modules with this edge may meet as uninterrupted traversable ground."
     }
@@ -161,7 +160,6 @@ export function installCompleteTerrainExample(workspace: TerrainWorkspaceView): 
       ...workspace.pieceSets.filter((entry) => !entry.slug.startsWith("EXAMPLE_")),
       {
         slug: terrainExamplePieceSetSlug,
-        label: "Example forest collection",
         pieceSlugs: pieces.map((entry) => entry.slug),
         biomeTags: ["FOREST"],
         siteTags: ["OUTDOOR"]

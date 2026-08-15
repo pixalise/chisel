@@ -337,6 +337,7 @@ describe("Godot export", () => {
 
   it("exports typed refs, asset refs, and translation refs as enum values", () => {
     const factionColumnId = nanoid();
+    const availableFactionsColumnId = nanoid();
     const portraitColumnId = nanoid();
     const descriptionColumnId = nanoid();
     const factionTable = dataTableSchema.parse({
@@ -358,6 +359,15 @@ describe("Godot export", () => {
           refTableId: "factions",
           required: true,
           type: ColumnType.ref,
+          unique: false
+        },
+        {
+          defaultValue: [],
+          id: availableFactionsColumnId,
+          name: "available_factions",
+          refTableId: "factions",
+          required: true,
+          type: ColumnType.arrayRef,
           unique: false
         },
         {
@@ -389,6 +399,7 @@ describe("Godot export", () => {
           slug: "RIFLEMAN",
           values: [
             { columnId: factionColumnId, type: ColumnType.ref, value: "IRON_LEGION" },
+            { columnId: availableFactionsColumnId, type: ColumnType.arrayRef, value: ["IRON_LEGION"] },
             { columnId: portraitColumnId, type: ColumnType.assetRef, value: "RIFLEMAN_PORTRAIT" },
             { columnId: descriptionColumnId, type: ColumnType.translationRef, value: "UNIT.RIFLEMAN.DESCRIPTION" }
           ]
@@ -429,6 +440,7 @@ describe("Godot export", () => {
     const unitFile = bundle.files.find((file) => file.path === "game_data/tables/units.gd");
 
     expect(unitFile?.content).toContain("const FACTION := [\n\tChiselFactions.Id.IRON_LEGION\n]");
+    expect(unitFile?.content).toContain("const AVAILABLE_FACTIONS := [\n\t[ChiselFactions.Id.IRON_LEGION]\n]");
     expect(unitFile?.content).toContain("const PORTRAIT := [\n\tChiselAssets.Id.RIFLEMAN_PORTRAIT\n]");
     expect(unitFile?.content).toContain("const DESCRIPTION := [\n\tChiselLocalization.Id.UNIT_RIFLEMAN_DESCRIPTION\n]");
   });

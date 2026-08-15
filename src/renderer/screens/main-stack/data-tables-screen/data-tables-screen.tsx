@@ -7,14 +7,14 @@ import DataTable from "@/screens/main-stack/data-tables-screen/data-table/data-t
 import TableTabs from "@/screens/main-stack/data-tables-screen/data-table/table-tabs/table-tabs";
 import { tableTabKey, type TableTabEntry } from "@/screens/main-stack/data-tables-screen/data-table/table-tabs/table-tab";
 import type { AnyDataTable } from "../../../../shared/schemas";
-import { EDITOR_ONLY_TERRAIN_TABLE_IDS } from "../../../../shared/terrain-tables";
+import { EDITOR_ONLY_TERRAIN_TABLE_IDS, VISIBLE_TERRAIN_SYSTEM_TABLE_IDS } from "../../../../shared/terrain-tables";
 
 export const DataTablesScreen: FC = () => {
   const [activeTableKey, setActiveTableKey] = useState<string | null>(SYSTEM_TABLES[0]?.id ?? null);
   const { tables } = useListTablesQuery();
   const { deleteTable } = useDeleteTableMutation();
   const visibleTables: AnyDataTable[] = (tables.length > 0 ? tables : SYSTEM_TABLES).filter(
-    (table) => !EDITOR_ONLY_TERRAIN_TABLE_IDS.has(table.id)
+    (table) => !EDITOR_ONLY_TERRAIN_TABLE_IDS.has(table.id) || VISIBLE_TERRAIN_SYSTEM_TABLE_IDS.has(table.id)
   );
   const systemTables = visibleTables.filter((table) => table.isSystemTable);
   const userTables = visibleTables.filter((table) => !table.isSystemTable);

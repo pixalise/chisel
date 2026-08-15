@@ -3,7 +3,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TerrainApprovedLibrary } from "@/screens/main-stack/terrain-generator-screen/terrain-approved-library";
+import { RouteEnum } from "@/constants/route-enum";
 import { TerrainCandidateBatch } from "@/screens/main-stack/terrain-generator-screen/terrain-candidate-batch";
 import { TerrainCompatibilityInspector } from "@/screens/main-stack/terrain-generator-screen/terrain-compatibility-inspector";
 import { TerrainExampleGuide } from "@/screens/main-stack/terrain-generator-screen/terrain-example-guide";
@@ -15,8 +15,9 @@ import { TerrainSocketCatalog } from "@/screens/main-stack/terrain-generator-scr
 import { TerrainTemplateEditor } from "@/screens/main-stack/terrain-generator-screen/terrain-template-editor";
 import { TerrainTileCatalog } from "@/screens/main-stack/terrain-generator-screen/terrain-tile-catalog";
 import terrainGeneratorService from "@/services/terrain-generator-service";
-import { AlertTriangle, BookOpen, CheckSquare2, Dices, Layers3, Library, Save, Tags } from "lucide-react";
+import { AlertTriangle, BookOpen, Dices, Layers3, Library, Save, Tags } from "lucide-react";
 import { type FC, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import type {
   TerrainApprovedAsset,
   TerrainPiece,
@@ -33,9 +34,10 @@ import {
   type TerrainPieceCompatibility
 } from "../../../../shared/terrain-wfc";
 
-type TerrainPage = "catalog" | "pieces" | "collections" | "generate" | "library";
+type TerrainPage = "catalog" | "pieces" | "collections" | "generate";
 
 export const TerrainGeneratorScreen: FC = () => {
+  const navigate = useNavigate();
   const [workspace, setWorkspace] = useState<TerrainWorkspaceView>();
   const [activePage, setActivePage] = useState<TerrainPage>("catalog");
   const [selectedPieceSlug, setSelectedPieceSlug] = useState<string>();
@@ -156,7 +158,6 @@ export const TerrainGeneratorScreen: FC = () => {
       const containingSet = workspace.pieceSets.find((entry) => entry.pieceSlugs.includes(piece.slug));
       const inspectionSet = containingSet ?? {
         slug: "CURRENT_INSPECTION",
-        label: "Current inspection",
         pieceSlugs: pieces.map((entry) => entry.slug),
         biomeTags: [],
         siteTags: []
@@ -195,24 +196,8 @@ export const TerrainGeneratorScreen: FC = () => {
       }
       const saved = await terrainGeneratorService.saveApprovedAssets([...workspace.approvedAssets, asset]);
       setWorkspace(saved);
-      setActivePage("library");
+      void navigate(RouteEnum.terrainAnnotations);
       setMessage(`Frozen approved ${asset.kind.toLowerCase()} '${asset.slug}'.`);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    }
-  }
-
-  async function deleteApprovedAsset(slug: string): Promise<void> {
-    if (!workspace) return;
-    setError("");
-    try {
-      const saved = await terrainGeneratorService.save({
-        ...workspace,
-        approvedAssets: workspace.approvedAssets.filter((entry) => entry.slug !== slug),
-        spatialLayouts: workspace.spatialLayouts.filter((entry) => entry.sourceAsset !== slug)
-      });
-      setWorkspace(saved);
-      setMessage(`Removed approved asset '${slug}' and its spatial dressings.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     }
@@ -253,7 +238,7 @@ export const TerrainGeneratorScreen: FC = () => {
             </div>
             {workspace.problems.length > 0 && <TerrainProblemList problems={workspace.problems} />}
             <Tabs onValueChange={(value) => setActivePage(value as TerrainPage)} value={activePage}>
-              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 md:grid-cols-5">
+              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 md:grid-cols-4">
                 <TabsTrigger className="gap-2 py-2" value="catalog">
                   <Tags className="size-4" /> 1 · Catalog
                 </TabsTrigger>
@@ -265,9 +250,6 @@ export const TerrainGeneratorScreen: FC = () => {
                 </TabsTrigger>
                 <TabsTrigger className="gap-2 py-2" value="generate">
                   <Dices className="size-4" /> 4 · Generate
-                </TabsTrigger>
-                <TabsTrigger className="gap-2 py-2" value="library">
-                  <CheckSquare2 className="size-4" /> 5 · Approved
                 </TabsTrigger>
               </TabsList>
               <TabsContent className="space-y-4" value="catalog">
@@ -462,15 +444,6 @@ export const TerrainGeneratorScreen: FC = () => {
                   approvedAssets={workspace.approvedAssets}
                   onApprove={approveAsset}
                   results={generatedTemplateSlug === template?.slug ? candidateResults : []}
-                  tilesets={workspace.tilesets}
-                />
-              </TabsContent>
-              <TabsContent value="library">
-                <TerrainApprovedLibrary
-                  assets={workspace.approvedAssets}
-                  layouts={workspace.spatialLayouts}
-                  onDelete={deleteApprovedAsset}
-                  onLayoutsChange={(spatialLayouts) => mutateWorkspace((current) => ({ ...current, spatialLayouts }))}
                   tilesets={workspace.tilesets}
                 />
               </TabsContent>

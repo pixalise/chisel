@@ -37,7 +37,6 @@ export type TerrainTileBinding = z.infer<typeof terrainTileBindingSchema>;
 export const terrainSocketDefinitionSchema = z
   .object({
     slug: terrainSlugSchema,
-    label: z.string().trim().min(1).max(96),
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use a six-digit hex color"),
     description: z.string().max(512)
   })
@@ -116,7 +115,6 @@ export type TerrainPiece = z.infer<typeof terrainPieceSchema>;
 export const terrainPieceSetSchema = z
   .object({
     slug: terrainSlugSchema,
-    label: z.string().trim().min(1).max(96),
     pieceSlugs: z.array(terrainSlugSchema).min(1),
     biomeTags: z.array(terrainSlugSchema),
     siteTags: z.array(terrainSlugSchema)
@@ -337,7 +335,6 @@ export type TerrainSpatialPlacement = z.infer<typeof terrainSpatialPlacementSche
 export const terrainSpatialLayoutSchema = z
   .object({
     slug: terrainSlugSchema,
-    label: z.string().trim().min(1).max(128),
     sourceAsset: terrainSlugSchema,
     zones: z.array(terrainSpatialZoneSchema),
     markers: z.array(terrainSpatialMarkerSchema),

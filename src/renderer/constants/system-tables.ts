@@ -49,7 +49,7 @@ function defaultValueForColumnType(type: ColumnType, possibleValues?: string[]):
   if (type === ColumnType.enum) {
     return possibleValues?.[0] ?? "";
   }
-  if (type === ColumnType.enumArray) {
+  if (type === ColumnType.enumArray || type === ColumnType.arrayRef) {
     return [];
   }
   return "";

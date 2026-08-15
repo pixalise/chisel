@@ -113,7 +113,7 @@ describe("socket terrain authoring contract", () => {
   });
 
   it("accepts socket metadata and a frozen approved geography asset", () => {
-    expect(terrainSocketDefinitionSchema.parse({ slug: "GROUND", label: "Ground", color: "#8B9D5C", description: "" })).toMatchObject({
+    expect(terrainSocketDefinitionSchema.parse({ slug: "GROUND", color: "#8B9D5C", description: "" })).toMatchObject({
       slug: "GROUND"
     });
     expect(
@@ -138,7 +138,6 @@ describe("socket terrain authoring contract", () => {
     expect(
       terrainSpatialLayoutSchema.parse({
         slug: "FOREST_DRESSING",
-        label: "Forest dressing",
         sourceAsset: "FOREST_SITE",
         zones: [
           {

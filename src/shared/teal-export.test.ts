@@ -34,11 +34,31 @@ describe("Teal export", () => {
     const healthColumnId = nanoid();
     const tagsColumnId = nanoid();
     const metadataColumnId = nanoid();
+    const relatedColumnId = nanoid();
+    const relatedTable = dataTableSchema.parse({
+      columns: [],
+      description: "Related entries",
+      id: "related_entries",
+      kind: "user",
+      lastChangeAt: "2026-01-01T00:00:00.000Z",
+      name: "Related Entries",
+      rows: [{ id: nanoid(), slug: "ALLY", values: [] }],
+      version: 1
+    });
     const table = dataTableSchema.parse({
       columns: [
         { defaultValue: 1, id: healthColumnId, name: "max_health", required: true, type: ColumnType.integer, unique: false },
         { defaultValue: [], id: tagsColumnId, name: "tags", required: true, type: ColumnType.enumArray, unique: false },
-        { defaultValue: {}, id: metadataColumnId, name: "metadata", required: true, type: ColumnType.json, unique: false }
+        { defaultValue: {}, id: metadataColumnId, name: "metadata", required: true, type: ColumnType.json, unique: false },
+        {
+          defaultValue: [],
+          id: relatedColumnId,
+          name: "related",
+          refTableId: relatedTable.id,
+          required: true,
+          type: ColumnType.arrayRef,
+          unique: false
+        }
       ],
       description: "Enemy definitions",
       id: "enemies",
@@ -52,14 +72,21 @@ describe("Teal export", () => {
           values: [
             { columnId: healthColumnId, type: ColumnType.integer, value: 10 },
             { columnId: tagsColumnId, type: ColumnType.enumArray, value: ["UNDEAD"] },
-            { columnId: metadataColumnId, type: ColumnType.json, value: { rank: 1 } }
+            { columnId: metadataColumnId, type: ColumnType.json, value: { rank: 1 } },
+            { columnId: relatedColumnId, type: ColumnType.arrayRef, value: ["ALLY"] }
           ]
         }
       ],
       version: 1
     });
 
-    const bundle = createTealExportBundle(project, [table, inputTable()], "2026-01-01T00:00:00.000Z", [], emptyLocalizationDocument);
+    const bundle = createTealExportBundle(
+      project,
+      [relatedTable, table, inputTable()],
+      "2026-01-01T00:00:00.000Z",
+      [],
+      emptyLocalizationDocument
+    );
     const tableFile = bundle.files.find((file) => file.path === "gamedata/tables/enemies.tl");
     const inputFile = bundle.files.find((file) => file.path === "gamedata/input.tl");
     const assetsFile = bundle.files.find((file) => file.path === "gamedata/asset_manager.tl");
@@ -71,6 +98,8 @@ describe("Teal export", () => {
     expect(tableFile?.content).toContain("MAX_HEALTH: {integer}");
     expect(tableFile?.content).toContain("TAGS: {{string}}");
     expect(tableFile?.content).toContain("METADATA: {any}");
+    expect(tableFile?.content).toContain("RELATED: {{integer}}");
+    expect(tableFile?.content).toContain("RELATED = { { 1 } }");
     expect(tableFile?.content).toContain("local data: Data = {");
     expect(inputFile?.content).toContain("local input: Input = {");
     expect(inputFile?.content).toContain("function input.isActionPressed(action: integer): boolean");

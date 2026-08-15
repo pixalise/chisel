@@ -41,6 +41,7 @@ function tealColumnArrayType(column: DataColumnDefinition): string {
   if (
     !column.required &&
     column.type !== ColumnType.ref &&
+    column.type !== ColumnType.arrayRef &&
     column.type !== ColumnType.assetRef &&
     column.type !== ColumnType.translationRef
   ) {
@@ -60,6 +61,8 @@ function tealColumnArrayType(column: DataColumnDefinition): string {
       return "{boolean}";
     case ColumnType.enumArray:
       return "{{string}}";
+    case ColumnType.arrayRef:
+      return "{{integer}}";
     case ColumnType.vector2:
     case ColumnType.vector3:
     case ColumnType.vector4:

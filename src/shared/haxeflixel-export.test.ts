@@ -60,8 +60,28 @@ describe("HaxeFlixel export", () => {
     });
     const assetColumnId = nanoid();
     const translationColumnId = nanoid();
+    const classesColumnId = nanoid();
+    const classTable = dataTableSchema.parse({
+      columns: [],
+      description: "Classes",
+      id: "classes",
+      kind: "user",
+      lastChangeAt: "2026-01-01T00:00:00.000Z",
+      name: "Classes",
+      rows: [{ id: nanoid(), slug: "SCOUT", values: [] }],
+      version: 1
+    });
     const table = dataTableSchema.parse({
       columns: [
+        {
+          defaultValue: [],
+          id: classesColumnId,
+          name: "classes",
+          refTableId: classTable.id,
+          required: true,
+          type: ColumnType.arrayRef,
+          unique: false
+        },
         {
           assetCategory: AssetCategoryEnum.image,
           defaultValue: "",
@@ -83,6 +103,7 @@ describe("HaxeFlixel export", () => {
           id: nanoid(),
           slug: "SCOUT",
           values: [
+            { columnId: classesColumnId, type: ColumnType.arrayRef, value: ["SCOUT"] },
             { columnId: assetColumnId, type: ColumnType.assetRef, value: asset.id },
             { columnId: translationColumnId, type: ColumnType.translationRef, value: "UNITS.NAME" }
           ]
@@ -92,12 +113,15 @@ describe("HaxeFlixel export", () => {
     });
     const project: Project = { id: nanoid(), name: "Black Torch", path: "/tmp/black-torch" };
 
-    const bundle = createHaxeFlixelExportBundle(project, [table], "2026-01-01T00:00:00.000Z", [asset], localization);
+    const bundle = createHaxeFlixelExportBundle(project, [classTable, table], "2026-01-01T00:00:00.000Z", [asset], localization);
     const tableFile = bundle.files.find((entry) => entry.path.endsWith("ChiselUnits.hx"));
     const assetsFile = bundle.files.find((entry) => entry.path.endsWith("ChiselAssets.hx"));
     const localizationFile = bundle.files.find((entry) => entry.path.endsWith("ChiselLocalization.hx"));
 
     expect(tableFile?.content).toContain("ChiselAssetId.UNIT_ICON");
+    expect(tableFile?.content).toContain(
+      "public static final CLASSES:Array<Array<ChiselClasses.ChiselClassesId>> = [[ChiselClasses.ChiselClassesId.SCOUT]];"
+    );
     expect(tableFile?.content).toContain("ChiselLocalizationId.UNITS_NAME");
     expect(assetsFile?.content).toContain('"assets/chisel/image/unit_icon.png"');
     expect(assetsFile?.content).toContain("function path(id:ChiselAssetId):String {\n\t\treturn PATHS[id];\n\t}");

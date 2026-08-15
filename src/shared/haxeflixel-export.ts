@@ -76,6 +76,10 @@ function haxeType(column: DataColumnDefinition, context: HaxeValueContext): stri
     const target = context.tablesById.get(column.refTableId);
     return target ? `${tableClassName(target)}.${tableClassName(target)}Id` : "Int";
   }
+  if (column.type === ColumnType.arrayRef && column.refTableId) {
+    const target = context.tablesById.get(column.refTableId);
+    return target ? `Array<${tableClassName(target)}.${tableClassName(target)}Id>` : "Array<Int>";
+  }
   if (column.type === ColumnType.assetRef) return "ChiselAssets.ChiselAssetId";
   if (column.type === ColumnType.translationRef) return "ChiselLocalization.ChiselLocalizationId";
   if (column.type === ColumnType.integer) return "Int";
@@ -93,6 +97,20 @@ function haxeColumnValue(value: unknown, column: DataColumnDefinition, context: 
     const name = typeof value === "string" && target ? rowNames(target).get(value) : undefined;
     const className = tableClassName(target ?? ({ name: "Unknown" } as AnyDataTable));
     return `${className}.${className}Id.${name ?? INVALID_ENUM_MEMBER}`;
+  }
+  if (column.type === ColumnType.arrayRef && column.refTableId) {
+    const target = context.tablesById.get(column.refTableId);
+    if (!target || !Array.isArray(value)) {
+      return "[]";
+    }
+    const names = rowNames(target);
+    const className = tableClassName(target);
+    return `[${value
+      .map(
+        (entry) =>
+          `${className}.${className}Id.${typeof entry === "string" ? (names.get(entry) ?? INVALID_ENUM_MEMBER) : INVALID_ENUM_MEMBER}`
+      )
+      .join(", ")}]`;
   }
   if (column.type === ColumnType.assetRef) {
     const name = typeof value === "string" ? context.assetNamesById.get(value) : undefined;

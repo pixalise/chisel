@@ -29,7 +29,6 @@ export const TerrainSocketCatalog: FC<TerrainSocketCatalogProps> = (props) => {
               ...sockets,
               {
                 slug: uniqueSlug(sockets),
-                label: "New socket",
                 color: "#8B9D5C",
                 description: ""
               }
@@ -48,7 +47,7 @@ export const TerrainSocketCatalog: FC<TerrainSocketCatalogProps> = (props) => {
       <div className="grid gap-2">
         {sockets.map((socket, index) => (
           <div
-            className="grid gap-2 rounded border border-border p-2 lg:grid-cols-[3rem_12rem_12rem_minmax(12rem,1fr)_auto] lg:items-center"
+            className="grid gap-2 rounded border border-border p-2 lg:grid-cols-[3rem_12rem_minmax(12rem,1fr)_auto] lg:items-center"
             key={`${socket.slug}-${index}`}
           >
             <Input
@@ -62,7 +61,6 @@ export const TerrainSocketCatalog: FC<TerrainSocketCatalogProps> = (props) => {
               onChange={(event) => update(index, { slug: normalizeSlug(event.target.value) })}
               value={socket.slug}
             />
-            <Input aria-label="Socket label" onChange={(event) => update(index, { label: event.target.value })} value={socket.label} />
             <Input
               aria-label="Socket description"
               onChange={(event) => update(index, { description: event.target.value })}

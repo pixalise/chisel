@@ -47,7 +47,7 @@ local enemyId = enemies.ID.ZOMBIE_BASIC
 local health = enemies.MAX_HEALTH[enemyId]
 ```
 
-Table, asset, and translation references are exported as their target's numeric ID. Empty optional references become `0`; unresolved non-empty references block export.
+Table, asset, and translation references are exported as their target's numeric ID. Array references are exported as arrays of those numeric row IDs in authored order. Empty optional references become `0`; unresolved non-empty references block export.
 
 Assets remain inside `gamedata/assets`. Chisel generates a standalone, lazy-loading asset manager with category-scoped stable IDs:
 

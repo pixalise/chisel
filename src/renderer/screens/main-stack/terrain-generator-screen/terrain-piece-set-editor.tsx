@@ -54,7 +54,6 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
     while (sets.some((entry) => entry.slug === `COLLECTION_${index}`)) index += 1;
     const next: TerrainPieceSet = {
       slug: `COLLECTION_${index}`,
-      label: "New collection",
       pieceSlugs: pieces.slice(0, 1).map((piece) => piece.slug),
       biomeTags: [],
       siteTags: []
@@ -104,9 +103,8 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
         </select>
         {selectedSet && (
           <>
-            <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
               <Input onChange={(event) => updateSet({ slug: normalizeSlug(event.target.value) })} value={selectedSet.slug} />
-              <Input onChange={(event) => updateSet({ label: event.target.value })} value={selectedSet.label} />
               <Button
                 onClick={() => {
                   onSetsChange(sets.filter((entry) => entry.slug !== selectedSet.slug));
