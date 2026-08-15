@@ -1,6 +1,6 @@
 # Socket terrain authoring
 
-Chisel's terrain generator is an offline Simple-Tiled WFC tool. Authors paint explicit tiles and micro-modules, tag each outer edge with a Wang-style socket, generate a batch of constrained candidates, and freeze only useful maps or submodules. Chisel owns the grammar and the approved geography library; no terrain-generator tables are included in runtime exports.
+Chisel's terrain generator is an offline Simple-Tiled WFC tool. Authors paint explicit tiles and micro-modules, tag every outer edge with a Wang-style socket, generate constrained candidates, and freeze useful maps or submodules. Chisel owns the grammar and approved geography library; terrain-generator tables are excluded from runtime exports.
 
 ## Pipeline
 
@@ -8,14 +8,14 @@ Chisel's terrain generator is an offline Simple-Tiled WFC tool. Authors paint ex
 tileset sprites + gameplay metadata
                 │
                 ▼
-painted BASE and CLIFF pieces (1×1 through 8×8)
+painted terrain pieces (1×1 through 8×8)
                 │ tag every N/E/S/W boundary segment
                 ▼
-BASE and CLIFF piece sets + explicit adjacency exceptions
+collection + optional adjacency exceptions
                 │
                 ▼
-site template (cliff mask, stamps, anchors, zones)
-                │ generate several deterministic seeds
+site template (stamps, anchors, zones, tag constraints)
+                │ generate deterministic seeds
                 ▼
 candidate contact sheet + validation metrics
                 │ approve
@@ -23,106 +23,111 @@ candidate contact sheet + validation metrics
 frozen MAP or SUBMODULE in Chisel's geography library
 ```
 
-This is not overlapping/sample WFC. Chisel does not infer patterns by sliding a window over an example image. The authored pieces and their socket profiles are the complete local grammar.
+This is not overlapping/sample WFC. Chisel does not infer patterns by sliding a window over an image. Authored pieces and their socket profiles are the complete local grammar.
+
+## Editor workflow
+
+Terrain Generator is divided into five focused pages:
+
+1. **Catalog** — bind tiles and define the socket vocabulary.
+2. **Pieces** — paint modules and inspect compatibility with the cart icon.
+3. **Collections** — choose the pieces solved together. Adjacency exceptions remain under Advanced.
+4. **Generate** — choose a template and create candidate batches. Anchors, stamps, zones, and per-cell tag constraints remain under **Edit advanced constraints**.
+5. **Approved** — review frozen maps and submodules independently from the live grammar.
+
+An empty project with bound sprites opens with an unsaved `EXAMPLE_FOREST_SITE`. It can immediately generate eight candidates. The example uses weighted 1×1 pieces, mixed-size transformed modules, one collection, an adjacency exception, cell tag constraints, three anchors, a required stamp, and a semantic zone. Use **Reset full example** to reconstruct it after experimenting. It does not modify project files until **Save authoring** is selected.
 
 ## Tile catalog
 
 Select a sprite in the tileset catalog to author:
 
 - a stable tile slug;
-- its default movement blocking state;
+- its default movement-blocking state;
 - semantic tags used by pieces and template constraints.
 
-Tile bindings contain sprite metadata only. Adjacency belongs to pieces, so switching to a new tileset does not carry hidden rules from an old sample.
+Tile bindings contain sprite metadata only. Adjacency belongs to pieces, so a new tileset does not inherit hidden rules from an old sample.
 
 ## Socket vocabulary
 
-Create stable socket slugs before painting pieces. A socket has a label, inspector color, description, and a list of valid passes. Examples might include `GROUND`, `WATER`, `ROAD`, `CLIFF_FACE`, and `NO_CLIFF`.
+Create stable socket slugs before painting pieces. A socket has a label, inspector color, and description. Examples include `GROUND`, `WATER`, `ROAD`, and `SHORE`.
 
-Two exposed boundary segments may touch only when their socket slugs match exactly. Interior edges of a multi-cell piece are compiled into private synthetic sockets, forcing all of the piece's cells to appear together.
+Two exposed boundary segments may touch only when their socket slugs match exactly. Interior edges of a multi-cell piece compile into private synthetic sockets, forcing all cells in that piece to appear together.
 
-Keep the vocabulary semantic and small. A visual variant should normally reuse the same socket. Use a new socket only when the neighboring terrain rules are genuinely different.
+Keep the vocabulary semantic and small. Visual variants normally reuse a socket. Create a new socket only when the neighboring-terrain rule is genuinely different.
 
 ## Pieces
 
 A piece is a rectangular module from 1×1 through 8×8 cells. It contains:
 
-- a `BASE` or `CLIFF` pass;
-- one or more painted render layers;
+- one or more painted render layers, with every first-layer cell filled;
 - an explicit socket for every segment along its north, east, south, and west edges;
 - optional rotations and reflections;
 - a positive selection weight;
 - biome tags, site tags, semantic flags, and an optional mutation family;
-- per-cell blocking, elevation, required/forbidden base tags, and replace/overlay behavior.
+- per-cell movement blocking, elevation, and semantic flags.
 
-Base pieces must paint every cell on layer 0 and replace their output cells. Cliff pieces are overlays and may contain transparent cells. Paint cliffs as their own pieces; they are solved only after base terrain is complete.
-
-For directional art, shadows, text, or asymmetrical collision, enable only transforms that are visually valid. The compiler rotates/reflection-transforms both the artwork and its socket profile.
+For directional art, shadows, text, or asymmetrical collision, enable only visually valid transforms. The compiler transforms both artwork and socket profiles.
 
 ## Compatibility inspector
 
-The cart icon in the active piece editor analyzes the current unsaved piece. It compiles that piece together with the active piece set and shows, for every direction:
+The cart icon in the active piece editor analyzes the current unsaved piece. It compiles the piece with its collection and shows, for every direction:
 
 - the exposed socket profile;
 - compatible neighboring pieces;
 - dead boundary states with no possible continuation.
 
-Use this before generating. A dead state means the grammar lacks a matching neighbor, not that the random solver was unlucky. Add the missing transition piece, correct the socket tag, or intentionally constrain the boundary with a template.
+Use this before generating. A dead state means the grammar lacks a matching neighbor; it is not unlucky randomness. Add the missing transition piece, correct the socket, or intentionally constrain the boundary with a template.
 
-Adjacency overrides are a narrow escape hatch applied after socket equality:
+Adjacency exceptions are a narrow escape hatch applied after socket equality:
 
-- `DENY` removes a specific source/direction/target pairing;
-- `ALLOW_ONLY` limits that source edge to the named target piece.
+- `DENY` removes a source/direction/target pairing;
+- `ALLOW_ONLY` limits a source edge to the named target piece.
 
-Prefer meaningful sockets over a large override list.
+Prefer meaningful sockets over a large exception list.
 
-## Piece sets
+## Collections
 
-A piece set is the vocabulary available to one solver pass. Base sets contain only base pieces; cliff sets contain only cliff pieces. Use sets to make biome densities and transition families explicit without duplicating tiles or code.
+A collection is the complete vocabulary available to one solve. Use collections to make biome densities and transition families explicit without duplicating tiles or generator code. They are stored internally as piece-set definitions, but the editor keeps that implementation detail out of the normal workflow.
 
-Weights are normalized by module area, so a large module does not become disproportionately common merely because it occupies more output cells.
+Weights are normalized by module area, so a large module does not become disproportionately common merely because it occupies more cells.
 
 ## Site templates
 
-A site template supplies the large-scale intent that local WFC cannot infer. It selects a base set and an optional cliff set, then defines:
+A site template supplies large-scale intent that local WFC cannot infer. It selects one collection and defines:
 
 - map dimensions and candidate batch size;
-- per-cell required and forbidden base tags;
-- a per-cell cliff mask: forbidden, optional, or required;
-- protected cells;
+- per-cell required and forbidden semantic tags;
 - required piece stamps with fixed transform and location;
 - entrance, exit, and extension anchors;
 - zones with tag-count ranges.
 
 Required stamps are placed before collapse. Their mixed-size internal states are fixed as one unit. Contradictory or overlapping stamps fail immediately.
 
-Extension anchors must lie on the map boundary. Anchors are validated against the generated walkability graph; WFC is responsible for local assembly, while the template and validator are responsible for site-level intent.
+Extension anchors must lie on the map boundary. Anchors are validated against the generated walkability graph; WFC handles local assembly, while templates and validation handle site-level intent.
 
-## Two-pass generation
+## Generation
 
 Generation is deterministic for a template and seed:
 
 1. Compile every enabled transform into per-cell states.
 2. Pre-ban module origins that would clip a boundary.
-3. Apply template tags and required base stamps.
-4. Collapse the base map by lowest entropy and propagate exact socket constraints.
+3. Apply template tag constraints and required stamps.
+4. Collapse the map by lowest entropy and propagate exact socket constraints.
 5. Compose tile stacks, collision, elevation, and semantic metadata.
-6. Compile the cliff set plus a transparent `NO_CLIFF` state.
-7. Apply the cliff mask and base-tag requirements, then solve cliff overlays independently.
-8. Validate anchors, zones, elevation steps, required cliffs, and walkable components.
+6. Validate anchors, zones, elevation steps, and walkable components.
 
-Contradictions are retried with deterministic derived seeds. If every attempt fails, fix the grammar or constraints; the generator does not silently emit an invalid partial map.
+Contradictions are retried with deterministic derived seeds. If every attempt fails, fix the grammar or constraints; the generator does not emit an invalid partial map.
 
 ## Candidate review and approval
 
-Generate a batch rather than judging one seed. The contact sheet reports validation issues and metrics including walkable components, reachable anchors, cliff cells, and distinct piece usage.
+Generate a batch rather than judging one seed. The contact sheet reports validation issues and metrics including walkable components, reachable anchors, and distinct piece usage.
 
 Approve a useful result as:
 
 - `MAP`: a complete authored site;
 - `SUBMODULE`: frozen reusable geography intended for a later composition step.
 
-Approval deep-copies the concrete tile stacks, resolved metadata, placements, anchors, and metrics. Later changes to sockets, pieces, weights, templates, or the solver cannot silently alter the approved asset.
+Approval deep-copies concrete tile stacks, resolved metadata, placements, anchors, and metrics. Later changes to sockets, pieces, weights, templates, or the solver cannot alter an approved asset.
 
 ## Chisel-only data boundary
 
@@ -136,16 +141,15 @@ The current terrain tables are:
 - `terrain_site_templates`
 - `terrain_approved_assets`
 
-All seven are editor-only system tables. Runtime export deliberately excludes them. Deleting a tileset is refused while an authored piece or frozen approved asset still uses it; if only unused tile bindings remain, Chisel removes those bindings with the asset.
+All seven are editor-only system tables. Runtime export excludes them. Deleting a tileset is refused while an authored piece or approved asset uses it; if only unused tile bindings remain, Chisel removes those bindings with the asset.
 
 ## Recommended first setup for a new tileset
 
-1. Bind the ground, foliage, rock, and cliff sprites with stable slugs, collision, and semantic tags.
+1. Bind ground, foliage, rock, water, and detail sprites with stable slugs, collision, and semantic tags.
 2. Define the smallest useful socket vocabulary.
-3. Make several 1×1 base pieces to prove continuous ground and basic transitions.
-4. Add 2×1, 2×2, or larger modules for deliberate clusters and silhouettes.
+3. Make several 1×1 pieces to prove continuous ground and basic transitions.
+4. Add 2×1, 2×2, or larger pieces for deliberate clusters and silhouettes.
 5. Analyze every piece with the cart inspector until exposed dead states are intentional.
-6. Create a base set and generate a small unconstrained template.
-7. Add cliff pieces and a separate cliff set, then paint a cliff mask in the template.
-8. Add anchors, zones, and required stamps only after the local grammar is healthy.
-9. Review a candidate batch and freeze only geography worth keeping.
+6. Create one collection and generate a small unconstrained template.
+7. Add anchors, zones, tag constraints, and required stamps only after the local grammar is healthy.
+8. Review a candidate batch and freeze only geography worth keeping.

@@ -11,15 +11,14 @@ import {
 } from "./terrain-authoring";
 
 describe("socket terrain authoring contract", () => {
-  it("accepts a mixed-size layered base piece with exact edge profiles", () => {
+  it("accepts a mixed-size layered piece with exact edge profiles", () => {
     const cells = Array.from({ length: 6 }, (_, localId) => ({
-      ...createTerrainPieceCell(1, "BASE"),
+      ...createTerrainPieceCell(1),
       tiles: [{ tilesetId: "TERRAIN", localId, orientation: 0 }]
     }));
     expect(
       terrainPieceSchema.parse({
         slug: "GROUND_CORNER",
-        pass: "BASE",
         width: 3,
         height: 2,
         layerCount: 1,
@@ -45,12 +44,11 @@ describe("socket terrain authoring contract", () => {
     expect(() =>
       terrainPieceSchema.parse({
         slug: "BAD_EDGE",
-        pass: "BASE",
         width: 2,
         height: 1,
         layerCount: 1,
         cells: Array.from({ length: 2 }, (_, localId) => ({
-          ...createTerrainPieceCell(1, "BASE"),
+          ...createTerrainPieceCell(1),
           tiles: [{ tilesetId: "TERRAIN", localId, orientation: 0 }]
         })),
         sockets: { north: ["GROUND"], east: ["GROUND"], south: ["GROUND", "GROUND"], west: ["GROUND"] },
@@ -65,21 +63,17 @@ describe("socket terrain authoring contract", () => {
     ).toThrow("north socket profile must contain 2");
   });
 
-  it("requires base coverage but permits transparent cliff overlays", () => {
-    const base = createTerrainPieceCell(1, "BASE");
-    const cliff = createTerrainPieceCell(1, "CLIFF");
-    expect(base.tiles[0]).toBeNull();
-    expect(cliff.writeMode).toBe("OVERLAY");
+  it("creates a cell with one empty render layer and neutral metadata", () => {
+    expect(createTerrainPieceCell(1)).toEqual({ tiles: [null], blocking: false, elevation: 0, semanticFlags: [] });
   });
 
   it("appends a transparent render layer without changing piece metadata", () => {
     const piece = terrainPieceSchema.parse({
       slug: "GROUND",
-      pass: "BASE",
       width: 1,
       height: 1,
       layerCount: 1,
-      cells: [{ ...createTerrainPieceCell(1, "BASE"), tiles: [{ tilesetId: "TERRAIN", localId: 1, orientation: 0 }] }],
+      cells: [{ ...createTerrainPieceCell(1), tiles: [{ tilesetId: "TERRAIN", localId: 1, orientation: 0 }] }],
       sockets: { north: ["GROUND"], east: ["GROUND"], south: ["GROUND"], west: ["GROUND"] },
       allowRotations: false,
       allowReflections: false,
@@ -93,8 +87,8 @@ describe("socket terrain authoring contract", () => {
   });
 
   it("keeps tile bindings free of WFC grammar", () => {
-    expect(terrainTileBindingSchema.parse({ slug: "CLIFF", blocking: true, tags: ["MAP_EDGE"] })).toEqual({
-      slug: "CLIFF",
+    expect(terrainTileBindingSchema.parse({ slug: "BOULDER", blocking: true, tags: ["MAP_EDGE"] })).toEqual({
+      slug: "BOULDER",
       blocking: true,
       tags: ["MAP_EDGE"]
     });
@@ -106,8 +100,7 @@ describe("socket terrain authoring contract", () => {
         slug: "SITE",
         width: 5,
         height: 5,
-        basePieceSet: "BASE_SET",
-        cliffPieceSet: "",
+        pieceSet: "TERRAIN_SET",
         candidateCount: 12,
         cells: createTerrainTemplateCells(5, 5),
         anchors: [{ slug: "EXTENSION", kind: "EXTENSION", x: 2, y: 2, direction: "north", socket: "GROUND" }],
@@ -118,9 +111,9 @@ describe("socket terrain authoring contract", () => {
   });
 
   it("accepts socket metadata and a frozen approved geography asset", () => {
-    expect(
-      terrainSocketDefinitionSchema.parse({ slug: "GROUND", label: "Ground", color: "#8B9D5C", description: "", passes: ["BASE"] })
-    ).toMatchObject({ slug: "GROUND" });
+    expect(terrainSocketDefinitionSchema.parse({ slug: "GROUND", label: "Ground", color: "#8B9D5C", description: "" })).toMatchObject({
+      slug: "GROUND"
+    });
     expect(
       terrainApprovedAssetSchema.parse({
         slug: "SITE_1",
@@ -131,10 +124,10 @@ describe("socket terrain authoring contract", () => {
         height: 3,
         layerCount: 1,
         cells: Array.from({ length: 9 }, () => [{ tilesetId: "TERRAIN", localId: 0, orientation: 0 }]),
-        cellMetadata: Array.from({ length: 9 }, () => ({ blocking: false, elevation: 0, tags: [], basePiece: "GROUND", cliffPiece: "" })),
+        cellMetadata: Array.from({ length: 9 }, () => ({ blocking: false, elevation: 0, tags: [], piece: "GROUND" })),
         placements: [],
         anchors: [],
-        metrics: { walkableComponents: 1, reachableAnchors: 0, requiredAnchors: 0, cliffCells: 0, distinctPieces: 1 }
+        metrics: { walkableComponents: 1, reachableAnchors: 0, requiredAnchors: 0, distinctPieces: 1 }
       })
     ).toMatchObject({ slug: "SITE_1", kind: "MAP" });
   });

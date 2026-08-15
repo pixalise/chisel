@@ -1,10 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
 import { type FC } from "react";
-import type { TerrainPiecePass, TerrainSocketDefinition } from "../../../../shared/terrain-authoring";
+import type { TerrainSocketDefinition } from "../../../../shared/terrain-authoring";
 
 interface TerrainSocketCatalogProps {
   onChange: (sockets: TerrainSocketDefinition[]) => void;
@@ -16,11 +14,6 @@ export const TerrainSocketCatalog: FC<TerrainSocketCatalogProps> = (props) => {
 
   function update(index: number, updateValue: Partial<TerrainSocketDefinition>): void {
     onChange(sockets.map((socket, socketIndex) => (socketIndex === index ? { ...socket, ...updateValue } : socket)));
-  }
-
-  function togglePass(index: number, pass: TerrainPiecePass, checked: boolean): void {
-    const socket = sockets[index];
-    update(index, { passes: checked ? [...new Set([...socket.passes, pass])] : socket.passes.filter((entry) => entry !== pass) });
   }
 
   return (
@@ -38,8 +31,7 @@ export const TerrainSocketCatalog: FC<TerrainSocketCatalogProps> = (props) => {
                 slug: uniqueSlug(sockets),
                 label: "New socket",
                 color: "#8B9D5C",
-                description: "",
-                passes: ["BASE"]
+                description: ""
               }
             ])
           }
@@ -56,7 +48,7 @@ export const TerrainSocketCatalog: FC<TerrainSocketCatalogProps> = (props) => {
       <div className="grid gap-2">
         {sockets.map((socket, index) => (
           <div
-            className="grid gap-2 rounded border border-border p-2 lg:grid-cols-[3rem_12rem_12rem_minmax(12rem,1fr)_auto_auto_auto] lg:items-center"
+            className="grid gap-2 rounded border border-border p-2 lg:grid-cols-[3rem_12rem_12rem_minmax(12rem,1fr)_auto] lg:items-center"
             key={`${socket.slug}-${index}`}
           >
             <Input
@@ -77,20 +69,6 @@ export const TerrainSocketCatalog: FC<TerrainSocketCatalogProps> = (props) => {
               placeholder="What physical boundary does this represent?"
               value={socket.description}
             />
-            <Label className="flex items-center gap-2 text-xs">
-              <Checkbox
-                checked={socket.passes.includes("BASE")}
-                onCheckedChange={(checked) => togglePass(index, "BASE", checked === true)}
-              />{" "}
-              Base
-            </Label>
-            <Label className="flex items-center gap-2 text-xs">
-              <Checkbox
-                checked={socket.passes.includes("CLIFF")}
-                onCheckedChange={(checked) => togglePass(index, "CLIFF", checked === true)}
-              />{" "}
-              Cliff
-            </Label>
             <Button
               aria-label={`Delete ${socket.slug}`}
               onClick={() => onChange(sockets.filter((_, entryIndex) => entryIndex !== index))}

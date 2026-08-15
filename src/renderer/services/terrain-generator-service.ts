@@ -132,8 +132,7 @@ class TerrainGeneratorService {
         slug: entry.slug,
         label: stringCell(entry, TERRAIN_SOCKET_COLUMNS.label),
         color: stringCell(entry, TERRAIN_SOCKET_COLUMNS.color),
-        description: stringCell(entry, TERRAIN_SOCKET_COLUMNS.description),
-        passes: stringArrayCell(entry, TERRAIN_SOCKET_COLUMNS.passes)
+        description: stringCell(entry, TERRAIN_SOCKET_COLUMNS.description)
       })
     );
     const pieces = piecesTable.rows.map((entry) =>
@@ -159,7 +158,6 @@ class TerrainGeneratorService {
     );
     const problems: string[] = [];
     const socketSlugs = new Set(sockets.map((entry) => entry.slug));
-    const socketsBySlug = new Map(sockets.map((entry) => [entry.slug, entry]));
     const pieceSlugs = new Set(pieces.map((entry) => entry.slug));
     const setSlugs = new Set(pieceSets.map((entry) => entry.slug));
     const setsBySlug = new Map(pieceSets.map((entry) => [entry.slug, entry]));
@@ -171,10 +169,8 @@ class TerrainGeneratorService {
     for (const piece of pieces) {
       for (const direction of ["north", "east", "south", "west"] as const) {
         for (const socket of piece.sockets[direction]) {
-          if (!socketSlugs.has(socket) && !(piece.pass === "CLIFF" && socket === "NO_CLIFF")) {
+          if (!socketSlugs.has(socket)) {
             problems.push(`Piece '${piece.slug}' references missing socket '${socket}'`);
-          } else if (socket !== "NO_CLIFF" && !socketsBySlug.get(socket)?.passes.includes(piece.pass)) {
-            problems.push(`Piece '${piece.slug}' uses socket '${socket}' outside its ${piece.pass} pass`);
           }
         }
       }
@@ -196,23 +192,17 @@ class TerrainGeneratorService {
       }
     }
     for (const template of templates) {
-      if (!setSlugs.has(template.basePieceSet))
-        problems.push(`Template '${template.slug}' references missing base set '${template.basePieceSet}'`);
-      if (template.cliffPieceSet && !setSlugs.has(template.cliffPieceSet)) {
-        problems.push(`Template '${template.slug}' references missing cliff set '${template.cliffPieceSet}'`);
-      }
-      if (template.cells.some((entry) => entry.cliffMode !== "FORBIDDEN") && !template.cliffPieceSet) {
-        problems.push(`Template '${template.slug}' paints a cliff mask without selecting a cliff set`);
-      }
+      if (!setSlugs.has(template.pieceSet))
+        problems.push(`Template '${template.slug}' references missing collection '${template.pieceSet}'`);
       for (const anchor of template.anchors) {
         if (!socketSlugs.has(anchor.socket))
           problems.push(`Template '${template.slug}' anchor '${anchor.slug}' uses missing socket '${anchor.socket}'`);
       }
-      const baseSet = setsBySlug.get(template.basePieceSet);
+      const pieceSet = setsBySlug.get(template.pieceSet);
       for (const stamp of template.stamps) {
         if (!pieceSlugs.has(stamp.piece)) problems.push(`Template '${template.slug}' stamp references missing piece '${stamp.piece}'`);
-        else if (baseSet && !baseSet.pieceSlugs.includes(stamp.piece)) {
-          problems.push(`Template '${template.slug}' stamp piece '${stamp.piece}' is not in base set '${baseSet.slug}'`);
+        else if (pieceSet && !pieceSet.pieceSlugs.includes(stamp.piece)) {
+          problems.push(`Template '${template.slug}' stamp piece '${stamp.piece}' is not in collection '${pieceSet.slug}'`);
         }
       }
     }
@@ -258,8 +248,7 @@ class TerrainGeneratorService {
         [
           rowValue(TERRAIN_SOCKET_COLUMNS.label, entry.label),
           rowValue(TERRAIN_SOCKET_COLUMNS.color, entry.color),
-          rowValue(TERRAIN_SOCKET_COLUMNS.description, entry.description),
-          rowValue(TERRAIN_SOCKET_COLUMNS.passes, entry.passes)
+          rowValue(TERRAIN_SOCKET_COLUMNS.description, entry.description)
         ],
         socketIds.get(entry.slug)
       )
@@ -270,7 +259,6 @@ class TerrainGeneratorService {
       return row(
         slug,
         [
-          rowValue(TERRAIN_PIECE_COLUMNS.pass, entry.pass),
           rowValue(TERRAIN_PIECE_COLUMNS.width, entry.width),
           rowValue(TERRAIN_PIECE_COLUMNS.height, entry.height),
           rowValue(TERRAIN_PIECE_COLUMNS.definition, definition)
@@ -283,11 +271,7 @@ class TerrainGeneratorService {
       const { slug, ...definition } = entry;
       return row(
         slug,
-        [
-          rowValue(TERRAIN_PIECE_SET_COLUMNS.pass, entry.pass),
-          rowValue(TERRAIN_PIECE_SET_COLUMNS.label, entry.label),
-          rowValue(TERRAIN_PIECE_SET_COLUMNS.definition, definition)
-        ],
+        [rowValue(TERRAIN_PIECE_SET_COLUMNS.label, entry.label), rowValue(TERRAIN_PIECE_SET_COLUMNS.definition, definition)],
         setIds.get(slug)
       );
     });

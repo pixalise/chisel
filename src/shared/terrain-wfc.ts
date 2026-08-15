@@ -1,5 +1,4 @@
 import {
-  createTerrainPieceCell,
   terrainDirections,
   terrainPieceSchema,
   terrainSiteTemplateSchema,
@@ -10,7 +9,6 @@ import {
   type TerrainDirection,
   type TerrainPiece,
   type TerrainPieceCell,
-  type TerrainPiecePass,
   type TerrainPieceSet,
   type TerrainPlacement,
   type TerrainResolvedCellMetadata,
@@ -39,7 +37,6 @@ export interface TerrainCompiledState {
   id: number;
   variantId: number;
   pieceSlug: string;
-  pass: TerrainPiecePass;
   orientation: number;
   partX: number;
   partY: number;
@@ -52,7 +49,6 @@ export interface TerrainCompiledState {
 
 export interface TerrainCompiledLibrary {
   adjacency: Record<TerrainDirection, number[][]>;
-  pass: TerrainPiecePass;
   states: TerrainCompiledState[];
   variants: TerrainCompiledVariant[];
 }
@@ -296,7 +292,6 @@ export function compileTerrainPieceLibrary(
     const piece = pieces.find((entry) => entry.slug === slug);
     if (!piece) throw new Error(`Piece set '${pieceSet.slug}' references missing piece '${slug}'`);
     const parsed = terrainPieceSchema.parse(piece);
-    if (parsed.pass !== pieceSet.pass) throw new Error(`Piece '${slug}' does not belong to the ${pieceSet.pass} pass`);
     return parsed;
   });
   if (selected.length === 0) throw new Error(`Piece set '${pieceSet.slug}' contains no pieces`);
@@ -312,7 +307,6 @@ export function compileTerrainPieceLibrary(
           id: states.length,
           variantId: variant.id,
           pieceSlug: variant.piece.slug,
-          pass: variant.piece.pass,
           orientation: variant.orientation,
           partX: x,
           partY: y,
@@ -343,7 +337,7 @@ export function compileTerrainPieceLibrary(
         .map((target) => target.id);
     }
   }
-  return { adjacency, pass: pieceSet.pass, states, variants };
+  return { adjacency, states, variants };
 }
 
 export function inspectTerrainPieceCompatibility(library: TerrainCompiledLibrary, pieceSlug: string): TerrainPieceCompatibility {
@@ -483,9 +477,7 @@ function solveLibrary(
     }
   }
   const detail = lastError instanceof Error ? lastError.message : String(lastError);
-  throw new Error(
-    `Socket WFC could not produce a ${width}×${height} ${library.pass.toLowerCase()} result after ${maxAttempts} attempts: ${detail}`
-  );
+  throw new Error(`Socket WFC could not produce a ${width}×${height} terrain result after ${maxAttempts} attempts: ${detail}`);
 }
 
 function reconstructPlacements(library: TerrainCompiledLibrary, stateIds: number[], width: number): TerrainPlacement[] {
@@ -494,10 +486,9 @@ function reconstructPlacements(library: TerrainCompiledLibrary, stateIds: number
     const state = library.states[stateId];
     const x = (index % width) - state.partX;
     const y = Math.floor(index / width) - state.partY;
-    const key = `${state.pass}:${state.pieceSlug}:${state.orientation}:${x}:${y}`;
+    const key = `${state.pieceSlug}:${state.orientation}:${x}:${y}`;
     placements.set(key, {
       piece: state.pieceSlug,
-      pass: state.pass,
       x,
       y,
       orientation: state.orientation,
@@ -552,26 +543,7 @@ function stampStateRequirements(
   return requirements;
 }
 
-function createNoCliffPiece(layerCount: number): TerrainPiece {
-  return terrainPieceSchema.parse({
-    slug: "NO_CLIFF",
-    pass: "CLIFF",
-    width: 1,
-    height: 1,
-    layerCount,
-    cells: [{ ...createTerrainPieceCell(layerCount, "CLIFF"), writeMode: "OVERLAY" }],
-    sockets: { north: ["NO_CLIFF"], east: ["NO_CLIFF"], south: ["NO_CLIFF"], west: ["NO_CLIFF"] },
-    allowRotations: false,
-    allowReflections: false,
-    weight: 1,
-    biomeTags: [],
-    siteTags: [],
-    semanticFlags: [],
-    mutationFamily: ""
-  });
-}
-
-function baseCellState(
+function resolvedCellState(
   library: TerrainCompiledLibrary,
   solved: SolvedPass,
   index: number,
@@ -585,54 +557,7 @@ function baseCellState(
       blocking: blockingForCell(state.cell, bindings),
       elevation: state.cell.elevation,
       tags: tagsForCell(state.cell, bindings, piece),
-      basePiece: piece.slug,
-      cliffPiece: ""
-    }
-  };
-}
-
-function cliffStateAllowed(
-  state: TerrainCompiledState,
-  template: TerrainSiteTemplate,
-  index: number,
-  baseMetadata: TerrainResolvedCellMetadata
-): boolean {
-  const templateCell = template.cells[index];
-  if (templateCell.protected || templateCell.cliffMode === "FORBIDDEN") return state.pieceSlug === "NO_CLIFF";
-  if (templateCell.cliffMode === "REQUIRED" && state.pieceSlug === "NO_CLIFF") return false;
-  if (state.pieceSlug === "NO_CLIFF") return true;
-  return (
-    state.cell.requiredBaseTags.every((tag) => baseMetadata.tags.includes(tag)) &&
-    state.cell.forbiddenBaseTags.every((tag) => !baseMetadata.tags.includes(tag))
-  );
-}
-
-function composeCliffCell(
-  baseStack: TerrainTileStack,
-  baseMetadata: TerrainResolvedCellMetadata,
-  library: TerrainCompiledLibrary,
-  stateId: number,
-  bindings: Record<string, TerrainTileBinding>,
-  layerCount: number
-): { stack: TerrainTileStack; metadata: TerrainResolvedCellMetadata } {
-  const state = library.states[stateId];
-  if (state.pieceSlug === "NO_CLIFF") {
-    return { stack: Array.from({ length: layerCount }, (_, layer) => baseStack[layer] ?? null), metadata: baseMetadata };
-  }
-  const piece = statePiece(library, state);
-  const stack = Array.from({ length: layerCount }, (_, layer) => {
-    const cliffTile = state.cell.tiles[layer] ?? null;
-    if (state.cell.writeMode === "OVERLAY" && cliffTile === null) return baseStack[layer] ?? null;
-    return cliffTile ? { ...cliffTile } : null;
-  });
-  return {
-    stack,
-    metadata: {
-      blocking: baseMetadata.blocking || blockingForCell(state.cell, bindings),
-      elevation: baseMetadata.elevation + state.cell.elevation,
-      tags: [...new Set([...baseMetadata.tags, ...tagsForCell(state.cell, bindings, piece)])].sort(),
-      basePiece: baseMetadata.basePiece,
-      cliffPiece: piece.slug
+      piece: piece.slug
     }
   };
 }
@@ -730,9 +655,6 @@ export function validateTerrainCandidate(
   for (let y = 0; y < candidate.height; y += 1) {
     for (let x = 0; x < candidate.width; x += 1) {
       const index = y * candidate.width + x;
-      if (template.cells[index].cliffMode === "REQUIRED" && candidate.cellMetadata[index].cliffPiece === "") {
-        issues.push({ code: "REQUIRED_CLIFF", message: `Required cliff cell ${x},${y} was left unchanged` });
-      }
       for (const direction of ["east", "south"] as const) {
         const [offsetX, offsetY] = directionOffsets[direction];
         if (x + offsetX >= candidate.width || y + offsetY >= candidate.height) continue;
@@ -756,8 +678,7 @@ export function validateTerrainCandidate(
       walkableComponents,
       reachableAnchors,
       requiredAnchors: template.anchors.length,
-      cliffCells: candidate.cellMetadata.filter((cell) => cell.cliffPiece !== "").length,
-      distinctPieces: new Set(candidate.placements.map((placement) => `${placement.pass}:${placement.piece}`)).size
+      distinctPieces: new Set(candidate.placements.map((placement) => placement.piece)).size
     }
   };
 }
@@ -773,11 +694,11 @@ export function generateTerrainCandidate(
   seed: number
 ): TerrainCandidate {
   const template = terrainSiteTemplateSchema.parse(sourceTemplate);
-  const baseSet = workspace.pieceSets.find((entry) => entry.slug === template.basePieceSet);
-  if (!baseSet) throw new Error(`Template '${template.slug}' references missing base piece set '${template.basePieceSet}'`);
-  const baseLibrary = compileTerrainPieceLibrary(workspace.pieces, baseSet, workspace.adjacencyOverrides);
-  const stampRequirements = stampStateRequirements(template, baseLibrary);
-  const baseSolved = solveLibrary(baseLibrary, template.width, template.height, seed, {
+  const pieceSet = workspace.pieceSets.find((entry) => entry.slug === template.pieceSet);
+  if (!pieceSet) throw new Error(`Template '${template.slug}' references missing collection '${template.pieceSet}'`);
+  const library = compileTerrainPieceLibrary(workspace.pieces, pieceSet, workspace.adjacencyOverrides);
+  const stampRequirements = stampStateRequirements(template, library);
+  const solved = solveLibrary(library, template.width, template.height, seed, {
     allowed: (state, x, y) => {
       const index = y * template.width + x;
       const required = stampRequirements.get(index);
@@ -790,43 +711,21 @@ export function generateTerrainCandidate(
       ) {
         return false;
       }
-      const piece = statePiece(baseLibrary, state);
+      const piece = statePiece(library, state);
       const cell = template.cells[index];
       const stateTags = tagsForCell(state.cell, workspace.tileBindings, piece);
       const anchors = template.anchors.filter((anchor) => anchor.x === x && anchor.y === y);
       return (
-        cell.requiredBaseTags.every((tag) => stateTags.includes(tag)) &&
-        cell.forbiddenBaseTags.every((tag) => !stateTags.includes(tag)) &&
+        cell.requiredTags.every((tag) => stateTags.includes(tag)) &&
+        cell.forbiddenTags.every((tag) => !stateTags.includes(tag)) &&
         anchors.every((anchor) => state.edges[anchor.direction] === anchor.socket)
       );
     }
   });
-  const baseCells = baseSolved.stateIds.map((_, index) => baseCellState(baseLibrary, baseSolved, index, workspace.tileBindings));
-  let cells = baseCells.map((entry) => entry.stack);
-  let cellMetadata = baseCells.map((entry) => entry.metadata);
-  let placements = [...baseSolved.placements];
-  const needsCliffs = template.cells.some((cell) => cell.cliffMode !== "FORBIDDEN");
-  if (needsCliffs) {
-    if (!template.cliffPieceSet) throw new Error(`Template '${template.slug}' paints a cliff mask but has no cliff piece set`);
-    const cliffSet = workspace.pieceSets.find((entry) => entry.slug === template.cliffPieceSet);
-    if (!cliffSet) throw new Error(`Template '${template.slug}' references missing cliff set '${template.cliffPieceSet}'`);
-    const layerCount = Math.max(
-      ...workspace.pieces.filter((piece) => cliffSet.pieceSlugs.includes(piece.slug)).map((piece) => piece.layerCount),
-      cells[0].length
-    );
-    const noCliff = createNoCliffPiece(layerCount);
-    const augmentedSet = { ...cliffSet, pieceSlugs: [...cliffSet.pieceSlugs, noCliff.slug] };
-    const cliffLibrary = compileTerrainPieceLibrary([...workspace.pieces, noCliff], augmentedSet, workspace.adjacencyOverrides);
-    const cliffSolved = solveLibrary(cliffLibrary, template.width, template.height, seed ^ 0x85ebca6b, {
-      allowed: (state, x, y) => cliffStateAllowed(state, template, y * template.width + x, cellMetadata[y * template.width + x])
-    });
-    const composed = cliffSolved.stateIds.map((stateId, index) =>
-      composeCliffCell(cells[index], cellMetadata[index], cliffLibrary, stateId, workspace.tileBindings, layerCount)
-    );
-    cells = composed.map((entry) => entry.stack);
-    cellMetadata = composed.map((entry) => entry.metadata);
-    placements = [...placements, ...cliffSolved.placements.filter((placement) => placement.piece !== "NO_CLIFF")];
-  }
+  const resolvedCells = solved.stateIds.map((_, index) => resolvedCellState(library, solved, index, workspace.tileBindings));
+  const cells = resolvedCells.map((entry) => entry.stack);
+  const cellMetadata = resolvedCells.map((entry) => entry.metadata);
+  const placements = [...solved.placements];
   const candidateWithoutValidation = {
     sourceTemplate: template.slug,
     seed: seed >>> 0,

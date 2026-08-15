@@ -76,19 +76,16 @@ export const TERRAIN_TILE_BINDING_COLUMNS = {
 export const TERRAIN_SOCKET_COLUMNS = {
   label: column("terrain_socket_label", "label", ColumnType.string),
   color: column("terrain_socket_color", "color", ColumnType.color),
-  description: column("terrain_socket_desc", "description", ColumnType.text, { required: false }),
-  passes: column("terrain_socket_passes", "passes", ColumnType.enumArray)
+  description: column("terrain_socket_desc", "description", ColumnType.text, { required: false })
 } as const;
 
 export const TERRAIN_PIECE_COLUMNS = {
-  pass: column("terrain_piece_pass", "pass", ColumnType.string),
   width: column("terrain_piece_width", "width", ColumnType.integer, { min: 1 }),
   height: column("terrain_piece_height", "height", ColumnType.integer, { min: 1 }),
   definition: column("terrain_piece_definition", "definition", ColumnType.json)
 } as const;
 
 export const TERRAIN_PIECE_SET_COLUMNS = {
-  pass: column("terrain_set_pass", "pass", ColumnType.string),
   label: column("terrain_set_label", "label", ColumnType.string),
   definition: column("terrain_set_definition", "definition", ColumnType.json)
 } as const;
@@ -122,7 +119,7 @@ export const TERRAIN_TILE_BINDINGS_TABLE = table(
 export const TERRAIN_SOCKETS_TABLE = table(
   TERRAIN_SOCKETS_TABLE_ID,
   "Terrain Sockets",
-  "Project-wide Wang edge socket vocabulary for base and cliff pieces.",
+  "Project-wide Wang edge socket vocabulary for terrain pieces.",
   Object.values(TERRAIN_SOCKET_COLUMNS)
 );
 
@@ -136,7 +133,7 @@ export const TERRAIN_PIECES_TABLE = table(
 export const TERRAIN_PIECE_SETS_TABLE = table(
   TERRAIN_PIECE_SETS_TABLE_ID,
   "Terrain Piece Sets",
-  "Base or cliff piece vocabularies selected by site templates.",
+  "Terrain piece collections selected by site templates.",
   Object.values(TERRAIN_PIECE_SET_COLUMNS)
 );
 
@@ -150,7 +147,7 @@ export const TERRAIN_ADJACENCY_OVERRIDES_TABLE = table(
 export const TERRAIN_SITE_TEMPLATES_TABLE = table(
   TERRAIN_SITE_TEMPLATES_TABLE_ID,
   "Terrain Site Templates",
-  "Macro constraints, stamps, anchors, zones, and cliff masks used for candidate generation.",
+  "Macro tag constraints, stamps, anchors, and zones used for candidate generation.",
   Object.values(TERRAIN_SITE_TEMPLATE_COLUMNS)
 );
 

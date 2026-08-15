@@ -14,6 +14,7 @@ import {
 import { loadEmptyTerrainTileIds } from "./terrain-empty-tiles";
 
 interface TerrainTileCatalogProps {
+  compact?: boolean;
   onBindingsChange: (bindings: Record<string, TerrainTileBinding>) => void;
   onSelectTile: (tile?: TerrainTileRef) => void;
   selectedTile?: TerrainTileRef;
@@ -25,7 +26,7 @@ function defaultBinding(tilesetId: string, localId: number): TerrainTileBinding 
 }
 
 export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
-  const { onBindingsChange, onSelectTile, selectedTile, workspace } = props;
+  const { compact = false, onBindingsChange, onSelectTile, selectedTile, workspace } = props;
   const [emptyTileKeys, setEmptyTileKeys] = useState<Set<string>>(new Set());
   const [isScanningEmptyTiles, setIsScanningEmptyTiles] = useState(workspace.tilesets.length > 0);
   const [showEmptyTiles, setShowEmptyTiles] = useState(false);
@@ -91,12 +92,21 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
   }
 
   return (
-    <div className="grid min-h-0 gap-3 rounded-md border border-border p-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+    <div
+      className={cn(
+        "grid min-h-0 gap-3 rounded-md border border-border p-3",
+        compact ? "grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_18rem]"
+      )}
+    >
       <div className="min-w-0 space-y-2">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h3 className="text-sm font-semibold">Tileset palette</h3>
-            <p className="text-xs text-muted-foreground">Select a sprite to paint modules and edit its semantic metadata.</p>
+            <h3 className="text-sm font-semibold">{compact ? "Paint brush" : "Tileset catalog"}</h3>
+            <p className="text-xs text-muted-foreground">
+              {compact
+                ? "Choose the sprite painted by the piece canvas."
+                : "Bind sprites once, then give them collision and semantic metadata."}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Label className="space-y-1 text-xs text-muted-foreground">
@@ -182,49 +192,51 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
           </div>
         )}
       </div>
-      <div className="space-y-3 border-l border-border pl-3">
-        <h3 className="text-sm font-semibold">Tile binding {selected?.key}</h3>
-        {selected && (
-          <>
-            <div className="space-y-1">
-              <Label htmlFor="tile-slug">Stable slug</Label>
-              <Input
-                id="tile-slug"
-                onChange={(event) => updateSelected({ slug: event.target.value.toUpperCase().replace(/[^A-Z0-9]+/g, "_") })}
-                value={selectedBinding?.slug ?? ""}
-              />
-            </div>
-            <Label className="flex items-center gap-2">
-              <Checkbox
-                checked={selectedBinding?.blocking ?? false}
-                onCheckedChange={(checked) => updateSelected({ blocking: checked === true })}
-              />
-              Blocks movement
-            </Label>
-            <div className="space-y-1">
-              <Label htmlFor="tile-tags">Semantic tags</Label>
-              <Input
-                id="tile-tags"
-                onChange={(event) =>
-                  updateSelected({
-                    tags: event.target.value
-                      .split(",")
-                      .map((value) =>
-                        value
-                          .trim()
-                          .toUpperCase()
-                          .replace(/[^A-Z0-9]+/g, "_")
-                      )
-                      .filter(Boolean)
-                  })
-                }
-                placeholder="WALKABLE, WATER, SHORE, FOLIAGE"
-                value={selectedBinding?.tags.join(", ") ?? ""}
-              />
-            </div>
-          </>
-        )}
-      </div>
+      {!compact && (
+        <div className="space-y-3 border-l border-border pl-3">
+          <h3 className="text-sm font-semibold">Tile binding {selected?.key}</h3>
+          {selected && (
+            <>
+              <div className="space-y-1">
+                <Label htmlFor="tile-slug">Stable slug</Label>
+                <Input
+                  id="tile-slug"
+                  onChange={(event) => updateSelected({ slug: event.target.value.toUpperCase().replace(/[^A-Z0-9]+/g, "_") })}
+                  value={selectedBinding?.slug ?? ""}
+                />
+              </div>
+              <Label className="flex items-center gap-2">
+                <Checkbox
+                  checked={selectedBinding?.blocking ?? false}
+                  onCheckedChange={(checked) => updateSelected({ blocking: checked === true })}
+                />
+                Blocks movement
+              </Label>
+              <div className="space-y-1">
+                <Label htmlFor="tile-tags">Semantic tags</Label>
+                <Input
+                  id="tile-tags"
+                  onChange={(event) =>
+                    updateSelected({
+                      tags: event.target.value
+                        .split(",")
+                        .map((value) =>
+                          value
+                            .trim()
+                            .toUpperCase()
+                            .replace(/[^A-Z0-9]+/g, "_")
+                        )
+                        .filter(Boolean)
+                    })
+                  }
+                  placeholder="WALKABLE, WATER, SHORE, FOLIAGE"
+                  value={selectedBinding?.tags.join(", ") ?? ""}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };

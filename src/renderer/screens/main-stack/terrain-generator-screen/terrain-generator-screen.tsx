@@ -2,8 +2,11 @@ import { Section } from "@/components/layout/section";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TerrainApprovedLibrary } from "@/screens/main-stack/terrain-generator-screen/terrain-approved-library";
 import { TerrainCandidateBatch } from "@/screens/main-stack/terrain-generator-screen/terrain-candidate-batch";
 import { TerrainCompatibilityInspector } from "@/screens/main-stack/terrain-generator-screen/terrain-compatibility-inspector";
+import { TerrainExampleGuide } from "@/screens/main-stack/terrain-generator-screen/terrain-example-guide";
 import { TerrainPieceEditor } from "@/screens/main-stack/terrain-generator-screen/terrain-piece-editor";
 import { TerrainPiecePainter } from "@/screens/main-stack/terrain-generator-screen/terrain-piece-painter";
 import { TerrainPieceSetEditor } from "@/screens/main-stack/terrain-generator-screen/terrain-piece-set-editor";
@@ -12,7 +15,7 @@ import { TerrainSocketCatalog } from "@/screens/main-stack/terrain-generator-scr
 import { TerrainTemplateEditor } from "@/screens/main-stack/terrain-generator-screen/terrain-template-editor";
 import { TerrainTileCatalog } from "@/screens/main-stack/terrain-generator-screen/terrain-tile-catalog";
 import terrainGeneratorService from "@/services/terrain-generator-service";
-import { AlertTriangle, Save } from "lucide-react";
+import { AlertTriangle, BookOpen, CheckSquare2, Dices, Layers3, Library, Save, Tags } from "lucide-react";
 import { type FC, useEffect, useMemo, useState } from "react";
 import type {
   TerrainApprovedAsset,
@@ -21,6 +24,7 @@ import type {
   TerrainTileRef,
   TerrainWorkspaceView
 } from "../../../../shared/terrain-authoring";
+import { installCompleteTerrainExample, terrainExampleTemplateSlug } from "../../../../shared/terrain-example";
 import {
   compileTerrainPieceLibrary,
   generateTerrainCandidateBatch,
@@ -29,8 +33,11 @@ import {
   type TerrainPieceCompatibility
 } from "../../../../shared/terrain-wfc";
 
+type TerrainPage = "catalog" | "pieces" | "collections" | "generate" | "library";
+
 export const TerrainGeneratorScreen: FC = () => {
   const [workspace, setWorkspace] = useState<TerrainWorkspaceView>();
+  const [activePage, setActivePage] = useState<TerrainPage>("catalog");
   const [selectedPieceSlug, setSelectedPieceSlug] = useState<string>();
   const [selectedTemplateSlug, setSelectedTemplateSlug] = useState<string>();
   const [selectedTile, setSelectedTile] = useState<TerrainTileRef>();
@@ -44,6 +51,7 @@ export const TerrainGeneratorScreen: FC = () => {
     () => workspace?.templates.find((entry) => entry.slug === selectedTemplateSlug),
     [selectedTemplateSlug, workspace?.templates]
   );
+  const hasExample = workspace?.templates.some((entry) => entry.slug === terrainExampleTemplateSlug) === true;
 
   useEffect(() => {
     let cancelled = false;
@@ -51,7 +59,19 @@ export const TerrainGeneratorScreen: FC = () => {
     terrainGeneratorService
       .load()
       .then((loaded) => {
-        if (!cancelled) setWorkspace(loaded);
+        if (cancelled) return;
+        const shouldInstallExample =
+          loaded.templates.length === 0 && loaded.pieceSets.length === 0 && Object.keys(loaded.tileBindings).length > 0;
+        const ready = shouldInstallExample ? installCompleteTerrainExample(loaded) : loaded;
+        setWorkspace(ready);
+        const exampleTemplate = ready.templates.find((entry) => entry.slug === terrainExampleTemplateSlug);
+        if (exampleTemplate) {
+          setSelectedTemplateSlug(exampleTemplate.slug);
+          setSelectedPieceSlug(ready.pieces.find((entry) => entry.slug === "EXAMPLE_OPEN_GROUND")?.slug);
+          setActivePage("generate");
+          if (shouldInstallExample)
+            setMessage("Loaded an unsaved complete forest example. Hit Generate batch, then inspect the five pages.");
+        }
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(caught instanceof Error ? caught.message : String(caught));
@@ -68,6 +88,23 @@ export const TerrainGeneratorScreen: FC = () => {
     setWorkspace((current) => (current ? update(current) : current));
   }
 
+  function loadExample(): void {
+    if (!workspace) return;
+    setError("");
+    try {
+      const ready = installCompleteTerrainExample(workspace);
+      setWorkspace(ready);
+      setSelectedTemplateSlug(terrainExampleTemplateSlug);
+      setSelectedPieceSlug("EXAMPLE_OPEN_GROUND");
+      setCandidateResults([]);
+      setCompatibility(undefined);
+      setActivePage("generate");
+      setMessage("Loaded the complete forest example into the editor. It remains unsaved until you choose Save authoring.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    }
+  }
+
   async function saveWorkspace(): Promise<void> {
     if (!workspace) return;
     setIsBusy(true);
@@ -75,7 +112,7 @@ export const TerrainGeneratorScreen: FC = () => {
     try {
       const saved = await terrainGeneratorService.save(workspace);
       setWorkspace(saved);
-      setMessage(saved.problems.length === 0 ? "Saved socket-WFC authoring." : "Saved terrain authoring; validation problems remain.");
+      setMessage(saved.problems.length === 0 ? "Saved terrain authoring." : "Saved terrain authoring; validation problems remain.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -113,12 +150,11 @@ export const TerrainGeneratorScreen: FC = () => {
     setError("");
     try {
       const pieces = workspace.pieces.map((entry) => (entry.slug === piece.slug ? piece : entry));
-      const containingSet = workspace.pieceSets.find((entry) => entry.pass === piece.pass && entry.pieceSlugs.includes(piece.slug));
+      const containingSet = workspace.pieceSets.find((entry) => entry.pieceSlugs.includes(piece.slug));
       const inspectionSet = containingSet ?? {
         slug: "CURRENT_INSPECTION",
         label: "Current inspection",
-        pass: piece.pass,
-        pieceSlugs: pieces.filter((entry) => entry.pass === piece.pass).map((entry) => entry.slug),
+        pieceSlugs: pieces.map((entry) => entry.slug),
         biomeTags: [],
         siteTags: []
       };
@@ -143,24 +179,36 @@ export const TerrainGeneratorScreen: FC = () => {
 
   async function approveAsset(asset: TerrainApprovedAsset): Promise<void> {
     if (!workspace) return;
-    if (workspace.approvedAssets.some((entry) => entry.slug === asset.slug))
-      throw new Error(`Approved asset '${asset.slug}' already exists`);
-    const saved = await terrainGeneratorService.saveApprovedAssets([...workspace.approvedAssets, asset]);
-    setWorkspace(saved);
-    setMessage(`Frozen approved ${asset.kind.toLowerCase()} '${asset.slug}'.`);
+    setError("");
+    try {
+      if (workspace.approvedAssets.some((entry) => entry.slug === asset.slug)) {
+        throw new Error(`Approved asset '${asset.slug}' already exists`);
+      }
+      const saved = await terrainGeneratorService.saveApprovedAssets([...workspace.approvedAssets, asset]);
+      setWorkspace(saved);
+      setActivePage("library");
+      setMessage(`Frozen approved ${asset.kind.toLowerCase()} '${asset.slug}'.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    }
   }
 
   async function deleteApprovedAsset(slug: string): Promise<void> {
     if (!workspace) return;
-    const saved = await terrainGeneratorService.saveApprovedAssets(workspace.approvedAssets.filter((entry) => entry.slug !== slug));
-    setWorkspace(saved);
-    setMessage(`Removed approved asset '${slug}'.`);
+    setError("");
+    try {
+      const saved = await terrainGeneratorService.saveApprovedAssets(workspace.approvedAssets.filter((entry) => entry.slug !== slug));
+      setWorkspace(saved);
+      setMessage(`Removed approved asset '${slug}'.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    }
   }
 
   return (
     <Section
       title="Terrain Generator"
-      copy="Author explicit Wang-socket modules, solve base and cliff passes, validate candidate batches, and freeze geography worth keeping."
+      copy="Build local terrain pieces, organize them into collections, generate sites, and approve only useful geography."
     >
       <div className="space-y-4">
         {error && (
@@ -178,168 +226,228 @@ export const TerrainGeneratorScreen: FC = () => {
                 <Badge variant="secondary">{workspace.tilesets.length} tilesets</Badge>
                 <Badge variant="secondary">{workspace.sockets.length} sockets</Badge>
                 <Badge variant="secondary">{workspace.pieces.length} pieces</Badge>
-                <Badge variant="outline">{workspace.templates.length} templates</Badge>
+                <Badge variant="outline">{workspace.pieceSets.length} collections</Badge>
                 <Badge variant="outline">{workspace.approvedAssets.length} approved</Badge>
               </div>
-              <Button disabled={isBusy} onClick={() => void saveWorkspace()} type="button">
-                <Save className="size-4" /> Save authoring
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button disabled={Object.keys(workspace.tileBindings).length === 0} onClick={loadExample} type="button" variant="outline">
+                  <BookOpen className="size-4" /> {hasExample ? "Reset full example" : "Load full example"}
+                </Button>
+                <Button disabled={isBusy} onClick={() => void saveWorkspace()} type="button">
+                  <Save className="size-4" /> Save authoring
+                </Button>
+              </div>
             </div>
             {workspace.problems.length > 0 && <TerrainProblemList problems={workspace.problems} />}
-            <TerrainSocketCatalog
-              onChange={(sockets) =>
-                mutateWorkspace((current) => {
-                  const renamed =
-                    current.sockets.length === sockets.length
-                      ? current.sockets.find((entry, index) => sockets[index] && entry.slug !== sockets[index].slug)
-                      : undefined;
-                  const replacement = renamed ? sockets[current.sockets.indexOf(renamed)]?.slug : undefined;
-                  return {
-                    ...current,
-                    sockets,
-                    pieces:
-                      renamed && replacement
-                        ? current.pieces.map((entry) => ({
-                            ...entry,
-                            sockets: Object.fromEntries(
-                              Object.entries(entry.sockets).map(([direction, profile]) => [
-                                direction,
-                                profile.map((socket) => (socket === renamed.slug ? replacement : socket))
-                              ])
-                            ) as TerrainPiece["sockets"]
-                          }))
-                        : current.pieces,
-                    templates:
-                      renamed && replacement
-                        ? current.templates.map((entry) => ({
-                            ...entry,
-                            anchors: entry.anchors.map((anchor) => ({
-                              ...anchor,
-                              socket: anchor.socket === renamed.slug ? replacement : anchor.socket
-                            }))
-                          }))
-                        : current.templates
-                  };
-                })
-              }
-              sockets={workspace.sockets}
-            />
-            <TerrainPieceEditor
-              onAnalyze={analyzePiece}
-              onChange={updatePiece}
-              onCreate={(next) => {
-                mutateWorkspace((current) => ({ ...current, pieces: [...current.pieces, next] }));
-                setSelectedPieceSlug(next.slug);
-              }}
-              onDelete={() => {
-                if (!piece) return;
-                mutateWorkspace((current) => ({
-                  ...current,
-                  pieces: current.pieces.filter((entry) => entry.slug !== piece.slug),
-                  pieceSets: current.pieceSets.map((entry) => ({
-                    ...entry,
-                    pieceSlugs: entry.pieceSlugs.filter((slug) => slug !== piece.slug)
-                  })),
-                  adjacencyOverrides: current.adjacencyOverrides.filter(
-                    (entry) => entry.sourcePiece !== piece.slug && entry.targetPiece !== piece.slug
-                  ),
-                  templates: current.templates.map((entry) => ({
-                    ...entry,
-                    stamps: entry.stamps.filter((stamp) => stamp.piece !== piece.slug)
-                  }))
-                }));
-                setSelectedPieceSlug(undefined);
-                setCompatibility(undefined);
-              }}
-              onSelect={(slug) => {
-                setSelectedPieceSlug(slug);
-                setCompatibility(undefined);
-              }}
-              piece={piece}
-              pieces={workspace.pieces}
-              sockets={workspace.sockets}
-            />
-            {compatibility && <TerrainCompatibilityInspector compatibility={compatibility} sockets={workspace.sockets} />}
-            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(28rem,1fr)] xl:items-start">
-              <TerrainPiecePainter
-                onChange={updatePiece}
-                piece={piece}
-                selectedTile={selectedTile}
-                sockets={workspace.sockets}
-                tilesets={workspace.tilesets}
-              />
-              <TerrainTileCatalog
-                onBindingsChange={(tileBindings) => mutateWorkspace((current) => ({ ...current, tileBindings }))}
-                onSelectTile={setSelectedTile}
-                selectedTile={selectedTile}
-                workspace={workspace}
-              />
-            </div>
-            <TerrainPieceSetEditor
-              onOverridesChange={(adjacencyOverrides) => mutateWorkspace((current) => ({ ...current, adjacencyOverrides }))}
-              onSetsChange={(pieceSets) =>
-                mutateWorkspace((current) => {
-                  const renamed =
-                    current.pieceSets.length === pieceSets.length
-                      ? current.pieceSets.find(
-                          (entry, index) => pieceSets[index] && entry.slug !== pieceSets[index].slug && entry.pass === pieceSets[index].pass
-                        )
-                      : undefined;
-                  const replacement = renamed ? pieceSets[current.pieceSets.indexOf(renamed)]?.slug : undefined;
-                  return {
-                    ...current,
-                    pieceSets,
-                    templates:
-                      renamed && replacement
-                        ? current.templates.map((entry) => ({
-                            ...entry,
-                            basePieceSet: entry.basePieceSet === renamed.slug ? replacement : entry.basePieceSet,
-                            cliffPieceSet: entry.cliffPieceSet === renamed.slug ? replacement : entry.cliffPieceSet
-                          }))
-                        : current.templates
-                  };
-                })
-              }
-              overrides={workspace.adjacencyOverrides}
-              pieces={workspace.pieces}
-              sets={workspace.pieceSets}
-            />
-            <TerrainTemplateEditor
-              onChange={(templates) =>
-                mutateWorkspace((current) => {
-                  const renamed =
-                    current.templates.length === templates.length
-                      ? current.templates.find((entry, index) => templates[index] && entry.slug !== templates[index].slug)
-                      : undefined;
-                  const replacement = renamed ? templates[current.templates.indexOf(renamed)]?.slug : undefined;
-                  return {
-                    ...current,
-                    templates,
-                    approvedAssets:
-                      renamed && replacement
-                        ? current.approvedAssets.map((entry) => ({
-                            ...entry,
-                            sourceTemplate: entry.sourceTemplate === renamed.slug ? replacement : entry.sourceTemplate
-                          }))
-                        : current.approvedAssets
-                  };
-                })
-              }
-              onGenerate={generateBatch}
-              onSelect={setSelectedTemplateSlug}
-              pieces={workspace.pieces}
-              selectedTemplate={template}
-              sets={workspace.pieceSets}
-              sockets={workspace.sockets}
-              templates={workspace.templates}
-            />
-            <TerrainCandidateBatch
-              approvedAssets={workspace.approvedAssets}
-              onApprove={approveAsset}
-              onDeleteApproved={deleteApprovedAsset}
-              results={candidateResults}
-              tilesets={workspace.tilesets}
-            />
+            <Tabs onValueChange={(value) => setActivePage(value as TerrainPage)} value={activePage}>
+              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 md:grid-cols-5">
+                <TabsTrigger className="gap-2 py-2" value="catalog">
+                  <Tags className="size-4" /> 1 · Catalog
+                </TabsTrigger>
+                <TabsTrigger className="gap-2 py-2" value="pieces">
+                  <Layers3 className="size-4" /> 2 · Pieces
+                </TabsTrigger>
+                <TabsTrigger className="gap-2 py-2" value="collections">
+                  <Library className="size-4" /> 3 · Collections
+                </TabsTrigger>
+                <TabsTrigger className="gap-2 py-2" value="generate">
+                  <Dices className="size-4" /> 4 · Generate
+                </TabsTrigger>
+                <TabsTrigger className="gap-2 py-2" value="library">
+                  <CheckSquare2 className="size-4" /> 5 · Approved
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent className="space-y-4" value="catalog">
+                <div className="rounded border border-border bg-muted/30 p-3">
+                  <h2 className="text-sm font-semibold">First: identify sprites and define edge language</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Tile bindings describe what a sprite means. Sockets describe which outer piece edges may touch. Most natural terrain
+                    starts with one GROUND socket.
+                  </p>
+                </div>
+                <TerrainTileCatalog
+                  onBindingsChange={(tileBindings) => mutateWorkspace((current) => ({ ...current, tileBindings }))}
+                  onSelectTile={setSelectedTile}
+                  selectedTile={selectedTile}
+                  workspace={workspace}
+                />
+                <TerrainSocketCatalog
+                  onChange={(sockets) =>
+                    mutateWorkspace((current) => {
+                      const renamed =
+                        current.sockets.length === sockets.length
+                          ? current.sockets.find((entry, index) => sockets[index] && entry.slug !== sockets[index].slug)
+                          : undefined;
+                      const replacement = renamed ? sockets[current.sockets.indexOf(renamed)]?.slug : undefined;
+                      return {
+                        ...current,
+                        sockets,
+                        pieces:
+                          renamed && replacement
+                            ? current.pieces.map((entry) => ({
+                                ...entry,
+                                sockets: Object.fromEntries(
+                                  Object.entries(entry.sockets).map(([direction, profile]) => [
+                                    direction,
+                                    profile.map((socket) => (socket === renamed.slug ? replacement : socket))
+                                  ])
+                                ) as TerrainPiece["sockets"]
+                              }))
+                            : current.pieces,
+                        templates:
+                          renamed && replacement
+                            ? current.templates.map((entry) => ({
+                                ...entry,
+                                anchors: entry.anchors.map((anchor) => ({
+                                  ...anchor,
+                                  socket: anchor.socket === renamed.slug ? replacement : anchor.socket
+                                }))
+                              }))
+                            : current.templates
+                      };
+                    })
+                  }
+                  sockets={workspace.sockets}
+                />
+              </TabsContent>
+              <TabsContent className="space-y-4" value="pieces">
+                <div className="rounded border border-border bg-muted/30 p-3">
+                  <h2 className="text-sm font-semibold">Second: paint reusable local terrain pieces</h2>
+                  <p className="text-xs text-muted-foreground">
+                    A piece may be one tile or a mixed-size module. Paint it, tag every outer edge, then use the cart icon to inspect its
+                    current unsaved compatibility.
+                  </p>
+                </div>
+                <TerrainPieceEditor
+                  onAnalyze={analyzePiece}
+                  onChange={updatePiece}
+                  onCreate={(next) => {
+                    mutateWorkspace((current) => ({ ...current, pieces: [...current.pieces, next] }));
+                    setSelectedPieceSlug(next.slug);
+                  }}
+                  onDelete={() => {
+                    if (!piece) return;
+                    mutateWorkspace((current) => ({
+                      ...current,
+                      pieces: current.pieces.filter((entry) => entry.slug !== piece.slug),
+                      pieceSets: current.pieceSets.map((entry) => ({
+                        ...entry,
+                        pieceSlugs: entry.pieceSlugs.filter((slug) => slug !== piece.slug)
+                      })),
+                      adjacencyOverrides: current.adjacencyOverrides.filter(
+                        (entry) => entry.sourcePiece !== piece.slug && entry.targetPiece !== piece.slug
+                      ),
+                      templates: current.templates.map((entry) => ({
+                        ...entry,
+                        stamps: entry.stamps.filter((stamp) => stamp.piece !== piece.slug)
+                      }))
+                    }));
+                    setSelectedPieceSlug(undefined);
+                    setCompatibility(undefined);
+                  }}
+                  onSelect={(slug) => {
+                    setSelectedPieceSlug(slug);
+                    setCompatibility(undefined);
+                  }}
+                  piece={piece}
+                  pieces={workspace.pieces}
+                  sockets={workspace.sockets}
+                />
+                {compatibility && <TerrainCompatibilityInspector compatibility={compatibility} sockets={workspace.sockets} />}
+                <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.8fr)] xl:items-start">
+                  <TerrainPiecePainter
+                    onChange={updatePiece}
+                    piece={piece}
+                    selectedTile={selectedTile}
+                    sockets={workspace.sockets}
+                    tilesets={workspace.tilesets}
+                  />
+                  <TerrainTileCatalog
+                    compact
+                    onBindingsChange={(tileBindings) => mutateWorkspace((current) => ({ ...current, tileBindings }))}
+                    onSelectTile={setSelectedTile}
+                    selectedTile={selectedTile}
+                    workspace={workspace}
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent className="space-y-4" value="collections">
+                <div className="rounded border border-border bg-muted/30 p-3">
+                  <h2 className="text-sm font-semibold">Third: choose which pieces belong together</h2>
+                  <p className="text-xs text-muted-foreground">
+                    A collection is the palette used by one solve. Adjacency exceptions are advanced and should be rare; matching sockets
+                    remain the normal rule.
+                  </p>
+                </div>
+                <TerrainPieceSetEditor
+                  onOverridesChange={(adjacencyOverrides) => mutateWorkspace((current) => ({ ...current, adjacencyOverrides }))}
+                  onSetsChange={(pieceSets) =>
+                    mutateWorkspace((current) => {
+                      const renamed =
+                        current.pieceSets.length === pieceSets.length
+                          ? current.pieceSets.find((entry, index) => pieceSets[index] && entry.slug !== pieceSets[index].slug)
+                          : undefined;
+                      const replacement = renamed ? pieceSets[current.pieceSets.indexOf(renamed)]?.slug : undefined;
+                      return {
+                        ...current,
+                        pieceSets,
+                        templates:
+                          renamed && replacement
+                            ? current.templates.map((entry) => ({
+                                ...entry,
+                                pieceSet: entry.pieceSet === renamed.slug ? replacement : entry.pieceSet
+                              }))
+                            : current.templates
+                      };
+                    })
+                  }
+                  overrides={workspace.adjacencyOverrides}
+                  pieces={workspace.pieces}
+                  sets={workspace.pieceSets}
+                />
+              </TabsContent>
+              <TabsContent className="space-y-4" value="generate">
+                {hasExample && <TerrainExampleGuide />}
+                <TerrainTemplateEditor
+                  onChange={(templates) =>
+                    mutateWorkspace((current) => {
+                      const renamed =
+                        current.templates.length === templates.length
+                          ? current.templates.find((entry, index) => templates[index] && entry.slug !== templates[index].slug)
+                          : undefined;
+                      const replacement = renamed ? templates[current.templates.indexOf(renamed)]?.slug : undefined;
+                      return {
+                        ...current,
+                        templates,
+                        approvedAssets:
+                          renamed && replacement
+                            ? current.approvedAssets.map((entry) => ({
+                                ...entry,
+                                sourceTemplate: entry.sourceTemplate === renamed.slug ? replacement : entry.sourceTemplate
+                              }))
+                            : current.approvedAssets
+                      };
+                    })
+                  }
+                  onGenerate={generateBatch}
+                  onSelect={setSelectedTemplateSlug}
+                  pieces={workspace.pieces}
+                  selectedTemplate={template}
+                  sets={workspace.pieceSets}
+                  sockets={workspace.sockets}
+                  templates={workspace.templates}
+                />
+                <TerrainCandidateBatch
+                  approvedAssets={workspace.approvedAssets}
+                  onApprove={approveAsset}
+                  results={candidateResults}
+                  tilesets={workspace.tilesets}
+                />
+              </TabsContent>
+              <TabsContent value="library">
+                <TerrainApprovedLibrary assets={workspace.approvedAssets} onDelete={deleteApprovedAsset} />
+              </TabsContent>
+            </Tabs>
           </>
         )}
       </div>

@@ -2,15 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2 } from "lucide-react";
-import { type FC, useState } from "react";
-import type {
-  TerrainAdjacencyOverride,
-  TerrainDirection,
-  TerrainPiece,
-  TerrainPiecePass,
-  TerrainPieceSet
-} from "../../../../shared/terrain-authoring";
+import { Plus, Settings2, Trash2 } from "lucide-react";
+import { type FC, useEffect, useState } from "react";
+import type { TerrainAdjacencyOverride, TerrainDirection, TerrainPiece, TerrainPieceSet } from "../../../../shared/terrain-authoring";
 
 interface TerrainPieceSetEditorProps {
   onOverridesChange: (overrides: TerrainAdjacencyOverride[]) => void;
@@ -23,24 +17,25 @@ interface TerrainPieceSetEditorProps {
 export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => {
   const { onOverridesChange, onSetsChange, overrides, pieces, sets } = props;
   const [selectedSetSlug, setSelectedSetSlug] = useState(sets[0]?.slug ?? "");
-  const [pass, setPass] = useState<TerrainPiecePass>("BASE");
   const [sourcePiece, setSourcePiece] = useState("");
   const [targetPiece, setTargetPiece] = useState("");
   const [direction, setDirection] = useState<TerrainDirection>("north");
   const [mode, setMode] = useState<"ALLOW_ONLY" | "DENY">("DENY");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const selectedSet = sets.find((entry) => entry.slug === selectedSetSlug);
+
+  useEffect(() => {
+    if (sets.some((entry) => entry.slug === selectedSetSlug)) return;
+    setSelectedSetSlug(sets[0]?.slug ?? "");
+  }, [selectedSetSlug, sets]);
 
   function addSet(): void {
     let index = sets.length + 1;
     while (sets.some((entry) => entry.slug === `PIECE_SET_${index}`)) index += 1;
     const next: TerrainPieceSet = {
       slug: `PIECE_SET_${index}`,
-      label: "New piece set",
-      pass,
-      pieceSlugs: pieces
-        .filter((piece) => piece.pass === pass)
-        .slice(0, 1)
-        .map((piece) => piece.slug),
+      label: "New collection",
+      pieceSlugs: pieces.slice(0, 1).map((piece) => piece.slug),
       biomeTags: [],
       siteTags: []
     };
@@ -62,26 +57,16 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="space-y-3">
       <div className="space-y-3 rounded-md border border-border p-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h3 className="text-sm font-semibold">Piece sets</h3>
-            <p className="text-xs text-muted-foreground">
-              Templates solve against one explicit base vocabulary and one optional cliff vocabulary.
-            </p>
+            <h3 className="text-sm font-semibold">Collections</h3>
+            <p className="text-xs text-muted-foreground">A collection is simply the group of pieces available to one terrain generation.</p>
           </div>
           <div className="flex items-end gap-2">
-            <select
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-              onChange={(event) => setPass(event.target.value as TerrainPiecePass)}
-              value={pass}
-            >
-              <option value="BASE">Base</option>
-              <option value="CLIFF">Cliff</option>
-            </select>
-            <Button disabled={pieces.every((piece) => piece.pass !== pass)} onClick={addSet} size="sm" type="button" variant="outline">
-              <Plus className="size-4" /> Add set
+            <Button disabled={pieces.length === 0} onClick={addSet} size="sm" type="button" variant="outline">
+              <Plus className="size-4" /> Add collection
             </Button>
           </div>
         </div>
@@ -90,10 +75,10 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
           onChange={(event) => setSelectedSetSlug(event.target.value)}
           value={selectedSetSlug}
         >
-          <option value="">Choose a set…</option>
+          <option value="">Choose a collection…</option>
           {sets.map((entry) => (
             <option key={entry.slug} value={entry.slug}>
-              {entry.slug} — {entry.pass}
+              {entry.slug}
             </option>
           ))}
         </select>
@@ -131,98 +116,103 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
               </Label>
             </div>
             <div className="flex flex-wrap gap-3 rounded border border-border p-2">
-              {pieces
-                .filter((piece) => piece.pass === selectedSet.pass)
-                .map((piece) => (
-                  <Label className="flex items-center gap-2 text-xs" key={piece.slug}>
-                    <Checkbox
-                      checked={selectedSet.pieceSlugs.includes(piece.slug)}
-                      onCheckedChange={(checked) =>
-                        updateSet({
-                          pieceSlugs:
-                            checked === true
-                              ? [...new Set([...selectedSet.pieceSlugs, piece.slug])]
-                              : selectedSet.pieceSlugs.filter((slug) => slug !== piece.slug)
-                        })
-                      }
-                    />
-                    {piece.slug}
-                  </Label>
-                ))}
+              {pieces.map((piece) => (
+                <Label className="flex items-center gap-2 text-xs" key={piece.slug}>
+                  <Checkbox
+                    checked={selectedSet.pieceSlugs.includes(piece.slug)}
+                    onCheckedChange={(checked) =>
+                      updateSet({
+                        pieceSlugs:
+                          checked === true
+                            ? [...new Set([...selectedSet.pieceSlugs, piece.slug])]
+                            : selectedSet.pieceSlugs.filter((slug) => slug !== piece.slug)
+                      })
+                    }
+                  />
+                  {piece.slug}
+                </Label>
+              ))}
             </div>
           </>
         )}
       </div>
-      <div className="space-y-3 rounded-md border border-border p-3">
-        <div>
-          <h3 className="text-sm font-semibold">Adjacency exceptions</h3>
-          <p className="text-xs text-muted-foreground">Exceptions apply after sockets match; they never connect incompatible edge tags.</p>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-5">
-          <select
-            className="h-9 rounded border border-input bg-background px-2 text-xs"
-            onChange={(event) => setSourcePiece(event.target.value)}
-            value={sourcePiece}
-          >
-            <option value="">Source…</option>
-            {pieces.map((piece) => (
-              <option key={piece.slug} value={piece.slug}>
-                {piece.slug}
-              </option>
+      <Button className="justify-self-start" onClick={() => setShowAdvanced((value) => !value)} type="button" variant="outline">
+        <Settings2 className="size-4" /> {showAdvanced ? "Hide advanced adjacency" : "Advanced adjacency overrides"}
+      </Button>
+      {showAdvanced && (
+        <div className="space-y-3 rounded-md border border-border p-3">
+          <div>
+            <h3 className="text-sm font-semibold">Adjacency exceptions</h3>
+            <p className="text-xs text-muted-foreground">
+              Exceptions apply after sockets match; they never connect incompatible edge tags.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-5">
+            <select
+              className="h-9 rounded border border-input bg-background px-2 text-xs"
+              onChange={(event) => setSourcePiece(event.target.value)}
+              value={sourcePiece}
+            >
+              <option value="">Source…</option>
+              {pieces.map((piece) => (
+                <option key={piece.slug} value={piece.slug}>
+                  {piece.slug}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-9 rounded border border-input bg-background px-2 text-xs"
+              onChange={(event) => setDirection(event.target.value as TerrainDirection)}
+              value={direction}
+            >
+              <option value="north">North</option>
+              <option value="east">East</option>
+              <option value="south">South</option>
+              <option value="west">West</option>
+            </select>
+            <select
+              className="h-9 rounded border border-input bg-background px-2 text-xs"
+              onChange={(event) => setTargetPiece(event.target.value)}
+              value={targetPiece}
+            >
+              <option value="">Target…</option>
+              {pieces.map((piece) => (
+                <option key={piece.slug} value={piece.slug}>
+                  {piece.slug}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-9 rounded border border-input bg-background px-2 text-xs"
+              onChange={(event) => setMode(event.target.value as "ALLOW_ONLY" | "DENY")}
+              value={mode}
+            >
+              <option value="DENY">Deny</option>
+              <option value="ALLOW_ONLY">Allow only</option>
+            </select>
+            <Button onClick={addOverride} size="sm" type="button">
+              <Plus className="size-4" /> Add
+            </Button>
+          </div>
+          <div className="space-y-1">
+            {overrides.map((entry) => (
+              <div className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1 text-xs" key={entry.slug}>
+                <span>
+                  {entry.sourcePiece} · {entry.direction} · {entry.mode} · {entry.targetPiece}
+                </span>
+                <Button
+                  onClick={() => onOverridesChange(overrides.filter((override) => override.slug !== entry.slug))}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trash2 className="size-3" />
+                </Button>
+              </div>
             ))}
-          </select>
-          <select
-            className="h-9 rounded border border-input bg-background px-2 text-xs"
-            onChange={(event) => setDirection(event.target.value as TerrainDirection)}
-            value={direction}
-          >
-            <option value="north">North</option>
-            <option value="east">East</option>
-            <option value="south">South</option>
-            <option value="west">West</option>
-          </select>
-          <select
-            className="h-9 rounded border border-input bg-background px-2 text-xs"
-            onChange={(event) => setTargetPiece(event.target.value)}
-            value={targetPiece}
-          >
-            <option value="">Target…</option>
-            {pieces.map((piece) => (
-              <option key={piece.slug} value={piece.slug}>
-                {piece.slug}
-              </option>
-            ))}
-          </select>
-          <select
-            className="h-9 rounded border border-input bg-background px-2 text-xs"
-            onChange={(event) => setMode(event.target.value as "ALLOW_ONLY" | "DENY")}
-            value={mode}
-          >
-            <option value="DENY">Deny</option>
-            <option value="ALLOW_ONLY">Allow only</option>
-          </select>
-          <Button onClick={addOverride} size="sm" type="button">
-            <Plus className="size-4" /> Add
-          </Button>
+          </div>
         </div>
-        <div className="space-y-1">
-          {overrides.map((entry) => (
-            <div className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1 text-xs" key={entry.slug}>
-              <span>
-                {entry.sourcePiece} · {entry.direction} · {entry.mode} · {entry.targetPiece}
-              </span>
-              <Button
-                onClick={() => onOverridesChange(overrides.filter((override) => override.slug !== entry.slug))}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <Trash2 className="size-3" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 };

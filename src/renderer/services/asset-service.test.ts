@@ -57,7 +57,6 @@ const tileset: Asset = {
 
 const piece: TerrainPiece = {
   slug: "GROUND_MODULE",
-  pass: "BASE",
   width: 1,
   height: 1,
   layerCount: 1,
@@ -66,10 +65,7 @@ const piece: TerrainPiece = {
       tiles: [{ tilesetId: "TERRAIN", localId: 0, orientation: 0 }],
       blocking: false,
       elevation: 0,
-      semanticFlags: [],
-      requiredBaseTags: [],
-      forbiddenBaseTags: [],
-      writeMode: "REPLACE"
+      semanticFlags: []
     }
   ],
   sockets: { north: ["GROUND"], east: ["GROUND"], south: ["GROUND"], west: ["GROUND"] },
@@ -91,10 +87,10 @@ const approved: TerrainApprovedAsset = {
   height: 3,
   layerCount: 1,
   cells: Array.from({ length: 9 }, () => [{ tilesetId: "TERRAIN", localId: 0, orientation: 0 }]),
-  cellMetadata: Array.from({ length: 9 }, () => ({ blocking: false, elevation: 0, tags: [], basePiece: "GROUND_MODULE", cliffPiece: "" })),
+  cellMetadata: Array.from({ length: 9 }, () => ({ blocking: false, elevation: 0, tags: [], piece: "GROUND_MODULE" })),
   placements: [],
   anchors: [],
-  metrics: { walkableComponents: 1, reachableAnchors: 0, requiredAnchors: 0, cliffCells: 0, distinctPieces: 1 }
+  metrics: { walkableComponents: 1, reachableAnchors: 0, requiredAnchors: 0, distinctPieces: 1 }
 };
 
 function tableRow(slug: string, values: DataTableRow["values"]): DataTableRow {
@@ -114,7 +110,6 @@ function terrainTables(options: { approved?: boolean; piece?: boolean }): AnyDat
     value(TERRAIN_TILE_BINDING_COLUMNS.tags, [])
   ]);
   const pieceRow = tableRow(piece.slug, [
-    value(TERRAIN_PIECE_COLUMNS.pass, piece.pass),
     value(TERRAIN_PIECE_COLUMNS.width, piece.width),
     value(TERRAIN_PIECE_COLUMNS.height, piece.height),
     value(TERRAIN_PIECE_COLUMNS.definition, piece)

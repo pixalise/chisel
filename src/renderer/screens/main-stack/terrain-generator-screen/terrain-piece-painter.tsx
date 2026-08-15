@@ -242,13 +242,11 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
                       value={socket}
                     >
                       <option value="">Missing…</option>
-                      {sockets
-                        .filter((entry) => entry.passes.includes(piece.pass))
-                        .map((entry) => (
-                          <option key={entry.slug} value={entry.slug}>
-                            {index + 1}: {entry.label}
-                          </option>
-                        ))}
+                      {sockets.map((entry) => (
+                        <option key={entry.slug} value={entry.slug}>
+                          {index + 1}: {entry.label}
+                        </option>
+                      ))}
                     </select>
                   ))}
                 </div>
@@ -278,35 +276,6 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
                   value={selectedCell.semanticFlags.join(", ")}
                 />
               </Label>
-              {piece.pass === "CLIFF" && (
-                <>
-                  <Label className="space-y-1 text-xs">
-                    Required base tags
-                    <Input
-                      onChange={(event) => updateCell({ requiredBaseTags: slugList(event.target.value) })}
-                      value={selectedCell.requiredBaseTags.join(", ")}
-                    />
-                  </Label>
-                  <Label className="space-y-1 text-xs">
-                    Forbidden base tags
-                    <Input
-                      onChange={(event) => updateCell({ forbiddenBaseTags: slugList(event.target.value) })}
-                      value={selectedCell.forbiddenBaseTags.join(", ")}
-                    />
-                  </Label>
-                  <Label className="space-y-1 text-xs">
-                    Layer write mode
-                    <select
-                      className="h-9 w-full rounded border border-input bg-background px-2 text-sm"
-                      onChange={(event) => updateCell({ writeMode: event.target.value as TerrainPieceCell["writeMode"] })}
-                      value={selectedCell.writeMode}
-                    >
-                      <option value="OVERLAY">Overlay transparent cells</option>
-                      <option value="REPLACE">Replace complete stack</option>
-                    </select>
-                  </Label>
-                </>
-              )}
             </div>
           )}
         </>

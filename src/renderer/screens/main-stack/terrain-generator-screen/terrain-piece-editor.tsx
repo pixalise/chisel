@@ -4,12 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ShoppingCart, Trash2 } from "lucide-react";
 import { type FC, useState } from "react";
-import {
-  createTerrainPieceCell,
-  type TerrainPiece,
-  type TerrainPiecePass,
-  type TerrainSocketDefinition
-} from "../../../../shared/terrain-authoring";
+import { createTerrainPieceCell, type TerrainPiece, type TerrainSocketDefinition } from "../../../../shared/terrain-authoring";
 
 interface TerrainPieceEditorProps {
   onAnalyze: () => void;
@@ -26,19 +21,17 @@ export const TerrainPieceEditor: FC<TerrainPieceEditorProps> = (props) => {
   const { onAnalyze, onChange, onCreate, onDelete, onSelect, piece, pieces, sockets } = props;
   const [width, setWidth] = useState(1);
   const [height, setHeight] = useState(1);
-  const [pass, setPass] = useState<TerrainPiecePass>("BASE");
 
   function createPiece(): void {
     let index = pieces.length + 1;
     while (pieces.some((entry) => entry.slug === `PIECE_${index}`)) index += 1;
-    const socket = sockets.find((entry) => entry.passes.includes(pass))?.slug ?? "";
+    const socket = sockets[0]?.slug ?? "";
     onCreate({
       slug: `PIECE_${index}`,
-      pass,
       width,
       height,
       layerCount: 1,
-      cells: Array.from({ length: width * height }, () => createTerrainPieceCell(1, pass)),
+      cells: Array.from({ length: width * height }, () => createTerrainPieceCell(1)),
       sockets: {
         north: Array(width).fill(socket),
         east: Array(height).fill(socket),
@@ -57,7 +50,7 @@ export const TerrainPieceEditor: FC<TerrainPieceEditorProps> = (props) => {
 
   return (
     <div className="space-y-3 rounded-md border border-border p-3">
-      <div className="grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_5rem_5rem_7rem_auto] sm:items-end">
+      <div className="grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_5rem_5rem_auto] sm:items-end">
         <Label className="space-y-1">
           Piece to edit
           <select
@@ -68,7 +61,7 @@ export const TerrainPieceEditor: FC<TerrainPieceEditorProps> = (props) => {
             <option value="">Choose a piece…</option>
             {pieces.map((entry) => (
               <option key={entry.slug} value={entry.slug}>
-                {entry.slug} — {entry.pass} {entry.width}×{entry.height}
+                {entry.slug} — {entry.width}×{entry.height}
               </option>
             ))}
           </select>
@@ -81,18 +74,7 @@ export const TerrainPieceEditor: FC<TerrainPieceEditorProps> = (props) => {
           Height
           <Input max={8} min={1} onChange={(event) => setHeight(Number(event.target.value))} type="number" value={height} />
         </Label>
-        <Label className="space-y-1">
-          Pass
-          <select
-            className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-            onChange={(event) => setPass(event.target.value as TerrainPiecePass)}
-            value={pass}
-          >
-            <option value="BASE">Base</option>
-            <option value="CLIFF">Cliff</option>
-          </select>
-        </Label>
-        <Button disabled={!sockets.some((entry) => entry.passes.includes(pass))} onClick={createPiece} type="button">
+        <Button disabled={sockets.length === 0} onClick={createPiece} type="button">
           Create piece
         </Button>
       </div>
