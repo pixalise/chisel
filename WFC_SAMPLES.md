@@ -448,7 +448,7 @@ The library is highly constrained or contains incompatible sub-languages. Add sh
 
 Choose the samples that contribute before generating a candidate. Only checked samples are compiled, and each selected sample contributes one normalized unit of pattern weight. This lets one authoring library produce separate meadow, forest, shore, or other candidate families without mixing every sample every time.
 
-Generating a candidate does not put it in game data. Inspect the rendered result, assign a stable patch slug, biome, category, and runtime selection weight, then choose **Approve candidate**. Approval freezes the complete layered grid. Changing a sample later cannot silently alter an already approved patch. Preview cells retain a fixed display size, so large outputs scroll instead of being shrunk to fit the panel.
+Generating a candidate does not put it in game data. Inspect the rendered result, assign a stable patch slug, biome, category, and runtime selection weight, then choose **Approve candidate**. Approval freezes the complete layered grid. Changing a sample later cannot silently alter an already approved patch. Preview cells default to a fixed 48px display size. Explicit 25%–200% zoom levels resize the preview; the mouse wheel never changes zoom. Large outputs use horizontal scrolling while remaining fully expanded vertically with the page.
 
 Only two terrain tables appear in **Data Tables** and game exports:
 

@@ -23,7 +23,8 @@ interface TerrainWfcPreviewProps {
   workspace: TerrainWorkspaceView;
 }
 
-const previewCellSize = 48;
+const basePreviewCellSize = 48;
+const previewZoomLevels = [25, 50, 75, 100, 150, 200] as const;
 
 export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
   const { isBusy, onApprove, onDeleteApproved, workspace } = props;
@@ -33,6 +34,7 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
   const [width, setWidth] = useState(20);
   const [height, setHeight] = useState(20);
   const [seed, setSeed] = useState(1);
+  const [zoomPercent, setZoomPercent] = useState(100);
   const [library, setLibrary] = useState<TerrainWfcLibrary>();
   const [output, setOutput] = useState<TerrainWfcOutput>();
   const [error, setError] = useState("");
@@ -42,6 +44,7 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
   const [category, setCategory] = useState("NATURE");
   const [weight, setWeight] = useState(1);
   const [selectedSampleSlugs, setSelectedSampleSlugs] = useState<string[]>(() => workspace.samples.map((sample) => sample.slug));
+  const previewCellSize = Math.round((basePreviewCellSize * zoomPercent) / 100);
 
   useEffect(() => {
     const availableSlugs = workspace.samples.map((sample) => sample.slug);
@@ -96,7 +99,7 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
         previewCellSize
       )
     );
-  }, [imageRevision, output, workspace.tilesets]);
+  }, [imageRevision, output, previewCellSize, workspace.tilesets]);
 
   function generate(nextSeed: number): void {
     setError("");
@@ -206,6 +209,23 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
               value={seed}
             />
           </div>
+          <div className="w-24 space-y-1">
+            <Label className="text-xs" htmlFor="wfc-preview-zoom">
+              Zoom
+            </Label>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              id="wfc-preview-zoom"
+              onChange={(event) => setZoomPercent(Number(event.target.value))}
+              value={zoomPercent}
+            >
+              {previewZoomLevels.map((level) => (
+                <option key={level} value={level}>
+                  {level}%
+                </option>
+              ))}
+            </select>
+          </div>
           <Button disabled={selectedSampleSlugs.length === 0} onClick={() => generate(seed)} type="button">
             <Play className="size-4" />
             Generate
@@ -296,8 +316,10 @@ export const TerrainWfcPreview: FC<TerrainWfcPreviewProps> = (props) => {
       {output && (
         <div className="space-y-3">
           <div>
-            <p className="mb-1 text-xs text-muted-foreground">Fixed {previewCellSize}px cells. Scroll to inspect the full patch.</p>
-            <div className="max-h-[40rem] max-w-full overflow-auto rounded-md border border-border bg-slate-950 p-2">
+            <p className="mb-1 text-xs text-muted-foreground">
+              {zoomPercent}% · {previewCellSize}px cells. Use the zoom selector; the mouse wheel only scrolls the page.
+            </p>
+            <div className="max-w-full overflow-x-auto overflow-y-visible rounded-md border border-border bg-slate-950 p-2">
               <canvas className="block max-w-none [image-rendering:pixelated]" ref={canvasRef} />
             </div>
           </div>
