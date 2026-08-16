@@ -71,7 +71,7 @@ class ExportService {
       return this.exportHaxeFlixel(committedProject, tables, assets, commit.localization, exportedAt);
     }
     if (target === ExportTarget.love2d) {
-      return this.exportLove2d(committedProject, tables, assets, commit.localization, exportedAt);
+      return this.exportLove2d(committedProject, tables, commit.tables, assets, commit.localization, exportedAt);
     }
     if (target === ExportTarget.teal) {
       return this.exportTeal(committedProject, tables, assets, commit.localization, exportedAt);
@@ -116,11 +116,12 @@ class ExportService {
   private async exportLove2d(
     project: Project,
     tables: Parameters<typeof createLove2dExportBundle>[1],
+    sourceTables: AnyDataTable[],
     assets: Asset[],
     localization: Parameters<typeof createLove2dExportBundle>[4],
     exportedAt: string
   ): Promise<ExportProjectResult> {
-    const bundle = createLove2dExportBundle(project, tables, exportedAt, assets, localization);
+    const bundle = createLove2dExportBundle(project, tables, exportedAt, assets, localization, { terrainSourceTables: sourceTables });
     await fileService.deleteProjectDirectory(project, LOVE2D_GAME_DATA_EXPORT_ROOT);
     const assetCounts = await Promise.all(assets.map((asset) => this.exportLove2dAsset(project, asset)));
     await Promise.all(bundle.files.map((file) => fileService.writeProjectTextFile(project, file.path, file.content)));

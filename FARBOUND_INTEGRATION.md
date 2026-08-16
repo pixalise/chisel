@@ -302,6 +302,7 @@ A successful export must be self-contained under **gamedata** and include:
 - Generated localization data.
 - Generated semantic input data when configured.
 - The standalone lazy AssetManager and managed asset tree.
+- Resolved approved terrain and spatial dressings in `gamedata/terrain.lua` when terrain system tables are present.
 - No dependency on Chisel being installed or open.
 - No raw editor-document parsing at runtime.
 

@@ -149,7 +149,7 @@ An approved asset may have multiple interchangeable dressings. This lets one pol
 
 Template stamps are intentionally separate: they force terrain pieces during WFC generation and become part of the frozen geography. Spatial placements happen after approval and never rerun or modify WFC.
 
-## Chisel-only data boundary
+## Authoring and runtime data boundary
 
 The current terrain tables are:
 
@@ -162,7 +162,9 @@ The current terrain tables are:
 - `terrain_approved_assets`
 - `terrain_spatial_layouts`
 
-All eight are editor-only system tables. Runtime export excludes them. Deleting an approved asset also deletes the spatial dressings that reference it. Deleting a tileset is refused while an authored piece or approved asset uses it; if only unused tile bindings remain, Chisel removes those bindings with the asset.
+All eight remain editor-owned system tables and are excluded from ordinary generated table modules. The LÖVE exporter does, however, compile `terrain_approved_assets` and `terrain_spatial_layouts` into the resolved `gamedata/terrain.lua` runtime projection. That module contains final overpainted cells, atlas metadata, annotations, and resolved fixed-content references; it never contains raw generator grammar or sparse override documents. Other export targets do not currently emit this terrain projection.
+
+Deleting an approved asset also deletes the spatial dressings that reference it. Deleting a tileset is refused while an authored piece or approved asset uses it; if only unused tile bindings remain, Chisel removes those bindings with the asset.
 
 ## Recommended first setup for a new tileset
 

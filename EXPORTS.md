@@ -27,6 +27,7 @@ gamedata/
   asset_manager.lua
   localization.lua
   input.lua                 # Present when the input_bindings system table exists.
+  terrain.lua               # Present when current terrain system tables exist.
 
   tables/
     <normalized_table_id>.lua
@@ -37,6 +38,16 @@ gamedata/
 ```
 
 Re-export deletes and rebuilds the complete `gamedata` directory. It is generated-only and must not contain handwritten game code.
+
+### Resolved terrain and spatial annotations
+
+The LÖVE target projects approved geography and its post-approval spatial dressings into `gamedata/terrain.lua`. The raw terrain system tables are never emitted as ordinary table modules: sockets, WFC pieces, collections, adjacency rules, templates, generated bases, and sparse override documents remain Chisel authoring data.
+
+The terrain module exposes `ASSET_ID`, `LAYOUT_ID`, `ASSETS`, `LAYOUTS`, `TILESETS`, and the eight `ORIENTATIONS` matrices. Each approved asset contains its final resolved cell array after sparse polish overrides, including render layers, collision, elevation, semantic tags, source-piece traces, anchors, and refreshed connectivity metrics. Empty render layers are omitted from a cell's `tiles` array while each retained tile carries its 1-based `layer`.
+
+Coordinates and tileset `local_id` values remain 0-based. Lua asset IDs, layout IDs, cell IDs, layer IDs, and fixed-placement content IDs are 1-based, with `0` reserved for invalid references. Zone masks are converted to 1-based cell IDs so they index the exported asset's `cells` array directly. `terrain.cellId(assetId, x, y)`, `terrain.cell(assetId, x, y)`, and `terrain.tileSource(tile)` provide checked access and atlas coordinates.
+
+Spatial layouts export painted zones, markers, and fixed or rule-driven placements. Fixed placements must resolve to a row in an ordinary exported runtime table and contain both the dense `content_id` and stable `content_slug`; missing tables or rows block export. Rule placements retain their engine-owned `rule_set`. The generated terrain module refers to managed tilesets by the same numeric IDs used by `gamedata.asset_manager`.
 
 Table modules use Lua's native 1-based indexing. Every module exposes `ID.INVALID = 0`, stable row constants starting at `1`, `SLUGS`, and one dense array per column:
 

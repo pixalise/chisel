@@ -1,6 +1,7 @@
 import { snakeCase } from "lodash";
 import type { LocalizationDocument } from "./localization";
 import { renderLove2dInputExport } from "./love2d-input-export";
+import { LOVE2D_TERRAIN_MODULE, renderLove2dTerrainExport, type Love2dTerrainExport } from "./love2d-terrain-export";
 import type { AnyDataTable, Asset, DataColumnDefinition, DataTableRow, Project } from "./schemas";
 import { AssetCategoryEnum, ColumnType } from "./types";
 
@@ -17,6 +18,10 @@ export interface Love2dExportFile {
 
 export interface Love2dExportBundle {
   files: Love2dExportFile[];
+}
+
+export interface Love2dExportOptions {
+  terrainSourceTables?: AnyDataTable[];
 }
 
 interface Love2dValueContext {
@@ -447,7 +452,8 @@ function renderManifest(
   assets: Asset[],
   localization: LocalizationDocument,
   exportedAt: string,
-  generatedFiles: Love2dExportFile[]
+  generatedFiles: Love2dExportFile[],
+  terrain: Love2dTerrainExport
 ): Love2dExportFile {
   const tableEntries = tables.map((table) => {
     return `\t\t[${luaString(table.id)}] = { module = ${luaString(love2dTableModuleName(table))}, count = ${table.rows.length} },`;
@@ -467,6 +473,7 @@ function renderManifest(
     `\tASSETS = { module = ${luaString(`${LOVE2D_GAME_DATA_EXPORT_ROOT}.asset_manager`)}, root = ${luaString(LOVE2D_ASSET_EXPORT_ROOT)}, count = ${assets.length} },`,
     `\tLOCALIZATION = { module = ${luaString(`${LOVE2D_GAME_DATA_EXPORT_ROOT}.localization`)}, count = ${localization.keys.length}, locales = ${localization.locales.length} },`,
     `\tINPUT = { module = ${hasInput ? luaString(`${LOVE2D_GAME_DATA_EXPORT_ROOT}.input`) : "nil"}, enabled = ${hasInput ? "true" : "false"} },`,
+    `\tTERRAIN = { module = ${terrain.files.length > 0 ? luaString(LOVE2D_TERRAIN_MODULE) : "nil"}, enabled = ${terrain.files.length > 0 ? "true" : "false"}, asset_count = ${terrain.assetCount}, layout_count = ${terrain.layoutCount} },`,
     "}",
     ""
   ];
@@ -478,7 +485,8 @@ export function createLove2dExportBundle(
   tables: AnyDataTable[],
   exportedAt: string,
   assets: Asset[],
-  localization: LocalizationDocument
+  localization: LocalizationDocument,
+  options: Love2dExportOptions = {}
 ): Love2dExportBundle {
   assertUniqueTablePaths(tables);
   const context: Love2dValueContext = {
@@ -487,13 +495,15 @@ export function createLove2dExportBundle(
     rowIdsByTableId: new Map(tables.map((table) => [table.id, sequentialIds(table.rows.map((row) => row.slug))])),
     tablesById: new Map(tables.map((table) => [table.id, table]))
   };
+  const terrain = renderLove2dTerrainExport(options.terrainSourceTables ?? [], tables, assets);
   const generatedFiles = [
     ...tables.map((table) => renderTable(table, context)),
     ...renderLove2dInputExport(tables, LOVE2D_GAME_DATA_EXPORT_ROOT),
+    ...terrain.files,
     renderAssetManager(assets),
     renderLocalization(localization)
   ];
   return {
-    files: [renderManifest(project, tables, assets, localization, exportedAt, generatedFiles), ...generatedFiles]
+    files: [renderManifest(project, tables, assets, localization, exportedAt, generatedFiles, terrain), ...generatedFiles]
   };
 }

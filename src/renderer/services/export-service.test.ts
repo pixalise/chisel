@@ -4,7 +4,7 @@ import { SYSTEM_TERRAIN_TABLES } from "../../shared/terrain-tables";
 import { runtimeExportTables } from "./export-service";
 
 describe("runtime terrain export", () => {
-  it("keeps terrain grammars and frozen geography inside Chisel", () => {
+  it("keeps raw terrain authoring tables out of generic runtime table modules", () => {
     const tables = runtimeExportTables([INPUT_BINDINGS_TABLE, ...SYSTEM_TERRAIN_TABLES]);
 
     expect(tables.map((table) => table.id)).toEqual(["input_bindings"]);
