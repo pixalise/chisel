@@ -15,7 +15,7 @@ import { TerrainTemplateEditor } from "@/screens/main-stack/terrain-generator-sc
 import { TerrainTileCatalog } from "@/screens/main-stack/terrain-generator-screen/terrain-tile-catalog";
 import terrainGeneratorService from "@/services/terrain-generator-service";
 import { AlertTriangle, Dices, Layers3, Library, Save, Tags } from "lucide-react";
-import { type FC, useEffect, useMemo, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import type {
   TerrainApprovedAsset,
@@ -44,8 +44,8 @@ export const TerrainGeneratorScreen: FC = () => {
   const navigate = useNavigate();
   const [workspace, setWorkspace] = useState<TerrainWorkspaceView>();
   const [activePage, setActivePage] = useState<TerrainPage>("catalog");
-  const [selectedPieceSlug, setSelectedPieceSlug] = useState<string>();
-  const [selectedTemplateSlug, setSelectedTemplateSlug] = useState<string>();
+  const [selectedPieceIndex, setSelectedPieceIndex] = useState<number>();
+  const [selectedTemplateIndex, setSelectedTemplateIndex] = useState<number>();
   const [selectedTile, setSelectedTile] = useState<TerrainTileRef>();
   const [compatibility, setCompatibility] = useState<TerrainPieceCompatibility>();
   const [candidateResults, setCandidateResults] = useState<TerrainCandidateResult[]>([]);
@@ -53,11 +53,8 @@ export const TerrainGeneratorScreen: FC = () => {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isBusy, setIsBusy] = useState(false);
-  const piece = useMemo(() => workspace?.pieces.find((entry) => entry.slug === selectedPieceSlug), [selectedPieceSlug, workspace?.pieces]);
-  const template = useMemo(
-    () => workspace?.templates.find((entry) => entry.slug === selectedTemplateSlug),
-    [selectedTemplateSlug, workspace?.templates]
-  );
+  const piece = typeof selectedPieceIndex === "number" ? workspace?.pieces[selectedPieceIndex] : undefined;
+  const template = typeof selectedTemplateIndex === "number" ? workspace?.templates[selectedTemplateIndex] : undefined;
   useEffect(() => {
     let cancelled = false;
     setIsBusy(true);
@@ -98,11 +95,11 @@ export const TerrainGeneratorScreen: FC = () => {
   }
 
   function updatePiece(next: TerrainPiece): void {
-    if (!piece) return;
+    if (!piece || typeof selectedPieceIndex !== "number") return;
     const previousSlug = piece.slug;
     mutateWorkspace((current) => ({
       ...current,
-      pieces: current.pieces.map((entry) => (entry.slug === previousSlug ? next : entry)),
+      pieces: current.pieces.map((entry, index) => (index === selectedPieceIndex ? next : entry)),
       pieceSets: current.pieceSets.map((entry) => ({
         ...entry,
         pieceSlugs: entry.pieceSlugs.map((slug) => (slug === previousSlug ? next.slug : slug)),
@@ -120,17 +117,16 @@ export const TerrainGeneratorScreen: FC = () => {
         stamps: entry.stamps.map((stamp) => ({ ...stamp, piece: stamp.piece === previousSlug ? next.slug : stamp.piece }))
       }))
     }));
-    setSelectedPieceSlug(next.slug);
     setCompatibility(undefined);
     setCandidateResults([]);
     setGeneratedTemplateSlug(undefined);
   }
 
   function analyzePiece(): void {
-    if (!workspace || !piece) return;
+    if (!workspace || !piece || typeof selectedPieceIndex !== "number") return;
     setError("");
     try {
-      const pieces = workspace.pieces.map((entry) => (entry.slug === piece.slug ? piece : entry));
+      const pieces = workspace.pieces.map((entry, index) => (index === selectedPieceIndex ? piece : entry));
       const containingSet = workspace.pieceSets.find((entry) => entry.pieceSlugs.includes(piece.slug));
       const inspectionSet = containingSet ?? {
         slug: "CURRENT_INSPECTION",
@@ -239,11 +235,12 @@ export const TerrainGeneratorScreen: FC = () => {
                 <TerrainSocketCatalog
                   onChange={(sockets) =>
                     mutateWorkspace((current) => {
-                      const renamed =
+                      const renamedIndex =
                         current.sockets.length === sockets.length
-                          ? current.sockets.find((entry, index) => sockets[index] && entry.slug !== sockets[index].slug)
-                          : undefined;
-                      const replacement = renamed ? sockets[current.sockets.indexOf(renamed)]?.slug : undefined;
+                          ? current.sockets.findIndex((entry, index) => sockets[index] && entry.slug !== sockets[index].slug)
+                          : -1;
+                      const renamed = renamedIndex >= 0 ? current.sockets[renamedIndex] : undefined;
+                      const replacement = renamedIndex >= 0 ? sockets[renamedIndex]?.slug : undefined;
                       return {
                         ...current,
                         sockets,
@@ -287,14 +284,14 @@ export const TerrainGeneratorScreen: FC = () => {
                   onAnalyze={analyzePiece}
                   onChange={updatePiece}
                   onCreate={(next) => {
+                    setSelectedPieceIndex(workspace.pieces.length);
                     mutateWorkspace((current) => ({ ...current, pieces: [...current.pieces, next] }));
-                    setSelectedPieceSlug(next.slug);
                   }}
                   onDelete={() => {
-                    if (!piece) return;
+                    if (!piece || typeof selectedPieceIndex !== "number") return;
                     mutateWorkspace((current) => ({
                       ...current,
-                      pieces: current.pieces.filter((entry) => entry.slug !== piece.slug),
+                      pieces: current.pieces.filter((_, index) => index !== selectedPieceIndex),
                       pieceSets: current.pieceSets.map((entry) => ({
                         ...entry,
                         pieceSlugs: entry.pieceSlugs.filter((slug) => slug !== piece.slug),
@@ -308,15 +305,16 @@ export const TerrainGeneratorScreen: FC = () => {
                         stamps: entry.stamps.filter((stamp) => stamp.piece !== piece.slug)
                       }))
                     }));
-                    setSelectedPieceSlug(undefined);
+                    setSelectedPieceIndex(undefined);
                     setCompatibility(undefined);
                   }}
-                  onSelect={(slug) => {
-                    setSelectedPieceSlug(slug);
+                  onSelect={(index) => {
+                    setSelectedPieceIndex(index);
                     setCompatibility(undefined);
                   }}
                   piece={piece}
                   pieces={workspace.pieces}
+                  selectedIndex={selectedPieceIndex}
                   sockets={workspace.sockets}
                 />
                 {compatibility && <TerrainCompatibilityInspector compatibility={compatibility} sockets={workspace.sockets} />}
@@ -349,11 +347,12 @@ export const TerrainGeneratorScreen: FC = () => {
                   onOverridesChange={(adjacencyOverrides) => mutateWorkspace((current) => ({ ...current, adjacencyOverrides }))}
                   onSetsChange={(pieceSets) =>
                     mutateWorkspace((current) => {
-                      const renamed =
+                      const renamedIndex =
                         current.pieceSets.length === pieceSets.length
-                          ? current.pieceSets.find((entry, index) => pieceSets[index] && entry.slug !== pieceSets[index].slug)
-                          : undefined;
-                      const replacement = renamed ? pieceSets[current.pieceSets.indexOf(renamed)]?.slug : undefined;
+                          ? current.pieceSets.findIndex((entry, index) => pieceSets[index] && entry.slug !== pieceSets[index].slug)
+                          : -1;
+                      const renamed = renamedIndex >= 0 ? current.pieceSets[renamedIndex] : undefined;
+                      const replacement = renamedIndex >= 0 ? pieceSets[renamedIndex]?.slug : undefined;
                       return {
                         ...current,
                         pieceSets,
@@ -377,11 +376,12 @@ export const TerrainGeneratorScreen: FC = () => {
                 <TerrainTemplateEditor
                   onChange={(templates) =>
                     mutateWorkspace((current) => {
-                      const renamed =
+                      const renamedIndex =
                         current.templates.length === templates.length
-                          ? current.templates.find((entry, index) => templates[index] && entry.slug !== templates[index].slug)
-                          : undefined;
-                      const replacement = renamed ? templates[current.templates.indexOf(renamed)]?.slug : undefined;
+                          ? current.templates.findIndex((entry, index) => templates[index] && entry.slug !== templates[index].slug)
+                          : -1;
+                      const renamed = renamedIndex >= 0 ? current.templates[renamedIndex] : undefined;
+                      const replacement = renamedIndex >= 0 ? templates[renamedIndex]?.slug : undefined;
                       return {
                         ...current,
                         templates,
@@ -396,7 +396,7 @@ export const TerrainGeneratorScreen: FC = () => {
                     })
                   }
                   onGenerate={generateBatch}
-                  onSelect={setSelectedTemplateSlug}
+                  onSelect={setSelectedTemplateIndex}
                   pieces={workspace.pieces}
                   previewCandidate={
                     generatedTemplateSlug === template?.slug
@@ -404,6 +404,7 @@ export const TerrainGeneratorScreen: FC = () => {
                       : undefined
                   }
                   selectedTemplate={template}
+                  selectedTemplateIndex={selectedTemplateIndex}
                   sets={workspace.pieceSets}
                   sockets={workspace.sockets}
                   templates={workspace.templates}

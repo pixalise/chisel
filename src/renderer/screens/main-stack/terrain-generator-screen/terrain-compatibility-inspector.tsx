@@ -30,10 +30,10 @@ export const TerrainCompatibilityInspector: FC<TerrainCompatibilityInspectorProp
                 <Badge variant={result.compatibleStates > 0 ? "secondary" : "destructive"}>{result.compatibleStates} states</Badge>
               </div>
               <div className="flex flex-wrap gap-1">
-                {result.socketSegments.map((slug) => (
+                {result.socketSegments.map((slug, index) => (
                   <span
                     className="rounded border px-1.5 py-0.5 text-[10px]"
-                    key={slug}
+                    key={index}
                     style={{ borderColor: sockets.find((entry) => entry.slug === slug)?.color }}
                   >
                     {slug || "MISSING"}

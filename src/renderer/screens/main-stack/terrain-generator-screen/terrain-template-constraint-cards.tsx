@@ -115,7 +115,7 @@ export const TerrainTemplateConstraintCards: FC<TerrainTemplateConstraintCardsPr
                 className={cardClass(key)}
                 data-focused={focusedKey === key}
                 data-template-constraint-card={key}
-                key={`${anchor.slug}-${index}`}
+                key={index}
                 onClick={() => focus(highlight)}
                 onKeyDown={(event) => handleCardKey(event, highlight)}
                 role="button"
@@ -156,7 +156,7 @@ export const TerrainTemplateConstraintCards: FC<TerrainTemplateConstraintCardsPr
                 className={cardClass(key)}
                 data-focused={focusedKey === key}
                 data-template-constraint-card={key}
-                key={`${stamp.piece}-${stamp.x}-${stamp.y}-${index}`}
+                key={index}
                 onClick={() => focus(highlight)}
                 onKeyDown={(event) => handleCardKey(event, highlight)}
                 role="button"
@@ -199,7 +199,7 @@ export const TerrainTemplateConstraintCards: FC<TerrainTemplateConstraintCardsPr
                 className={cardClass(key)}
                 data-focused={focusedKey === key}
                 data-template-constraint-card={key}
-                key={`${zone.slug}-${index}`}
+                key={index}
                 onClick={() => focus(highlight)}
                 onKeyDown={(event) => handleCardKey(event, highlight)}
                 role="button"

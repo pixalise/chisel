@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { Plus, Trash2 } from "lucide-react";
-import { type FC, useEffect, useState } from "react";
+import { type FC, useEffect, useMemo, useState } from "react";
 import type {
   TerrainApprovedAsset,
   TerrainDirection,
@@ -12,6 +12,7 @@ import type {
   TerrainTilesetView
 } from "../../../../shared/terrain-authoring";
 import { resolveApprovedTerrainCell } from "../../../../shared/terrain-approved-overpaint";
+import { finalizeTerrainSlug, isTerrainSlugAvailable, normalizeTerrainSlugDraft } from "../../../../shared/terrain-slug";
 import { TerrainApprovedMapPreview } from "./terrain-approved-map-preview";
 
 interface TerrainSpatialAnnotationEditorProps {
@@ -23,10 +24,13 @@ interface TerrainSpatialAnnotationEditorProps {
 
 export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorProps> = (props) => {
   const { asset, layouts, onChange, tilesets } = props;
-  const assetLayouts = layouts.filter((layout) => layout.sourceAsset === asset.slug);
-  const [selectedLayoutSlug, setSelectedLayoutSlug] = useState(assetLayouts[0]?.slug ?? "");
+  const assetLayouts = useMemo(
+    () => layouts.flatMap((layout, index) => (layout.sourceAsset === asset.slug ? [{ index, layout }] : [])),
+    [asset.slug, layouts]
+  );
+  const [selectedLayoutIndex, setSelectedLayoutIndex] = useState<number | undefined>(assetLayouts[0]?.index);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [activeZoneSlug, setActiveZoneSlug] = useState("");
+  const [activeZoneIndex, setActiveZoneIndex] = useState<number>();
   const [zoneSlug, setZoneSlug] = useState("PLACEMENT_ZONE");
   const [zoneKind, setZoneKind] = useState<TerrainSpatialLayout["zones"][number]["kind"]>("PLACEMENT");
   const [markerKind, setMarkerKind] = useState("POI");
@@ -41,24 +45,46 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
   const [placementContent, setPlacementContent] = useState("");
   const [placementRuleSet, setPlacementRuleSet] = useState("FOREST_CURIOSITIES");
   const [placementTags, setPlacementTags] = useState("");
-  const selectedLayout = assetLayouts.find((layout) => layout.slug === selectedLayoutSlug);
-  const activeZone = selectedLayout?.zones.find((zone) => zone.slug === activeZoneSlug);
+  const selectedLayout = typeof selectedLayoutIndex === "number" ? layouts[selectedLayoutIndex] : undefined;
+  const activeZone = typeof activeZoneIndex === "number" ? selectedLayout?.zones[activeZoneIndex] : undefined;
+  const [layoutSlugDraft, setLayoutSlugDraft] = useState(selectedLayout?.slug ?? "");
   const boundedSelectedIndex = Math.min(selectedIndex, asset.cells.length - 1);
   const selectedX = boundedSelectedIndex % asset.width;
   const selectedY = Math.floor(boundedSelectedIndex / asset.width);
   const selectedCell = resolveApprovedTerrainCell(asset, boundedSelectedIndex).metadata;
 
   useEffect(() => {
-    if (assetLayouts.some((layout) => layout.slug === selectedLayoutSlug)) return;
-    setSelectedLayoutSlug(assetLayouts[0]?.slug ?? "");
-    setActiveZoneSlug("");
+    if (assetLayouts.some((entry) => entry.index === selectedLayoutIndex)) return;
+    setSelectedLayoutIndex(assetLayouts[0]?.index);
+    setActiveZoneIndex(undefined);
     setSelectedIndex(0);
-  }, [asset.slug, assetLayouts, selectedLayoutSlug]);
+  }, [asset.slug, assetLayouts, selectedLayoutIndex]);
+
+  useEffect(() => setLayoutSlugDraft(selectedLayout?.slug ?? ""), [selectedLayout?.slug, selectedLayoutIndex]);
+
+  const committedLayoutSlug = selectedLayout ? finalizeTerrainSlug(layoutSlugDraft, selectedLayout.slug) : "";
+  const layoutSlugIsDuplicate =
+    selectedLayout && typeof selectedLayoutIndex === "number" && committedLayoutSlug !== selectedLayout.slug
+      ? !isTerrainSlugAvailable(
+          committedLayoutSlug,
+          layouts.map((entry) => entry.slug),
+          selectedLayoutIndex
+        )
+      : false;
 
   function updateLayout(update: Partial<TerrainSpatialLayout>): void {
+    if (!selectedLayout || typeof selectedLayoutIndex !== "number") return;
+    onChange(layouts.map((layout, index) => (index === selectedLayoutIndex ? { ...layout, ...update } : layout)));
+  }
+
+  function commitLayoutSlug(): void {
     if (!selectedLayout) return;
-    onChange(layouts.map((layout) => (layout.slug === selectedLayout.slug ? { ...layout, ...update } : layout)));
-    if (update.slug) setSelectedLayoutSlug(update.slug);
+    if (layoutSlugIsDuplicate) {
+      setLayoutSlugDraft(selectedLayout.slug);
+      return;
+    }
+    setLayoutSlugDraft(committedLayoutSlug);
+    if (committedLayoutSlug !== selectedLayout.slug) updateLayout({ slug: committedLayoutSlug });
   }
 
   function createLayout(): void {
@@ -76,8 +102,8 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
       placements: []
     };
     onChange([...layouts, next]);
-    setSelectedLayoutSlug(next.slug);
-    setActiveZoneSlug("");
+    setSelectedLayoutIndex(layouts.length);
+    setActiveZoneIndex(undefined);
   }
 
   function addZone(): void {
@@ -89,14 +115,14 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
       suffix += 1;
     }
     updateLayout({ zones: [...selectedLayout.zones, { slug, kind: zoneKind, cells: [], tags: [], ruleSet: "" }] });
-    setActiveZoneSlug(slug);
+    setActiveZoneIndex(selectedLayout.zones.length);
   }
 
   function paintZone(index: number, erase: boolean): void {
     if (!selectedLayout || !activeZone) return;
     updateLayout({
-      zones: selectedLayout.zones.map((zone) => {
-        if (zone.slug !== activeZone.slug) return zone;
+      zones: selectedLayout.zones.map((zone, zoneIndex) => {
+        if (zoneIndex !== activeZoneIndex) return zone;
         const cells = new Set(zone.cells);
         if (erase) cells.delete(index);
         else cells.add(index);
@@ -168,15 +194,15 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
             <select
               className="h-9 min-w-64 rounded border border-input bg-background px-2 text-sm"
               onChange={(event) => {
-                setSelectedLayoutSlug(event.target.value);
-                setActiveZoneSlug("");
+                setSelectedLayoutIndex(event.target.value ? Number(event.target.value) : undefined);
+                setActiveZoneIndex(undefined);
               }}
-              value={selectedLayoutSlug}
+              value={typeof selectedLayoutIndex === "number" ? String(selectedLayoutIndex) : ""}
             >
               <option value="">Choose a spatial layout…</option>
-              {assetLayouts.map((layout) => (
-                <option key={layout.slug} value={layout.slug}>
-                  {layout.slug}
+              {assetLayouts.map((entry) => (
+                <option key={entry.index} value={entry.index}>
+                  {entry.layout.slug}
                 </option>
               ))}
             </select>
@@ -196,14 +222,20 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
           <div className="grid gap-2 md:grid-cols-[minmax(12rem,1fr)_auto] md:items-end">
             <Label className="space-y-1 text-xs">
               Stable slug
-              <Input onChange={(event) => updateLayout({ slug: normalizeSlug(event.target.value) })} value={selectedLayout.slug} />
+              <Input
+                aria-invalid={layoutSlugIsDuplicate}
+                onBlur={commitLayoutSlug}
+                onChange={(event) => setLayoutSlugDraft(normalizeTerrainSlugDraft(event.target.value))}
+                value={layoutSlugDraft}
+              />
+              {layoutSlugIsDuplicate && <span className="block text-xs text-destructive">That slug belongs to another layout.</span>}
             </Label>
             <Button
               aria-label={`Delete ${selectedLayout.slug}`}
               onClick={() => {
                 if (!window.confirm(`Delete spatial dressing '${selectedLayout.slug}'? The approved map remains unchanged.`)) return;
-                onChange(layouts.filter((layout) => layout.slug !== selectedLayout.slug));
-                setSelectedLayoutSlug("");
+                onChange(layouts.filter((_, index) => index !== selectedLayoutIndex));
+                setSelectedLayoutIndex(undefined);
               }}
               size="icon"
               type="button"
@@ -216,7 +248,7 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
             <div className="min-w-0 space-y-3">
               <div className="overflow-auto rounded-md bg-slate-950 p-3">
                 <TerrainApprovedMapPreview
-                  activeZoneSlug={activeZoneSlug}
+                  activeZoneSlug={activeZone?.slug}
                   asset={asset}
                   layout={selectedLayout}
                   onPaintCell={activeZone ? paintZone : undefined}
@@ -234,15 +266,15 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                 <span className="text-purple-300">R: rule placement</span>
               </div>
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {selectedLayout.zones.map((zone) => (
+                {selectedLayout.zones.map((zone, index) => (
                   <button
                     className={cn(
                       "relative space-y-1 rounded border border-border p-3 pr-10 text-left hover:border-primary/60",
-                      activeZoneSlug === zone.slug && "border-primary bg-primary/5 ring-1 ring-primary"
+                      activeZoneIndex === index && "border-primary bg-primary/5 ring-1 ring-primary"
                     )}
                     data-spatial-zone={zone.slug}
-                    key={zone.slug}
-                    onClick={() => setActiveZoneSlug(zone.slug)}
+                    key={index}
+                    onClick={() => setActiveZoneIndex(index)}
                     type="button"
                   >
                     <Badge variant={zone.kind === "EXCLUSION" ? "destructive" : zone.kind === "RESERVED" ? "secondary" : "outline"}>
@@ -257,8 +289,8 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                       className="absolute right-1 top-1"
                       onClick={(event) => {
                         event.stopPropagation();
-                        updateLayout({ zones: selectedLayout.zones.filter((entry) => entry.slug !== zone.slug) });
-                        if (activeZoneSlug === zone.slug) setActiveZoneSlug("");
+                        updateLayout({ zones: selectedLayout.zones.filter((_, zoneIndex) => zoneIndex !== index) });
+                        if (activeZoneIndex === index) setActiveZoneIndex(undefined);
                       }}
                       size="icon"
                       type="button"
@@ -268,12 +300,8 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                     </Button>
                   </button>
                 ))}
-                {selectedLayout.markers.map((marker) => (
-                  <div
-                    className="relative space-y-1 rounded border border-border p-3 pr-10"
-                    data-spatial-marker={marker.slug}
-                    key={marker.slug}
-                  >
+                {selectedLayout.markers.map((marker, index) => (
+                  <div className="relative space-y-1 rounded border border-border p-3 pr-10" data-spatial-marker={marker.slug} key={index}>
                     <Badge variant="outline">{marker.kind}</Badge>
                     <p className="truncate font-mono text-xs font-semibold">{marker.slug}</p>
                     <p className="text-[10px] text-muted-foreground">
@@ -282,7 +310,7 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                     <Button
                       aria-label={`Delete ${marker.slug}`}
                       className="absolute right-1 top-1"
-                      onClick={() => updateLayout({ markers: selectedLayout.markers.filter((entry) => entry.slug !== marker.slug) })}
+                      onClick={() => updateLayout({ markers: selectedLayout.markers.filter((_, markerIndex) => markerIndex !== index) })}
                       size="icon"
                       type="button"
                       variant="ghost"
@@ -291,11 +319,11 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                     </Button>
                   </div>
                 ))}
-                {selectedLayout.placements.map((placement) => (
+                {selectedLayout.placements.map((placement, index) => (
                   <div
                     className="relative space-y-1 rounded border border-border p-3 pr-10"
                     data-spatial-placement={placement.slug}
-                    key={placement.slug}
+                    key={index}
                   >
                     <Badge variant="secondary">{placement.mode === "FIXED" ? "Fixed" : "Rule slot"}</Badge>
                     <p className="truncate font-mono text-xs font-semibold">{placement.slug}</p>
@@ -307,7 +335,7 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                       aria-label={`Delete ${placement.slug}`}
                       className="absolute right-1 top-1"
                       onClick={() =>
-                        updateLayout({ placements: selectedLayout.placements.filter((entry) => entry.slug !== placement.slug) })
+                        updateLayout({ placements: selectedLayout.placements.filter((_, placementIndex) => placementIndex !== index) })
                       }
                       size="icon"
                       type="button"
@@ -355,8 +383,8 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                         className="h-8 w-full rounded border border-input bg-background px-2 text-xs"
                         onChange={(event) =>
                           updateLayout({
-                            zones: selectedLayout.zones.map((zone) =>
-                              zone.slug === activeZone.slug ? { ...zone, kind: event.target.value as typeof zone.kind } : zone
+                            zones: selectedLayout.zones.map((zone, index) =>
+                              index === activeZoneIndex ? { ...zone, kind: event.target.value as typeof zone.kind } : zone
                             )
                           })
                         }
@@ -372,8 +400,8 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                       <Input
                         onChange={(event) =>
                           updateLayout({
-                            zones: selectedLayout.zones.map((zone) =>
-                              zone.slug === activeZone.slug ? { ...zone, tags: slugList(event.target.value) } : zone
+                            zones: selectedLayout.zones.map((zone, index) =>
+                              index === activeZoneIndex ? { ...zone, tags: slugList(event.target.value) } : zone
                             )
                           })
                         }
@@ -385,8 +413,8 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                       <Input
                         onChange={(event) =>
                           updateLayout({
-                            zones: selectedLayout.zones.map((zone) =>
-                              zone.slug === activeZone.slug ? { ...zone, ruleSet: normalizeSlug(event.target.value) } : zone
+                            zones: selectedLayout.zones.map((zone, index) =>
+                              index === activeZoneIndex ? { ...zone, ruleSet: normalizeSlug(event.target.value) } : zone
                             )
                           })
                         }
@@ -396,7 +424,7 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                     <Button
                       onClick={() =>
                         updateLayout({
-                          zones: selectedLayout.zones.map((zone) => (zone.slug === activeZone.slug ? { ...zone, cells: [] } : zone))
+                          zones: selectedLayout.zones.map((zone, index) => (index === activeZoneIndex ? { ...zone, cells: [] } : zone))
                         })
                       }
                       size="sm"

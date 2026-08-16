@@ -14,6 +14,7 @@
     "format:check": "prettier --check .",
     "css:check": "bun scripts/check-no-custom-css.mjs",
     "filenames:check": "bun scripts/check-file-names.mjs",
+    "react-keys:check": "bun scripts/check-no-slug-react-keys.mjs",
     "test": "vitest run src",
     "check": "bun scripts/check.mjs"
   },

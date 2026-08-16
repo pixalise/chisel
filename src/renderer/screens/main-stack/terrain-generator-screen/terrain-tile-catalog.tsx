@@ -9,6 +9,7 @@ import {
   type TerrainTileRef,
   type TerrainWorkspaceView
 } from "../../../../shared/terrain-authoring";
+import { finalizeTerrainSlug, normalizeTerrainSlugDraft } from "../../../../shared/terrain-slug";
 import { loadEmptyTerrainTileIds } from "./terrain-empty-tiles";
 
 interface TerrainTileCatalogProps {
@@ -29,6 +30,7 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
   const [isScanningEmptyTiles, setIsScanningEmptyTiles] = useState(workspace.tilesets.length > 0);
   const [showEmptyTiles, setShowEmptyTiles] = useState(false);
   const [search, setSearch] = useState("");
+  const [slugDraft, setSlugDraft] = useState("");
   const [activeTilesetId, setActiveTilesetId] = useState(workspace.tilesets[0]?.id ?? "");
   const allTiles = useMemo(
     () =>
@@ -87,10 +89,19 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
     if (selectedTile && emptyTileKeys.has(terrainTileKey(selectedTile.tilesetId, selectedTile.localId))) onSelectTile(undefined);
   }, [emptyTileKeys, onSelectTile, selectedTile]);
 
+  useEffect(() => setSlugDraft(selectedBinding?.slug ?? ""), [selected?.key, selectedBinding?.slug]);
+
   function updateSelected(update: Partial<TerrainTileBinding>): void {
     if (!selected) return;
     const binding = selectedBinding ?? defaultBinding(selected.tileset.id, selected.localId);
     onBindingsChange({ ...workspace.tileBindings, [selected.key]: { ...binding, ...update } });
+  }
+
+  function commitSelectedSlug(): void {
+    if (!selected) return;
+    const slug = finalizeTerrainSlug(slugDraft, defaultBinding(selected.tileset.id, selected.localId).slug);
+    setSlugDraft(slug);
+    if (slug !== selectedBinding?.slug) updateSelected({ slug });
   }
 
   function selectTile(tile: (typeof tiles)[number]): void {
@@ -224,8 +235,9 @@ export const TerrainTileCatalog: FC<TerrainTileCatalogProps> = (props) => {
                 <Label htmlFor="tile-slug">Stable slug</Label>
                 <Input
                   id="tile-slug"
-                  onChange={(event) => updateSelected({ slug: event.target.value.toUpperCase().replace(/[^A-Z0-9]+/g, "_") })}
-                  value={selectedBinding?.slug ?? ""}
+                  onBlur={commitSelectedSlug}
+                  onChange={(event) => setSlugDraft(normalizeTerrainSlugDraft(event.target.value))}
+                  value={slugDraft}
                 />
               </div>
               <div className="space-y-1">

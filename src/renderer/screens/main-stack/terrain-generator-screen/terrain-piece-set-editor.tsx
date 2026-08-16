@@ -22,6 +22,7 @@ import type {
   TerrainPieceSet,
   TerrainTilesetView
 } from "../../../../shared/terrain-authoring";
+import { finalizeTerrainSlug, isTerrainSlugAvailable, normalizeTerrainSlugDraft } from "../../../../shared/terrain-slug";
 import { TerrainAdjacencyRulePreview } from "./terrain-adjacency-rule-preview";
 import { TerrainCollectionPiecePicker } from "./terrain-collection-piece-picker";
 
@@ -36,18 +37,30 @@ interface TerrainPieceSetEditorProps {
 
 export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => {
   const { onOverridesChange, onSetsChange, overrides, pieces, sets, tilesets } = props;
-  const [selectedSetSlug, setSelectedSetSlug] = useState(sets[0]?.slug ?? "");
+  const [selectedSetIndex, setSelectedSetIndex] = useState<number | undefined>(sets.length > 0 ? 0 : undefined);
   const [sourcePiece, setSourcePiece] = useState("");
   const [targetPiece, setTargetPiece] = useState("");
   const [direction, setDirection] = useState<TerrainDirection>("north");
   const [mode, setMode] = useState<"ALLOW_ONLY" | "DENY">("DENY");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const selectedSet = sets.find((entry) => entry.slug === selectedSetSlug);
+  const selectedSet = typeof selectedSetIndex === "number" ? sets[selectedSetIndex] : undefined;
+  const [slugDraft, setSlugDraft] = useState(selectedSet?.slug ?? "");
 
   useEffect(() => {
-    if (sets.some((entry) => entry.slug === selectedSetSlug)) return;
-    setSelectedSetSlug(sets[0]?.slug ?? "");
-  }, [selectedSetSlug, sets]);
+    if (typeof selectedSetIndex !== "number" || selectedSetIndex >= sets.length) setSelectedSetIndex(sets.length > 0 ? 0 : undefined);
+  }, [selectedSetIndex, sets.length]);
+
+  useEffect(() => setSlugDraft(selectedSet?.slug ?? ""), [selectedSet?.slug, selectedSetIndex]);
+
+  const committedSlug = selectedSet ? finalizeTerrainSlug(slugDraft, selectedSet.slug) : "";
+  const slugIsDuplicate =
+    selectedSet && typeof selectedSetIndex === "number" && committedSlug !== selectedSet.slug
+      ? !isTerrainSlugAvailable(
+          committedSlug,
+          sets.map((entry) => entry.slug),
+          selectedSetIndex
+        )
+      : false;
 
   function addSet(): void {
     let index = sets.length + 1;
@@ -61,13 +74,22 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
       siteTags: []
     };
     onSetsChange([...sets, next]);
-    setSelectedSetSlug(next.slug);
+    setSelectedSetIndex(sets.length);
   }
 
   function updateSet(update: Partial<TerrainPieceSet>): void {
+    if (!selectedSet || typeof selectedSetIndex !== "number") return;
+    onSetsChange(sets.map((entry, index) => (index === selectedSetIndex ? { ...entry, ...update } : entry)));
+  }
+
+  function commitSlug(): void {
     if (!selectedSet) return;
-    onSetsChange(sets.map((entry) => (entry.slug === selectedSet.slug ? { ...entry, ...update } : entry)));
-    if (update.slug) setSelectedSetSlug(update.slug);
+    if (slugIsDuplicate) {
+      setSlugDraft(selectedSet.slug);
+      return;
+    }
+    setSlugDraft(committedSlug);
+    if (committedSlug !== selectedSet.slug) updateSet({ slug: committedSlug });
   }
 
   function addOverride(): void {
@@ -93,12 +115,12 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
         </div>
         <select
           className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-          onChange={(event) => setSelectedSetSlug(event.target.value)}
-          value={selectedSetSlug}
+          onChange={(event) => setSelectedSetIndex(event.target.value ? Number(event.target.value) : undefined)}
+          value={typeof selectedSetIndex === "number" ? String(selectedSetIndex) : ""}
         >
           <option value="">Choose a collection…</option>
-          {sets.map((entry) => (
-            <option key={entry.slug} value={entry.slug}>
+          {sets.map((entry, index) => (
+            <option key={index} value={index}>
               {entry.slug}
             </option>
           ))}
@@ -106,11 +128,19 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
         {selectedSet && (
           <>
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <Input onChange={(event) => updateSet({ slug: normalizeSlug(event.target.value) })} value={selectedSet.slug} />
+              <div>
+                <Input
+                  aria-invalid={slugIsDuplicate}
+                  onBlur={commitSlug}
+                  onChange={(event) => setSlugDraft(normalizeTerrainSlugDraft(event.target.value))}
+                  value={slugDraft}
+                />
+                {slugIsDuplicate && <span className="text-xs text-destructive">That slug belongs to another collection.</span>}
+              </div>
               <Button
                 onClick={() => {
-                  onSetsChange(sets.filter((entry) => entry.slug !== selectedSet.slug));
-                  setSelectedSetSlug("");
+                  onSetsChange(sets.filter((_, index) => index !== selectedSetIndex));
+                  setSelectedSetIndex(undefined);
                 }}
                 size="icon"
                 type="button"
@@ -163,8 +193,8 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
               value={sourcePiece}
             >
               <option value="">Source…</option>
-              {pieces.map((piece) => (
-                <option key={piece.slug} value={piece.slug}>
+              {pieces.map((piece, index) => (
+                <option key={index} value={piece.slug}>
                   {piece.slug}
                 </option>
               ))}
@@ -185,8 +215,8 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
               value={targetPiece}
             >
               <option value="">Target…</option>
-              {pieces.map((piece) => (
-                <option key={piece.slug} value={piece.slug}>
+              {pieces.map((piece, index) => (
+                <option key={index} value={piece.slug}>
                   {piece.slug}
                 </option>
               ))}
@@ -204,11 +234,11 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
             </Button>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
-            {overrides.map((entry) => (
+            {overrides.map((entry, index) => (
               <div
                 className="relative min-w-0 space-y-2 rounded-md border border-border bg-card p-2 pt-10"
                 data-adjacency-rule={entry.slug}
-                key={entry.slug}
+                key={index}
               >
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -235,7 +265,7 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        onClick={() => onOverridesChange(overrides.filter((override) => override.slug !== entry.slug))}
+                        onClick={() => onOverridesChange(overrides.filter((_, overrideIndex) => overrideIndex !== index))}
                       >
                         Delete exception
                       </AlertDialogAction>

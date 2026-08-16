@@ -98,7 +98,7 @@ export const TerrainCollectionPiecePicker: FC<TerrainCollectionPiecePickerProps>
       </div>
       {visiblePieces.length > 0 ? (
         <div className="grid max-h-[42rem] gap-2 overflow-y-auto p-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
-          {visiblePieces.map((piece) => {
+          {visiblePieces.map((piece, index) => {
             const active = selected.has(piece.slug);
             const isLastActive = active && activePieceCount <= 1;
             const weight = pieceWeights[piece.slug] ?? piece.weight;
@@ -113,7 +113,7 @@ export const TerrainCollectionPiecePicker: FC<TerrainCollectionPiecePickerProps>
                 )}
                 data-active={active}
                 data-collection-piece={piece.slug}
-                key={piece.slug}
+                key={index}
               >
                 <button
                   aria-pressed={active}

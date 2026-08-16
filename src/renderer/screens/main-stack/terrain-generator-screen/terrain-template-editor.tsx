@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dices, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
-import { type FC, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import {
   createTerrainTemplateCells,
   type TerrainDirection,
@@ -13,16 +13,18 @@ import {
   type TerrainTilesetView
 } from "../../../../shared/terrain-authoring";
 import type { TerrainCandidate } from "../../../../shared/terrain-wfc";
+import { finalizeTerrainSlug, isTerrainSlugAvailable, normalizeTerrainSlugDraft } from "../../../../shared/terrain-slug";
 import { TerrainTemplateConstraintCards } from "./terrain-template-constraint-cards";
 import { type TerrainConstraintHighlight, TerrainTemplateConstraintPreview } from "./terrain-template-constraint-preview";
 
 interface TerrainTemplateEditorProps {
   onChange: (templates: TerrainSiteTemplate[]) => void;
   onGenerate: (template: TerrainSiteTemplate) => void;
-  onSelect: (slug?: string) => void;
+  onSelect: (index?: number) => void;
   pieces: TerrainPiece[];
   previewCandidate?: TerrainCandidate;
   selectedTemplate?: TerrainSiteTemplate;
+  selectedTemplateIndex?: number;
   sets: TerrainPieceSet[];
   sockets: TerrainSocketDefinition[];
   templates: TerrainSiteTemplate[];
@@ -30,7 +32,19 @@ interface TerrainTemplateEditorProps {
 }
 
 export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => {
-  const { onChange, onGenerate, onSelect, pieces, previewCandidate, selectedTemplate, sets, sockets, templates, tilesets } = props;
+  const {
+    onChange,
+    onGenerate,
+    onSelect,
+    pieces,
+    previewCandidate,
+    selectedTemplate,
+    selectedTemplateIndex,
+    sets,
+    sockets,
+    templates,
+    tilesets
+  } = props;
   const [width, setWidth] = useState(12);
   const [height, setHeight] = useState(12);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -44,11 +58,33 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
   const [zoneTags, setZoneTags] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [focusedConstraint, setFocusedConstraint] = useState<TerrainConstraintHighlight>();
+  const [slugDraft, setSlugDraft] = useState(selectedTemplate?.slug ?? "");
+
+  useEffect(() => setSlugDraft(selectedTemplate?.slug ?? ""), [selectedTemplate?.slug, selectedTemplateIndex]);
+
+  const committedSlug = selectedTemplate ? finalizeTerrainSlug(slugDraft, selectedTemplate.slug) : "";
+  const slugIsDuplicate =
+    selectedTemplate && typeof selectedTemplateIndex === "number" && committedSlug !== selectedTemplate.slug
+      ? !isTerrainSlugAvailable(
+          committedSlug,
+          templates.map((entry) => entry.slug),
+          selectedTemplateIndex
+        )
+      : false;
 
   function update(updateValue: Partial<TerrainSiteTemplate>): void {
+    if (!selectedTemplate || typeof selectedTemplateIndex !== "number") return;
+    onChange(templates.map((entry, index) => (index === selectedTemplateIndex ? { ...entry, ...updateValue } : entry)));
+  }
+
+  function commitSlug(): void {
     if (!selectedTemplate) return;
-    onChange(templates.map((entry) => (entry.slug === selectedTemplate.slug ? { ...entry, ...updateValue } : entry)));
-    if (updateValue.slug) onSelect(updateValue.slug);
+    if (slugIsDuplicate) {
+      setSlugDraft(selectedTemplate.slug);
+      return;
+    }
+    setSlugDraft(committedSlug);
+    if (committedSlug !== selectedTemplate.slug) update({ slug: committedSlug });
   }
 
   function createTemplate(): void {
@@ -68,7 +104,7 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
       zones: []
     };
     onChange([...templates, next]);
-    onSelect(next.slug);
+    onSelect(templates.length);
   }
 
   const selectedX = selectedTemplate ? selectedIndex % selectedTemplate.width : 0;
@@ -90,13 +126,13 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
             onChange={(event) => {
               setFocusedConstraint(undefined);
               setSelectedIndex(0);
-              onSelect(event.target.value || undefined);
+              onSelect(event.target.value ? Number(event.target.value) : undefined);
             }}
-            value={selectedTemplate?.slug ?? ""}
+            value={typeof selectedTemplateIndex === "number" ? String(selectedTemplateIndex) : ""}
           >
             <option value="">Choose template…</option>
-            {templates.map((entry) => (
-              <option key={entry.slug} value={entry.slug}>
+            {templates.map((entry, index) => (
+              <option key={index} value={index}>
                 {entry.slug} — {entry.width}×{entry.height}
               </option>
             ))}
@@ -119,7 +155,13 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
           <div className="grid gap-2 lg:grid-cols-[minmax(10rem,1fr)_14rem_7rem_auto_auto] lg:items-end">
             <Label className="space-y-1 text-xs">
               Stable slug
-              <Input onChange={(event) => update({ slug: normalizeSlug(event.target.value) })} value={selectedTemplate.slug} />
+              <Input
+                aria-invalid={slugIsDuplicate}
+                onBlur={commitSlug}
+                onChange={(event) => setSlugDraft(normalizeTerrainSlugDraft(event.target.value))}
+                value={slugDraft}
+              />
+              {slugIsDuplicate && <span className="block text-xs text-destructive">That slug belongs to another template.</span>}
             </Label>
             <Label className="space-y-1 text-xs">
               Collection
@@ -128,8 +170,8 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
                 onChange={(event) => update({ pieceSet: event.target.value })}
                 value={selectedTemplate.pieceSet}
               >
-                {sets.map((entry) => (
-                  <option key={entry.slug} value={entry.slug}>
+                {sets.map((entry, index) => (
+                  <option key={index} value={entry.slug}>
                     {entry.slug}
                   </option>
                 ))}
@@ -150,7 +192,7 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
             </Button>
             <Button
               onClick={() => {
-                onChange(templates.filter((entry) => entry.slug !== selectedTemplate.slug));
+                onChange(templates.filter((_, index) => index !== selectedTemplateIndex));
                 onSelect(undefined);
               }}
               size="icon"
@@ -265,8 +307,8 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
                       value={anchorSocket}
                     >
                       <option value="">Socket…</option>
-                      {sockets.map((entry) => (
-                        <option key={entry.slug} value={entry.slug}>
+                      {sockets.map((entry, index) => (
+                        <option key={index} value={entry.slug}>
                           {entry.slug}
                         </option>
                       ))}
@@ -309,8 +351,8 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
                     <option value="">Piece…</option>
                     {pieces
                       .filter((entry) => sets.find((set) => set.slug === selectedTemplate.pieceSet)?.pieceSlugs.includes(entry.slug))
-                      .map((entry) => (
-                        <option key={entry.slug} value={entry.slug}>
+                      .map((entry, index) => (
+                        <option key={index} value={entry.slug}>
                           {entry.slug}
                         </option>
                       ))}

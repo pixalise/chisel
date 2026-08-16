@@ -48,19 +48,64 @@ function waitForPort(port, host) {
   });
 }
 
+function forwardOutput(child) {
+  child.stdout.on("data", (chunk) => process.stdout.write(chunk));
+  child.stderr.on("data", (chunk) => process.stderr.write(chunk));
+}
+
+function waitForCompilerReady(child) {
+  return new Promise((resolve, reject) => {
+    let output = "";
+
+    const cleanup = () => {
+      child.stdout.off("data", onOutput);
+      child.off("error", onError);
+      child.off("exit", onExit);
+    };
+    const onError = (error) => {
+      cleanup();
+      reject(error);
+    };
+    const onExit = (code) => {
+      cleanup();
+      reject(new Error(`Electron TypeScript watcher exited before it was ready with code ${code ?? "unknown"}`));
+    };
+    const onOutput = (chunk) => {
+      output = `${output}${chunk.toString()}`.slice(-8_192);
+      const result = /Found (\d+) errors?\. Watching for file changes\./.exec(output);
+      if (!result) {
+        return;
+      }
+
+      cleanup();
+      if (result[1] !== "0") {
+        reject(new Error(`Electron TypeScript watcher started with ${result[1]} errors`));
+        return;
+      }
+      resolve();
+    };
+
+    child.stdout.on("data", onOutput);
+    child.on("error", onError);
+    child.on("exit", onExit);
+  });
+}
+
 await fs.rm(path.join(editorRoot, "dist-electron"), { recursive: true, force: true });
 await runOnce(bunBin, [tscScript, "-p", "tsconfig.electron.json"]);
 
 const compiler = spawn(bunBin, [tscScript, "-p", "tsconfig.electron.json", "--watch", "--preserveWatchOutput"], {
   cwd: editorRoot,
-  stdio: "inherit"
+  stdio: ["inherit", "pipe", "pipe"]
 });
+forwardOutput(compiler);
+const compilerReady = waitForCompilerReady(compiler);
 const vite = spawn(bunBin, [viteScript, "--host", "127.0.0.1", "--port", "5174", "--strictPort"], {
   cwd: editorRoot,
   stdio: "inherit"
 });
 
-await waitForPort(5174, "127.0.0.1");
+await Promise.all([compilerReady, waitForPort(5174, "127.0.0.1")]);
 
 let electron = null;
 let restartTimer = null;

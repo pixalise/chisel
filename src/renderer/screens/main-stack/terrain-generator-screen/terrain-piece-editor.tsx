@@ -3,24 +3,49 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ShoppingCart, Trash2 } from "lucide-react";
-import { type FC, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import { createTerrainPieceCell, type TerrainPiece, type TerrainSocketDefinition } from "../../../../shared/terrain-authoring";
+import { finalizeTerrainSlug, isTerrainSlugAvailable, normalizeTerrainSlugDraft } from "../../../../shared/terrain-slug";
 
 interface TerrainPieceEditorProps {
   onAnalyze: () => void;
   onChange: (piece: TerrainPiece) => void;
   onCreate: (piece: TerrainPiece) => void;
   onDelete: () => void;
-  onSelect: (slug?: string) => void;
+  onSelect: (index?: number) => void;
   piece?: TerrainPiece;
   pieces: TerrainPiece[];
+  selectedIndex?: number;
   sockets: TerrainSocketDefinition[];
 }
 
 export const TerrainPieceEditor: FC<TerrainPieceEditorProps> = (props) => {
-  const { onAnalyze, onChange, onCreate, onDelete, onSelect, piece, pieces, sockets } = props;
+  const { onAnalyze, onChange, onCreate, onDelete, onSelect, piece, pieces, selectedIndex, sockets } = props;
   const [width, setWidth] = useState(1);
   const [height, setHeight] = useState(1);
+  const [slugDraft, setSlugDraft] = useState(piece?.slug ?? "");
+
+  useEffect(() => setSlugDraft(piece?.slug ?? ""), [piece?.slug, selectedIndex]);
+
+  const committedSlug = piece ? finalizeTerrainSlug(slugDraft, piece.slug) : "";
+  const slugIsDuplicate =
+    piece && typeof selectedIndex === "number" && committedSlug !== piece.slug
+      ? !isTerrainSlugAvailable(
+          committedSlug,
+          pieces.map((entry) => entry.slug),
+          selectedIndex
+        )
+      : false;
+
+  function commitSlug(): void {
+    if (!piece) return;
+    if (slugIsDuplicate) {
+      setSlugDraft(piece.slug);
+      return;
+    }
+    setSlugDraft(committedSlug);
+    if (committedSlug !== piece.slug) onChange({ ...piece, slug: committedSlug });
+  }
 
   function createPiece(): void {
     let index = pieces.length + 1;
@@ -55,12 +80,12 @@ export const TerrainPieceEditor: FC<TerrainPieceEditorProps> = (props) => {
           Piece to edit
           <select
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-            onChange={(event) => onSelect(event.target.value || undefined)}
-            value={piece?.slug ?? ""}
+            onChange={(event) => onSelect(event.target.value ? Number(event.target.value) : undefined)}
+            value={typeof selectedIndex === "number" ? String(selectedIndex) : ""}
           >
             <option value="">Choose a piece…</option>
-            {pieces.map((entry) => (
-              <option key={entry.slug} value={entry.slug}>
+            {pieces.map((entry, index) => (
+              <option key={index} value={index}>
                 {entry.slug} — {entry.width}×{entry.height}
               </option>
             ))}
@@ -83,7 +108,13 @@ export const TerrainPieceEditor: FC<TerrainPieceEditorProps> = (props) => {
           <div className="grid gap-2 md:grid-cols-[minmax(10rem,1fr)_7rem_7rem_7rem_minmax(10rem,1fr)_auto_auto] md:items-end">
             <Label className="space-y-1">
               Stable slug
-              <Input onChange={(event) => onChange({ ...piece, slug: normalizeSlug(event.target.value) })} value={piece.slug} />
+              <Input
+                aria-invalid={slugIsDuplicate}
+                onBlur={commitSlug}
+                onChange={(event) => setSlugDraft(normalizeTerrainSlugDraft(event.target.value))}
+                value={slugDraft}
+              />
+              {slugIsDuplicate && <span className="block text-xs text-destructive">That slug belongs to another piece.</span>}
             </Label>
             <Label className="flex h-9 items-center gap-2 text-xs">
               <Checkbox

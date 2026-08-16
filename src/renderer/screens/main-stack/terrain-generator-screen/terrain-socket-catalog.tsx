@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Plus, Trash2 } from "lucide-react";
+import { TerrainSocketRow } from "@/screens/main-stack/terrain-generator-screen/terrain-socket-row";
+import { Plus } from "lucide-react";
 import { type FC } from "react";
 import type { TerrainSocketDefinition } from "../../../../shared/terrain-authoring";
 
@@ -46,49 +46,18 @@ export const TerrainSocketCatalog: FC<TerrainSocketCatalogProps> = (props) => {
       )}
       <div className="grid gap-2">
         {sockets.map((socket, index) => (
-          <div
-            className="grid gap-2 rounded border border-border p-2 lg:grid-cols-[3rem_12rem_minmax(12rem,1fr)_auto] lg:items-center"
-            key={`${socket.slug}-${index}`}
-          >
-            <Input
-              aria-label={`${socket.slug} color`}
-              onChange={(event) => update(index, { color: event.target.value })}
-              type="color"
-              value={socket.color}
-            />
-            <Input
-              aria-label="Socket slug"
-              onChange={(event) => update(index, { slug: normalizeSlug(event.target.value) })}
-              value={socket.slug}
-            />
-            <Input
-              aria-label="Socket description"
-              onChange={(event) => update(index, { description: event.target.value })}
-              placeholder="What physical boundary does this represent?"
-              value={socket.description}
-            />
-            <Button
-              aria-label={`Delete ${socket.slug}`}
-              onClick={() => onChange(sockets.filter((_, entryIndex) => entryIndex !== index))}
-              size="icon"
-              type="button"
-              variant="ghost"
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
+          <TerrainSocketRow
+            fallbackSlug={uniqueSlug(sockets)}
+            key={index}
+            onDelete={() => onChange(sockets.filter((_, entryIndex) => entryIndex !== index))}
+            onUpdate={(updateValue) => update(index, updateValue)}
+            socket={socket}
+          />
         ))}
       </div>
     </div>
   );
 };
-
-function normalizeSlug(value: string): string {
-  return value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/^_+/, "");
-}
 
 function uniqueSlug(sockets: TerrainSocketDefinition[]): string {
   let index = sockets.length + 1;

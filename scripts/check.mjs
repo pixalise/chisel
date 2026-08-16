@@ -12,6 +12,11 @@ const checks = [
     hint: "Move custom styling into Tailwind utilities or cn(...) usage."
   },
   {
+    name: "React key policy check",
+    command: ["bun", "run", "react-keys:check"],
+    hint: "Use an array index for editable rows instead of a user-entered slug."
+  },
+  {
     name: "format check",
     command: ["bun", "run", "format:check"],
     hint: "Run `bun run format` from editor/ to apply Prettier fixes.",

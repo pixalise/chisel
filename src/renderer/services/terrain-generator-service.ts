@@ -36,6 +36,7 @@ import {
 } from "../../shared/terrain-authoring";
 import { AssetCategoryEnum } from "../../shared/types";
 import { refreshApprovedTerrainMetrics } from "../../shared/terrain-approved-overpaint";
+import { assertUniqueTerrainSlugs, duplicateTerrainSlugs } from "../../shared/terrain-slug";
 
 function cell(row: DataTableRow, column: DataColumnDefinition): unknown {
   const stored = row.values.find((entry) => entry.columnId === column.id);
@@ -159,6 +160,31 @@ class TerrainGeneratorService {
       terrainSpatialLayoutSchema.parse({ ...(cell(entry, TERRAIN_SPATIAL_LAYOUT_COLUMNS.definition) as object), slug: entry.slug })
     );
     const problems: string[] = [];
+    for (const duplicate of duplicateTerrainSlugs(Object.values(tileBindings).map((entry) => entry.slug))) {
+      problems.push(`Sprite metadata slug '${duplicate}' is duplicated`);
+    }
+    for (const [kind, slugs] of [
+      ["Socket", sockets.map((entry) => entry.slug)],
+      ["Piece", pieces.map((entry) => entry.slug)],
+      ["Collection", pieceSets.map((entry) => entry.slug)],
+      ["Adjacency override", adjacencyOverrides.map((entry) => entry.slug)],
+      ["Template", templates.map((entry) => entry.slug)],
+      ["Approved asset", approvedAssets.map((entry) => entry.slug)],
+      ["Spatial layout", spatialLayouts.map((entry) => entry.slug)]
+    ] as const) {
+      for (const duplicate of duplicateTerrainSlugs(slugs)) problems.push(`${kind} slug '${duplicate}' is duplicated`);
+    }
+    for (const layout of spatialLayouts) {
+      for (const [kind, slugs] of [
+        ["zone", layout.zones.map((entry) => entry.slug)],
+        ["marker", layout.markers.map((entry) => entry.slug)],
+        ["placement", layout.placements.map((entry) => entry.slug)]
+      ] as const) {
+        for (const duplicate of duplicateTerrainSlugs(slugs)) {
+          problems.push(`Spatial layout '${layout.slug}' ${kind} slug '${duplicate}' is duplicated`);
+        }
+      }
+    }
     const socketSlugs = new Set(sockets.map((entry) => entry.slug));
     const pieceSlugs = new Set(pieces.map((entry) => entry.slug));
     const approvedBySlug = new Map(approvedAssets.map((entry) => [entry.slug, entry]));
@@ -240,6 +266,52 @@ class TerrainGeneratorService {
   }
 
   public async save(workspace: TerrainWorkspaceView): Promise<TerrainWorkspaceView> {
+    assertUniqueTerrainSlugs(
+      "sprite metadata",
+      Object.values(workspace.tileBindings).map((entry) => entry.slug)
+    );
+    assertUniqueTerrainSlugs(
+      "socket",
+      workspace.sockets.map((entry) => entry.slug)
+    );
+    assertUniqueTerrainSlugs(
+      "piece",
+      workspace.pieces.map((entry) => entry.slug)
+    );
+    assertUniqueTerrainSlugs(
+      "collection",
+      workspace.pieceSets.map((entry) => entry.slug)
+    );
+    assertUniqueTerrainSlugs(
+      "adjacency override",
+      workspace.adjacencyOverrides.map((entry) => entry.slug)
+    );
+    assertUniqueTerrainSlugs(
+      "template",
+      workspace.templates.map((entry) => entry.slug)
+    );
+    assertUniqueTerrainSlugs(
+      "approved asset",
+      workspace.approvedAssets.map((entry) => entry.slug)
+    );
+    assertUniqueTerrainSlugs(
+      "spatial layout",
+      workspace.spatialLayouts.map((entry) => entry.slug)
+    );
+    for (const layout of workspace.spatialLayouts) {
+      assertUniqueTerrainSlugs(
+        `zone in '${layout.slug}'`,
+        layout.zones.map((entry) => entry.slug)
+      );
+      assertUniqueTerrainSlugs(
+        `marker in '${layout.slug}'`,
+        layout.markers.map((entry) => entry.slug)
+      );
+      assertUniqueTerrainSlugs(
+        `placement in '${layout.slug}'`,
+        layout.placements.map((entry) => entry.slug)
+      );
+    }
     const sockets = workspace.sockets.map((entry) => terrainSocketDefinitionSchema.parse(entry));
     const pieces = workspace.pieces.map((entry) => terrainPieceSchema.parse(entry));
     const pieceSets = workspace.pieceSets.map((entry) => terrainPieceSetSchema.parse(entry));

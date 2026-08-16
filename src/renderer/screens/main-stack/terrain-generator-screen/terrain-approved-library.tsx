@@ -28,14 +28,15 @@ interface TerrainApprovedLibraryProps {
 
 export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) => {
   const { assets, layouts, onAssetsChange, onBindingsChange, onDelete, onLayoutsChange, workspace } = props;
-  const [selectedAssetSlug, setSelectedAssetSlug] = useState(assets[0]?.slug ?? "");
+  const [selectedAssetIndex, setSelectedAssetIndex] = useState<number | undefined>(assets.length > 0 ? 0 : undefined);
   const [selectedTile, setSelectedTile] = useState<TerrainTileRef>();
-  const selectedAsset = assets.find((asset) => asset.slug === selectedAssetSlug);
+  const selectedAsset = typeof selectedAssetIndex === "number" ? assets[selectedAssetIndex] : undefined;
 
   useEffect(() => {
-    if (assets.some((asset) => asset.slug === selectedAssetSlug)) return;
-    setSelectedAssetSlug(assets[0]?.slug ?? "");
-  }, [assets, selectedAssetSlug]);
+    if (typeof selectedAssetIndex !== "number" || selectedAssetIndex >= assets.length) {
+      setSelectedAssetIndex(assets.length > 0 ? 0 : undefined);
+    }
+  }, [assets.length, selectedAssetIndex]);
 
   return (
     <div className="space-y-4">
@@ -55,9 +56,9 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
           </p>
         )}
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {assets.map((asset) => {
+          {assets.map((asset, index) => {
             const assetLayouts = layouts.filter((layout) => layout.sourceAsset === asset.slug);
-            const selected = asset.slug === selectedAssetSlug;
+            const selected = index === selectedAssetIndex;
             return (
               <div
                 className={cn(
@@ -65,12 +66,12 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
                   selected && "border-primary bg-primary/5 ring-1 ring-primary"
                 )}
                 data-approved-asset={asset.slug}
-                key={asset.slug}
-                onClick={() => setSelectedAssetSlug(asset.slug)}
+                key={index}
+                onClick={() => setSelectedAssetIndex(index)}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") setSelectedAssetSlug(asset.slug);
+                  if (event.key === "Enter" || event.key === " ") setSelectedAssetIndex(index);
                 }}
               >
                 <div className="overflow-hidden rounded bg-slate-950 p-2">
@@ -115,7 +116,7 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.7fr)] xl:items-start">
               <TerrainApprovedOverpaintEditor
                 asset={selectedAsset}
-                onChange={(asset) => onAssetsChange(assets.map((entry) => (entry.slug === asset.slug ? asset : entry)))}
+                onChange={(asset) => onAssetsChange(assets.map((entry, index) => (index === selectedAssetIndex ? asset : entry)))}
                 selectedTile={selectedTile}
                 tilesets={workspace.tilesets}
               />
