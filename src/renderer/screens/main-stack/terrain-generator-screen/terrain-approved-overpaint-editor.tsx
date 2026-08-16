@@ -13,6 +13,7 @@ import {
   revertApprovedTerrainCell,
   setApprovedTerrainCellOverride
 } from "../../../../shared/terrain-approved-overpaint";
+import { parseTerrainSlugList } from "../../../../shared/terrain-slug";
 import { TerrainApprovedMapPreview } from "./terrain-approved-map-preview";
 
 interface TerrainApprovedOverpaintEditorProps {
@@ -179,7 +180,7 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
         <Label className="space-y-1 text-xs">
           Semantic tags
           <Input
-            onChange={(event) => updateSelectedMetadata({ tags: slugList(event.target.value) })}
+            onChange={(event) => updateSelectedMetadata({ tags: parseTerrainSlugList(event.target.value) })}
             value={selectedCell.metadata.tags.join(", ")}
           />
         </Label>
@@ -205,16 +206,3 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
     </div>
   );
 };
-
-function slugList(value: string): string[] {
-  return value
-    .split(",")
-    .map((entry) =>
-      entry
-        .trim()
-        .toUpperCase()
-        .replace(/[^A-Z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "")
-    )
-    .filter(Boolean);
-}

@@ -447,11 +447,6 @@ class TerrainGeneratorService {
     await tableService.saveSystemTableRows(TERRAIN_APPROVED_ASSETS_TABLE_ID, approvedAssetRows(approvedAssets, approvedTable));
     return approvedAssets;
   }
-
-  public async saveSpatialLayouts(spatialLayouts: TerrainWorkspaceView["spatialLayouts"]): Promise<TerrainWorkspaceView> {
-    const workspace = await this.load();
-    return this.save({ ...workspace, spatialLayouts });
-  }
 }
 
 const terrainGeneratorService = new TerrainGeneratorService();

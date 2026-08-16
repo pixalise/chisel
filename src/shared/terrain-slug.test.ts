@@ -4,7 +4,8 @@ import {
   duplicateTerrainSlugs,
   finalizeTerrainSlug,
   isTerrainSlugAvailable,
-  normalizeTerrainSlugDraft
+  normalizeTerrainSlugDraft,
+  parseTerrainSlugList
 } from "./terrain-slug";
 
 describe("terrain slug editing", () => {
@@ -16,6 +17,10 @@ describe("terrain slug editing", () => {
   it("restores a valid fallback when an editor is left empty", () => {
     expect(finalizeTerrainSlug("", "tileset_12")).toBe("TILESET_12");
     expect(finalizeTerrainSlug("---", "socket_2")).toBe("SOCKET_2");
+  });
+
+  it("normalizes comma-separated semantic slugs without leaving invalid separators", () => {
+    expect(parseTerrainSlugList(" forest edge, ruins!, , water_ ")).toEqual(["FOREST_EDGE", "RUINS", "WATER"]);
   });
 
   it("checks uniqueness without confusing the edited row with another row", () => {

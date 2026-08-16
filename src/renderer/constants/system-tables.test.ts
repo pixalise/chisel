@@ -3,7 +3,6 @@ import { anyDataTableSchema } from "../../shared/schemas";
 import { AssetCategoryEnum, ColumnType, InputKeyEnum } from "../../shared/types";
 import {
   EDITOR_ONLY_TERRAIN_TABLE_IDS,
-  RUNTIME_TERRAIN_TABLE_IDS,
   SYSTEM_TERRAIN_TABLES,
   TERRAIN_APPROVED_ASSETS_TABLE_ID,
   TERRAIN_PIECES_TABLE_ID,
@@ -41,7 +40,6 @@ describe("system tables", () => {
       "terrain_spatial_layouts"
     ]);
     expect(EDITOR_ONLY_TERRAIN_TABLE_IDS).toEqual(new Set(SYSTEM_TERRAIN_TABLES.map((table) => table.id)));
-    expect(RUNTIME_TERRAIN_TABLE_IDS).toEqual(new Set());
     expect(EDITOR_ONLY_TERRAIN_TABLE_IDS).toContain(TERRAIN_PIECES_TABLE_ID);
     expect(EDITOR_ONLY_TERRAIN_TABLE_IDS).toContain(TERRAIN_SITE_TEMPLATES_TABLE_ID);
     expect(EDITOR_ONLY_TERRAIN_TABLE_IDS).toContain(TERRAIN_APPROVED_ASSETS_TABLE_ID);

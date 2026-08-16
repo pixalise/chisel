@@ -5,6 +5,13 @@ export function normalizeTerrainSlugDraft(value: string): string {
     .replace(/^_+/, "");
 }
 
+export function parseTerrainSlugList(value: string): string[] {
+  return value
+    .split(",")
+    .map((entry) => normalizeTerrainSlugDraft(entry).replace(/_+$/, ""))
+    .filter(Boolean);
+}
+
 export function finalizeTerrainSlug(value: string, fallback: string): string {
   const normalized = normalizeTerrainSlugDraft(value).replace(/_+$/, "");
   if (normalized) return normalized;

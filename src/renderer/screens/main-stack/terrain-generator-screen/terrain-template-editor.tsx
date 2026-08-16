@@ -13,7 +13,12 @@ import {
   type TerrainTilesetView
 } from "../../../../shared/terrain-authoring";
 import type { TerrainCandidate } from "../../../../shared/terrain-wfc";
-import { finalizeTerrainSlug, isTerrainSlugAvailable, normalizeTerrainSlugDraft } from "../../../../shared/terrain-slug";
+import {
+  finalizeTerrainSlug,
+  isTerrainSlugAvailable,
+  normalizeTerrainSlugDraft,
+  parseTerrainSlugList
+} from "../../../../shared/terrain-slug";
 import { TerrainTemplateConstraintCards } from "./terrain-template-constraint-cards";
 import { type TerrainConstraintHighlight, TerrainTemplateConstraintPreview } from "./terrain-template-constraint-preview";
 
@@ -257,7 +262,7 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
                         onChange={(event) =>
                           update({
                             cells: selectedTemplate.cells.map((cell, index) =>
-                              index === selectedIndex ? { ...cell, requiredTags: slugList(event.target.value) } : cell
+                              index === selectedIndex ? { ...cell, requiredTags: parseTerrainSlugList(event.target.value) } : cell
                             )
                           })
                         }
@@ -270,7 +275,7 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
                         onChange={(event) =>
                           update({
                             cells: selectedTemplate.cells.map((cell, index) =>
-                              index === selectedIndex ? { ...cell, forbiddenTags: slugList(event.target.value) } : cell
+                              index === selectedIndex ? { ...cell, forbiddenTags: parseTerrainSlugList(event.target.value) } : cell
                             )
                           })
                         }
@@ -420,7 +425,7 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
                             y: selectedY,
                             width: zoneWidth,
                             height: zoneHeight,
-                            requiredTags: slugList(zoneTags),
+                            requiredTags: parseTerrainSlugList(zoneTags),
                             minCount: 1,
                             maxCount: zoneWidth * zoneHeight
                           }
@@ -442,14 +447,3 @@ export const TerrainTemplateEditor: FC<TerrainTemplateEditorProps> = (props) => 
     </div>
   );
 };
-
-function normalizeSlug(value: string): string {
-  return value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/^_+/, "");
-}
-
-function slugList(value: string): string[] {
-  return value.split(",").map(normalizeSlug).filter(Boolean);
-}

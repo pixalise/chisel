@@ -22,7 +22,12 @@ import type {
   TerrainPieceSet,
   TerrainTilesetView
 } from "../../../../shared/terrain-authoring";
-import { finalizeTerrainSlug, isTerrainSlugAvailable, normalizeTerrainSlugDraft } from "../../../../shared/terrain-slug";
+import {
+  finalizeTerrainSlug,
+  isTerrainSlugAvailable,
+  normalizeTerrainSlugDraft,
+  parseTerrainSlugList
+} from "../../../../shared/terrain-slug";
 import { TerrainAdjacencyRulePreview } from "./terrain-adjacency-rule-preview";
 import { TerrainCollectionPiecePicker } from "./terrain-collection-piece-picker";
 
@@ -153,14 +158,14 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
               <Label className="space-y-1 text-xs">
                 Biome tags
                 <Input
-                  onChange={(event) => updateSet({ biomeTags: slugList(event.target.value) })}
+                  onChange={(event) => updateSet({ biomeTags: parseTerrainSlugList(event.target.value) })}
                   value={selectedSet.biomeTags.join(", ")}
                 />
               </Label>
               <Label className="space-y-1 text-xs">
                 Site tags
                 <Input
-                  onChange={(event) => updateSet({ siteTags: slugList(event.target.value) })}
+                  onChange={(event) => updateSet({ siteTags: parseTerrainSlugList(event.target.value) })}
                   value={selectedSet.siteTags.join(", ")}
                 />
               </Label>
@@ -303,14 +308,3 @@ export const TerrainPieceSetEditor: FC<TerrainPieceSetEditorProps> = (props) => 
     </div>
   );
 };
-
-function normalizeSlug(value: string): string {
-  return value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/^_+/, "");
-}
-
-function slugList(value: string): string[] {
-  return value.split(",").map(normalizeSlug).filter(Boolean);
-}

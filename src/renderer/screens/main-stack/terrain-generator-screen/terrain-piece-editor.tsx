@@ -5,7 +5,12 @@ import { Label } from "@/components/ui/label";
 import { ShoppingCart, Trash2 } from "lucide-react";
 import { type FC, useEffect, useState } from "react";
 import { createTerrainPieceCell, type TerrainPiece, type TerrainSocketDefinition } from "../../../../shared/terrain-authoring";
-import { finalizeTerrainSlug, isTerrainSlugAvailable, normalizeTerrainSlugDraft } from "../../../../shared/terrain-slug";
+import {
+  finalizeTerrainSlug,
+  isTerrainSlugAvailable,
+  normalizeTerrainSlugDraft,
+  parseTerrainSlugList
+} from "../../../../shared/terrain-slug";
 
 interface TerrainPieceEditorProps {
   onAnalyze: () => void;
@@ -133,14 +138,14 @@ export const TerrainPieceEditor: FC<TerrainPieceEditorProps> = (props) => {
             <Label className="space-y-1">
               Mutation
               <Input
-                onChange={(event) => onChange({ ...piece, mutationFamily: normalizeSlug(event.target.value) })}
+                onChange={(event) => onChange({ ...piece, mutationFamily: normalizeTerrainSlugDraft(event.target.value) })}
                 value={piece.mutationFamily}
               />
             </Label>
             <Label className="space-y-1">
               Semantic flags
               <Input
-                onChange={(event) => onChange({ ...piece, semanticFlags: slugList(event.target.value) })}
+                onChange={(event) => onChange({ ...piece, semanticFlags: parseTerrainSlugList(event.target.value) })}
                 value={piece.semanticFlags.join(", ")}
               />
             </Label>
@@ -162,14 +167,14 @@ export const TerrainPieceEditor: FC<TerrainPieceEditorProps> = (props) => {
             <Label className="space-y-1 text-xs">
               Biome tags
               <Input
-                onChange={(event) => onChange({ ...piece, biomeTags: slugList(event.target.value) })}
+                onChange={(event) => onChange({ ...piece, biomeTags: parseTerrainSlugList(event.target.value) })}
                 value={piece.biomeTags.join(", ")}
               />
             </Label>
             <Label className="space-y-1 text-xs">
               Site tags
               <Input
-                onChange={(event) => onChange({ ...piece, siteTags: slugList(event.target.value) })}
+                onChange={(event) => onChange({ ...piece, siteTags: parseTerrainSlugList(event.target.value) })}
                 value={piece.siteTags.join(", ")}
               />
             </Label>
@@ -179,14 +184,3 @@ export const TerrainPieceEditor: FC<TerrainPieceEditorProps> = (props) => {
     </div>
   );
 };
-
-function normalizeSlug(value: string): string {
-  return value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/^_+/, "");
-}
-
-function slugList(value: string): string[] {
-  return value.split(",").map(normalizeSlug).filter(Boolean);
-}

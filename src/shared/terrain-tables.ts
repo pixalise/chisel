@@ -181,5 +181,4 @@ export const SYSTEM_TERRAIN_TABLES = [
 ];
 
 export const EDITOR_ONLY_TERRAIN_TABLE_IDS = new Set(SYSTEM_TERRAIN_TABLES.map((entry) => entry.id));
-export const RUNTIME_TERRAIN_TABLE_IDS = new Set<string>();
 export const EDITABLE_TERRAIN_TABLE_IDS = new Set<string>();

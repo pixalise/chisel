@@ -12,7 +12,12 @@ import type {
   TerrainTilesetView
 } from "../../../../shared/terrain-authoring";
 import { resolveApprovedTerrainCell } from "../../../../shared/terrain-approved-overpaint";
-import { finalizeTerrainSlug, isTerrainSlugAvailable, normalizeTerrainSlugDraft } from "../../../../shared/terrain-slug";
+import {
+  finalizeTerrainSlug,
+  isTerrainSlugAvailable,
+  normalizeTerrainSlugDraft,
+  parseTerrainSlugList
+} from "../../../../shared/terrain-slug";
 import { TerrainApprovedMapPreview } from "./terrain-approved-map-preview";
 
 interface TerrainSpatialAnnotationEditorProps {
@@ -108,10 +113,10 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
 
   function addZone(): void {
     if (!selectedLayout) return;
-    let slug = normalizeSlug(zoneSlug) || `ZONE_${selectedLayout.zones.length + 1}`;
+    let slug = normalizeTerrainSlugDraft(zoneSlug) || `ZONE_${selectedLayout.zones.length + 1}`;
     let suffix = 2;
     while (selectedLayout.zones.some((zone) => zone.slug === slug)) {
-      slug = `${normalizeSlug(zoneSlug) || "ZONE"}_${suffix}`;
+      slug = `${normalizeTerrainSlugDraft(zoneSlug) || "ZONE"}_${suffix}`;
       suffix += 1;
     }
     updateLayout({ zones: [...selectedLayout.zones, { slug, kind: zoneKind, cells: [], tags: [], ruleSet: "" }] });
@@ -142,12 +147,12 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
             `MARKER_${markerKind}_${ordinal}`,
             selectedLayout.markers.map((marker) => marker.slug)
           ),
-          kind: normalizeSlug(markerKind) || "POI",
+          kind: normalizeTerrainSlugDraft(markerKind) || "POI",
           x: selectedX,
           y: selectedY,
           radius: markerRadius,
           direction: markerDirection,
-          tags: slugList(markerTags)
+          tags: parseTerrainSlugList(markerTags)
         }
       ]
     });
@@ -171,9 +176,9 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
           height: placementHeight,
           orientation: placementOrientation,
           contentTable: placementMode === "FIXED" ? placementTable.trim() : "",
-          contentSlug: placementMode === "FIXED" ? normalizeSlug(placementContent) : "",
-          ruleSet: placementMode === "RULE" ? normalizeSlug(placementRuleSet) : "",
-          tags: slugList(placementTags)
+          contentSlug: placementMode === "FIXED" ? normalizeTerrainSlugDraft(placementContent) : "",
+          ruleSet: placementMode === "RULE" ? normalizeTerrainSlugDraft(placementRuleSet) : "",
+          tags: parseTerrainSlugList(placementTags)
         }
       ]
     });
@@ -401,7 +406,7 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                         onChange={(event) =>
                           updateLayout({
                             zones: selectedLayout.zones.map((zone, index) =>
-                              index === activeZoneIndex ? { ...zone, tags: slugList(event.target.value) } : zone
+                              index === activeZoneIndex ? { ...zone, tags: parseTerrainSlugList(event.target.value) } : zone
                             )
                           })
                         }
@@ -414,7 +419,7 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                         onChange={(event) =>
                           updateLayout({
                             zones: selectedLayout.zones.map((zone, index) =>
-                              index === activeZoneIndex ? { ...zone, ruleSet: normalizeSlug(event.target.value) } : zone
+                              index === activeZoneIndex ? { ...zone, ruleSet: normalizeTerrainSlugDraft(event.target.value) } : zone
                             )
                           })
                         }
@@ -518,8 +523,8 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                     selectedX + placementWidth > asset.width ||
                     selectedY + placementHeight > asset.height ||
                     (placementMode === "FIXED"
-                      ? !placementTable.trim() || !normalizeSlug(placementContent)
-                      : !normalizeSlug(placementRuleSet))
+                      ? !placementTable.trim() || !normalizeTerrainSlugDraft(placementContent)
+                      : !normalizeTerrainSlugDraft(placementRuleSet))
                   }
                   onClick={addPlacement}
                   size="sm"
@@ -537,19 +542,8 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
   );
 };
 
-function normalizeSlug(value: string): string {
-  return value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/^_+/, "");
-}
-
-function slugList(value: string): string[] {
-  return value.split(",").map(normalizeSlug).filter(Boolean);
-}
-
 function uniqueSlug(base: string, existing: string[]): string {
-  const normalized = normalizeSlug(base);
+  const normalized = normalizeTerrainSlugDraft(base);
   if (!existing.includes(normalized)) return normalized;
   let index = 2;
   while (existing.includes(`${normalized}_${index}`)) index += 1;

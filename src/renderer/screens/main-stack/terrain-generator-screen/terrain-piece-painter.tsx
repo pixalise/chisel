@@ -16,6 +16,7 @@ import {
   type TerrainTileRef,
   type TerrainTilesetView
 } from "../../../../shared/terrain-authoring";
+import { parseTerrainSlugList } from "../../../../shared/terrain-slug";
 import { drawTerrainCell } from "./terrain-rendering";
 
 interface TerrainPiecePainterProps {
@@ -368,7 +369,7 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
               <Label className="space-y-1 text-xs">
                 Semantic flags
                 <Input
-                  onChange={(event) => updateCell({ semanticFlags: slugList(event.target.value) })}
+                  onChange={(event) => updateCell({ semanticFlags: parseTerrainSlugList(event.target.value) })}
                   value={selectedCell.semanticFlags.join(", ")}
                 />
               </Label>
@@ -379,15 +380,3 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
     </div>
   );
 };
-
-function slugList(value: string): string[] {
-  return value
-    .split(",")
-    .map((entry) =>
-      entry
-        .trim()
-        .toUpperCase()
-        .replace(/[^A-Z0-9]+/g, "_")
-    )
-    .filter(Boolean);
-}

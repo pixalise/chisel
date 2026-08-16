@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Check } from "lucide-react";
 import { type FC, useEffect, useRef, useState } from "react";
 import type { TerrainApprovedAsset, TerrainTilesetView } from "../../../../shared/terrain-authoring";
+import { normalizeTerrainSlugDraft } from "../../../../shared/terrain-slug";
 import { freezeTerrainCandidate, type TerrainCandidate, type TerrainCandidateResult } from "../../../../shared/terrain-wfc";
 import { drawTerrainCell } from "./terrain-rendering";
 
@@ -146,7 +147,7 @@ export const TerrainCandidateBatch: FC<TerrainCandidateBatchProps> = (props) => 
         <div className="grid gap-2 rounded border border-border p-3 md:grid-cols-[1fr_10rem_auto] md:items-end">
           <Label className="space-y-1 text-xs">
             Approved asset slug
-            <Input onChange={(event) => setSlug(normalizeSlug(event.target.value))} value={slug} />
+            <Input onChange={(event) => setSlug(normalizeTerrainSlugDraft(event.target.value))} value={slug} />
           </Label>
           <Label className="space-y-1 text-xs">
             Kind
@@ -167,10 +168,3 @@ export const TerrainCandidateBatch: FC<TerrainCandidateBatchProps> = (props) => 
     </div>
   );
 };
-
-function normalizeSlug(value: string): string {
-  return value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/^_+/, "");
-}
