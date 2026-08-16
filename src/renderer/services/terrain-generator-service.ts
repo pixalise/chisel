@@ -76,6 +76,30 @@ function idsBySlug(table: SystemDataTable): Map<string, string> {
   return new Map(table.rows.map((entry) => [entry.slug, entry.id]));
 }
 
+function parseApprovedAssets(assets: TerrainApprovedAsset[]): TerrainApprovedAsset[] {
+  assertUniqueTerrainSlugs(
+    "approved asset",
+    assets.map((entry) => entry.slug)
+  );
+  return assets.map((entry) => terrainApprovedAssetSchema.parse(entry));
+}
+
+function approvedAssetRows(assets: TerrainApprovedAsset[], table: SystemDataTable): DataTableRow[] {
+  const approvedIds = idsBySlug(table);
+  return assets.map((entry) => {
+    const { slug, ...definition } = entry;
+    return row(
+      slug,
+      [
+        rowValue(TERRAIN_APPROVED_ASSET_COLUMNS.kind, entry.kind),
+        rowValue(TERRAIN_APPROVED_ASSET_COLUMNS.sourceTemplate, entry.sourceTemplate),
+        rowValue(TERRAIN_APPROVED_ASSET_COLUMNS.definition, definition)
+      ],
+      approvedIds.get(slug)
+    );
+  });
+}
+
 class TerrainGeneratorService {
   private async systemTable(id: string): Promise<SystemDataTable> {
     const table = await tableService.getById(id);
@@ -291,10 +315,6 @@ class TerrainGeneratorService {
       workspace.templates.map((entry) => entry.slug)
     );
     assertUniqueTerrainSlugs(
-      "approved asset",
-      workspace.approvedAssets.map((entry) => entry.slug)
-    );
-    assertUniqueTerrainSlugs(
       "spatial layout",
       workspace.spatialLayouts.map((entry) => entry.slug)
     );
@@ -317,7 +337,7 @@ class TerrainGeneratorService {
     const pieceSets = workspace.pieceSets.map((entry) => terrainPieceSetSchema.parse(entry));
     const overrides = workspace.adjacencyOverrides.map((entry) => terrainAdjacencyOverrideSchema.parse(entry));
     const templates = workspace.templates.map((entry) => terrainSiteTemplateSchema.parse(entry));
-    const approvedAssets = workspace.approvedAssets.map((entry) => terrainApprovedAssetSchema.parse(entry));
+    const approvedAssets = parseApprovedAssets(workspace.approvedAssets);
     const spatialLayouts = workspace.spatialLayouts.map((entry) => terrainSpatialLayoutSchema.parse(entry));
     const [bindingsTable, socketsTable, piecesTable, pieceSetsTable, overridesTable, templatesTable, approvedTable, layoutsTable] =
       await Promise.all([
@@ -397,19 +417,7 @@ class TerrainGeneratorService {
         templateIds.get(slug)
       );
     });
-    const approvedIds = idsBySlug(approvedTable);
-    const approvedRows = approvedAssets.map((entry) => {
-      const { slug, ...definition } = entry;
-      return row(
-        slug,
-        [
-          rowValue(TERRAIN_APPROVED_ASSET_COLUMNS.kind, entry.kind),
-          rowValue(TERRAIN_APPROVED_ASSET_COLUMNS.sourceTemplate, entry.sourceTemplate),
-          rowValue(TERRAIN_APPROVED_ASSET_COLUMNS.definition, definition)
-        ],
-        approvedIds.get(slug)
-      );
-    });
+    const approvedRows = approvedAssetRows(approvedAssets, approvedTable);
     const layoutIds = idsBySlug(layoutsTable);
     const layoutRows = spatialLayouts.map((entry) => {
       const { slug, ...definition } = entry;
@@ -433,9 +441,11 @@ class TerrainGeneratorService {
     return this.load();
   }
 
-  public async saveApprovedAssets(assets: TerrainApprovedAsset[]): Promise<TerrainWorkspaceView> {
-    const workspace = await this.load();
-    return this.save({ ...workspace, approvedAssets: assets });
+  public async addApprovedAsset(existingAssets: TerrainApprovedAsset[], asset: TerrainApprovedAsset): Promise<TerrainApprovedAsset[]> {
+    const approvedAssets = parseApprovedAssets([...existingAssets, asset]);
+    const approvedTable = await this.systemTable(TERRAIN_APPROVED_ASSETS_TABLE_ID);
+    await tableService.saveSystemTableRows(TERRAIN_APPROVED_ASSETS_TABLE_ID, approvedAssetRows(approvedAssets, approvedTable));
+    return approvedAssets;
   }
 
   public async saveSpatialLayouts(spatialLayouts: TerrainWorkspaceView["spatialLayouts"]): Promise<TerrainWorkspaceView> {

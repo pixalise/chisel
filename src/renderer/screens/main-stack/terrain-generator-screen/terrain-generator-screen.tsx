@@ -3,7 +3,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RouteEnum } from "@/constants/route-enum";
 import { TerrainCandidateBatch } from "@/screens/main-stack/terrain-generator-screen/terrain-candidate-batch";
 import { TerrainCompatibilityInspector } from "@/screens/main-stack/terrain-generator-screen/terrain-compatibility-inspector";
 import { TerrainPieceEditor } from "@/screens/main-stack/terrain-generator-screen/terrain-piece-editor";
@@ -16,7 +15,6 @@ import { TerrainTileCatalog } from "@/screens/main-stack/terrain-generator-scree
 import terrainGeneratorService from "@/services/terrain-generator-service";
 import { AlertTriangle, Dices, Layers3, Library, Save, Tags } from "lucide-react";
 import { type FC, useEffect, useState } from "react";
-import { useNavigate } from "react-router";
 import type {
   TerrainApprovedAsset,
   TerrainPiece,
@@ -41,7 +39,6 @@ function randomTerrainSeed(): number {
 }
 
 export const TerrainGeneratorScreen: FC = () => {
-  const navigate = useNavigate();
   const [workspace, setWorkspace] = useState<TerrainWorkspaceView>();
   const [activePage, setActivePage] = useState<TerrainPage>("catalog");
   const [selectedPieceIndex, setSelectedPieceIndex] = useState<number>();
@@ -163,9 +160,8 @@ export const TerrainGeneratorScreen: FC = () => {
       if (workspace.approvedAssets.some((entry) => entry.slug === asset.slug)) {
         throw new Error(`Approved asset '${asset.slug}' already exists`);
       }
-      const saved = await terrainGeneratorService.saveApprovedAssets([...workspace.approvedAssets, asset]);
-      setWorkspace(saved);
-      void navigate(RouteEnum.terrainAnnotations);
+      const approvedAssets = await terrainGeneratorService.addApprovedAsset(workspace.approvedAssets, asset);
+      setWorkspace((current) => (current ? { ...current, approvedAssets } : current));
       setMessage(`Frozen approved ${asset.kind.toLowerCase()} '${asset.slug}'.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));

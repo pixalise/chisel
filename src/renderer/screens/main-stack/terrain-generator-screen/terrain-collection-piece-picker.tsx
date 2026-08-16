@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { type FC, useMemo, useState } from "react";
@@ -57,8 +58,8 @@ export const TerrainCollectionPiecePicker: FC<TerrainCollectionPiecePickerProps>
   }
 
   function updateWeight(piece: TerrainPiece, weight: number): void {
-    if (!Number.isFinite(weight) || weight <= 0) return;
-    onChange(selectedPieceSlugs, { ...pieceWeights, [piece.slug]: Math.min(weight, 1_000_000) });
+    if (!Number.isFinite(weight)) return;
+    onChange(selectedPieceSlugs, { ...pieceWeights, [piece.slug]: Math.max(0, Math.min(weight, 1)) });
   }
 
   return (
@@ -155,17 +156,21 @@ export const TerrainCollectionPiecePicker: FC<TerrainCollectionPiecePickerProps>
                   </div>
                 </button>
                 {active && (
-                  <label className="flex items-center justify-between gap-2 border-t border-border pt-2 text-[11px] font-medium">
-                    Collection weight
-                    <Input
+                  <label className="block space-y-2 border-t border-border pt-2 text-[11px] font-medium">
+                    <span className="flex items-center justify-between gap-2">
+                      Collection weight
+                      <output className="font-mono text-muted-foreground">{weight.toFixed(2)}</output>
+                    </span>
+                    <Slider
                       aria-label={`${piece.slug} collection weight`}
-                      className="h-7 w-24"
-                      max={1_000_000}
-                      min={0.001}
-                      onChange={(event) => updateWeight(piece, event.currentTarget.valueAsNumber)}
-                      step="0.1"
-                      type="number"
-                      value={weight}
+                      max={1}
+                      min={0}
+                      onValueChange={(value) => updateWeight(piece, value[0] ?? 0)}
+                      rangeClassName="!rounded-full bg-primary/90"
+                      step={0.01}
+                      thumbClassName="h-4 w-4 !rounded-full border-2 border-background bg-primary shadow-[0_0_0_1px_var(--border)]"
+                      trackClassName="h-2 !rounded-full border border-border bg-input"
+                      value={[weight]}
                     />
                   </label>
                 )}

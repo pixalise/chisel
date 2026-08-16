@@ -61,7 +61,7 @@ A piece is a rectangular module from 1×1 through 8×8 cells. It contains:
 - one or more render layers; the first layer may remain unpainted for an intentional logical-only cell;
 - an explicit socket for every segment along its north, east, south, and west edges;
 - optional rotations and reflections;
-- a positive legacy/default selection weight, overridden by collection-specific weights;
+- a normalized default selection weight from `0` to `1`, overridden by collection-specific weights;
 - biome tags, site tags, semantic flags, and an optional mutation family;
 - per-cell movement blocking, elevation, and semantic flags.
 
@@ -92,7 +92,7 @@ Prefer meaningful sockets over a large exception list.
 
 A collection is the complete vocabulary available to one solve. Use collections to make biome densities and transition families explicit without duplicating tiles or generator code.
 
-Collection setup lists every valid authored piece—both 1×1 tiles and larger modules—as a visual card. Search by slug, dimensions, tags, or mutation family; filter cards by active/inactive status; and click a card to toggle whether that piece participates in the collection. Every active card has a positive relative weight scoped to that collection, so the same piece can be common in one solve and rare in another. A collection must retain at least one active piece.
+Collection setup lists every valid authored piece—both 1×1 tiles and larger modules—as a visual card. Search by slug, dimensions, tags, or mutation family; filter cards by active/inactive status; and click a card to toggle whether that piece participates in the collection. Every active card has a draggable relative weight from `0` to `1` scoped to that collection, so the same piece can be common in one solve and rare in another. Zero-weight pieces are never selected by the solver, and a collection must retain at least one positive-weight piece.
 
 Weights are normalized by module area, so a large module does not become disproportionately common merely because it occupies more cells.
 

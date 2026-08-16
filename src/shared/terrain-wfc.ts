@@ -324,6 +324,9 @@ export function compileTerrainPieceLibrary(
       }
     }
   }
+  if (!states.some((state) => state.weight > 0)) {
+    throw new Error(`Terrain collection '${parsedPieceSet.slug}' must give at least one piece a weight above zero`);
+  }
   const adjacency = Object.fromEntries(terrainDirections.map((direction) => [direction, states.map(() => [] as number[])])) as Record<
     TerrainDirection,
     number[][]
@@ -395,6 +398,7 @@ function solveLibrary(
         return new Set(
           library.states
             .filter((state) => {
+              if (state.weight === 0) return false;
               const anchorX = x - state.partX;
               const anchorY = y - state.partY;
               return (

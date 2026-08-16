@@ -73,7 +73,7 @@ describe("Simple-Tiled socket WFC", () => {
       sockets: { north: ["GROUND", "GROUND"], east: ["GROUND"], south: ["GROUND", "GROUND"], west: ["GROUND"] },
       allowRotations: true,
       allowReflections: false,
-      weight: 10,
+      weight: 1,
       biomeTags: [],
       siteTags: [],
       semanticFlags: [],
@@ -91,16 +91,43 @@ describe("Simple-Tiled socket WFC", () => {
   });
 
   it("uses collection-specific piece weights independently of piece defaults and orientation count", () => {
-    const common = piece("COMMON", 0, "GROUND", { weight: 50 });
-    const rare = piece("RARE", 1, "GROUND", { weight: 50 });
+    const common = piece("COMMON", 0, "GROUND", { weight: 0.5 });
+    const rare = piece("RARE", 1, "GROUND", { weight: 0.5 });
     common.allowRotations = true;
-    const library = compileTerrainPieceLibrary([common, rare], set("WEIGHTED", [common.slug, rare.slug], { COMMON: 8, RARE: 2 }), []);
+    const library = compileTerrainPieceLibrary([common, rare], set("WEIGHTED", [common.slug, rare.slug], { COMMON: 0.8, RARE: 0.2 }), []);
     const commonStates = library.states.filter((state) => state.pieceSlug === common.slug);
     const rareStates = library.states.filter((state) => state.pieceSlug === rare.slug);
     expect(commonStates).toHaveLength(4);
-    expect(commonStates.every((state) => state.weight === 2)).toBe(true);
+    expect(commonStates.every((state) => state.weight === 0.2)).toBe(true);
     expect(rareStates).toHaveLength(1);
-    expect(rareStates[0].weight).toBe(2);
+    expect(rareStates[0].weight).toBe(0.2);
+  });
+
+  it("excludes zero-weight pieces from random generation", () => {
+    const enabled = piece("ENABLED", 0, "GROUND");
+    const disabled = piece("DISABLED", 1, "GROUND");
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: [enabled, disabled],
+        pieceSets: [set("WEIGHTED", [enabled.slug, disabled.slug], { ENABLED: 1, DISABLED: 0 })],
+        adjacencyOverrides: [],
+        tileBindings: bindings()
+      },
+      {
+        slug: "WEIGHTED_SITE",
+        width: 3,
+        height: 3,
+        pieceSet: "WEIGHTED",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells: createTerrainTemplateCells(3, 3),
+        anchors: [],
+        stamps: [],
+        zones: []
+      },
+      1
+    );
+    expect(new Set(candidate.cellMetadata.map((cell) => cell.piece))).toEqual(new Set(["ENABLED"]));
   });
 
   it("generates logical cells whose first render layer is intentionally unpainted", () => {
@@ -146,7 +173,7 @@ describe("Simple-Tiled socket WFC", () => {
 
   it("generates deterministically and preserves frozen approval", () => {
     const ground = piece("GROUND", 0, "GROUND", { semanticFlags: ["WALKABLE"] });
-    const alternate = piece("ALT", 1, "GROUND", { weight: 2, semanticFlags: ["WALKABLE"] });
+    const alternate = piece("ALT", 1, "GROUND", { weight: 0.2, semanticFlags: ["WALKABLE"] });
     const template: TerrainSiteTemplate = {
       slug: "SITE",
       width: 5,

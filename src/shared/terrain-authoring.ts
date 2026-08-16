@@ -45,7 +45,7 @@ export type TerrainSocketDefinition = z.infer<typeof terrainSocketDefinitionSche
 
 export const terrainPieceDimensionSchema = z.number().int().min(1).max(8);
 export type TerrainPieceDimension = z.infer<typeof terrainPieceDimensionSchema>;
-export const terrainPieceWeightSchema = z.number().positive().max(1_000_000);
+export const terrainPieceWeightSchema = z.number().min(0).max(1);
 
 export const terrainPieceCellSchema = z
   .object({

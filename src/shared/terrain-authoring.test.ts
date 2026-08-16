@@ -89,17 +89,26 @@ describe("socket terrain authoring contract", () => {
     ).toMatchObject({ slug: "LOGICAL_WATER", cells: [{ tiles: [null], semanticFlags: ["WATER"] }] });
   });
 
-  it("defaults legacy collection weights and accepts per-collection overrides", () => {
-    expect(terrainPieceSetSchema.parse({ slug: "LEGACY", pieceSlugs: ["GROUND"], biomeTags: [], siteTags: [] }).pieceWeights).toEqual({});
+  it("defaults omitted collection weights and accepts normalized per-collection overrides", () => {
+    expect(terrainPieceSetSchema.parse({ slug: "DEFAULT", pieceSlugs: ["GROUND"], biomeTags: [], siteTags: [] }).pieceWeights).toEqual({});
     expect(
       terrainPieceSetSchema.parse({
         slug: "WEIGHTED",
         pieceSlugs: ["GROUND", "ROCK"],
-        pieceWeights: { GROUND: 8, ROCK: 1 },
+        pieceWeights: { GROUND: 0.8, ROCK: 0 },
         biomeTags: [],
         siteTags: []
       }).pieceWeights
-    ).toEqual({ GROUND: 8, ROCK: 1 });
+    ).toEqual({ GROUND: 0.8, ROCK: 0 });
+    expect(() =>
+      terrainPieceSetSchema.parse({
+        slug: "INVALID_WEIGHT",
+        pieceSlugs: ["GROUND"],
+        pieceWeights: { GROUND: 1.01 },
+        biomeTags: [],
+        siteTags: []
+      })
+    ).toThrow();
   });
 
   it("appends a transparent render layer without changing piece metadata", () => {
