@@ -473,13 +473,13 @@ class TerrainGeneratorService {
     });
     await tableService.saveSystemTableRows(TERRAIN_TILE_BINDINGS_TABLE_ID, bindingRows);
     await tableService.saveSystemTableRows(TERRAIN_SOCKETS_TABLE_ID, socketRows);
+    await tableService.saveSystemTableRows(TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID, overrideRows);
     await tableService.saveSystemTableRows(TERRAIN_PIECES_TABLE_ID, pieceRows);
     await tableService.saveSystemTableRows(TERRAIN_PIECE_SETS_TABLE_ID, setRows);
-    await tableService.saveSystemTableRows(TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID, overrideRows);
-    await tableService.saveSystemTableRows(TERRAIN_SITE_TEMPLATES_TABLE_ID, templateRows);
     await tableService.saveSystemTableRows(TERRAIN_ANNOTATIONS_TABLE_ID, annotationRows);
     await tableService.saveSystemTableRows(TERRAIN_SPATIAL_LAYOUTS_TABLE_ID, layoutRows);
     await tableService.saveSystemTableRows(TERRAIN_APPROVED_ASSETS_TABLE_ID, approvedRows);
+    await tableService.saveSystemTableRows(TERRAIN_SITE_TEMPLATES_TABLE_ID, templateRows);
     return this.load();
   }
 

@@ -22,6 +22,7 @@ import {
 } from "../../../../shared/terrain-collision";
 import { parseTerrainSlugList } from "../../../../shared/terrain-slug";
 import { TerrainApprovedMapPreview } from "./terrain-approved-map-preview";
+import { TerrainMapZoomControl, terrainMapZoomDefault } from "./terrain-map-zoom-control";
 
 interface TerrainApprovedOverpaintEditorProps {
   asset: TerrainApprovedAsset;
@@ -39,6 +40,7 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
   const [collisionResolution, setCollisionResolution] = useState(1);
   const [orientation, setOrientation] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [zoom, setZoom] = useState(terrainMapZoomDefault);
   const boundedSelectedIndex = Math.min(selectedIndex, asset.cells.length - 1);
   const selectedCell = resolveApprovedTerrainCell(asset, boundedSelectedIndex);
   const selectedOverride = approvedTerrainOverride(asset, boundedSelectedIndex);
@@ -95,7 +97,7 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-border p-3">
+    <div className="min-w-0 space-y-3 rounded-md border border-border p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">Approved terrain polish</h3>
@@ -134,6 +136,7 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
           </Button>
         </div>
         <div className="flex flex-wrap items-end gap-2">
+          <TerrainMapZoomControl onChange={setZoom} value={zoom} />
           {brushMode === "collision" && (
             <Label className="space-y-1 text-xs">
               Detail
@@ -189,16 +192,16 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
             : "Choose collision detail per tile. Left-drag blocks subcells; right-drag or Ctrl-drag clears them."}
         </p>
       </div>
-      <div className="overflow-auto rounded-md bg-slate-950 p-3">
+      <div className="overflow-x-auto overflow-y-hidden rounded-md bg-slate-950 p-3">
         <TerrainApprovedMapPreview
           asset={asset}
-          maxSize={640}
           onPaintCell={paint}
           onSelectCell={setSelectedIndex}
           paintResolution={brushMode === "collision" ? collisionResolution : 1}
           selectedIndex={boundedSelectedIndex}
           showOverrideMarkers
           tilesets={tilesets}
+          zoom={zoom}
         />
       </div>
       <div className="grid gap-3 rounded border border-border p-3 md:grid-cols-2 xl:grid-cols-4">

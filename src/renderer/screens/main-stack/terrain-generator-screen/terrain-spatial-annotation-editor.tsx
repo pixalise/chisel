@@ -12,6 +12,7 @@ import { resolveApprovedTerrainCell } from "../../../../shared/terrain-approved-
 import { hasTerrainCollision } from "../../../../shared/terrain-collision";
 import { setTerrainCellAnnotation } from "../../../../shared/terrain-cell-annotations";
 import { TerrainApprovedMapPreview } from "./terrain-approved-map-preview";
+import { TerrainMapZoomControl, terrainMapZoomDefault } from "./terrain-map-zoom-control";
 
 interface TerrainSpatialAnnotationEditorProps {
   annotations: TerrainAnnotationDefinition[];
@@ -25,6 +26,7 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
   const { annotations, asset, layouts, onChange, tilesets } = props;
   const [selectedAnnotationIndex, setSelectedAnnotationIndex] = useState<number | undefined>(annotations.length > 0 ? 0 : undefined);
   const [selectedCellIndex, setSelectedCellIndex] = useState(0);
+  const [zoom, setZoom] = useState(terrainMapZoomDefault);
   const layoutIndex = layouts.findIndex((layout) => layout.sourceAsset === asset.slug);
   const layout = layoutIndex >= 0 ? layouts[layoutIndex] : undefined;
   const selectedAnnotation = typeof selectedAnnotationIndex === "number" ? annotations[selectedAnnotationIndex] : undefined;
@@ -63,7 +65,7 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-border p-3">
+    <div className="min-w-0 space-y-3 rounded-md border border-border p-3">
       <div>
         <h3 className="text-sm font-semibold">Cell annotation editor</h3>
         <p className="text-xs text-muted-foreground">
@@ -78,23 +80,26 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
       {annotations.length > 0 && (
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0 space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {annotations.map((annotation, index) => (
-                <Button
-                  className={cn(selectedAnnotationIndex === index && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
-                  key={index}
-                  onClick={() => setSelectedAnnotationIndex(index)}
-                  size="sm"
-                  style={{ borderColor: annotation.color }}
-                  type="button"
-                  variant="outline"
-                >
-                  <span className="size-3 rounded-sm" style={{ backgroundColor: annotation.color }} />
-                  {annotation.slug}
-                </Button>
-              ))}
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="flex flex-wrap gap-2">
+                {annotations.map((annotation, index) => (
+                  <Button
+                    className={cn(selectedAnnotationIndex === index && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+                    key={index}
+                    onClick={() => setSelectedAnnotationIndex(index)}
+                    size="sm"
+                    style={{ borderColor: annotation.color }}
+                    type="button"
+                    variant="outline"
+                  >
+                    <span className="size-3 rounded-sm" style={{ backgroundColor: annotation.color }} />
+                    {annotation.slug}
+                  </Button>
+                ))}
+              </div>
+              <TerrainMapZoomControl onChange={setZoom} value={zoom} />
             </div>
-            <div className="overflow-auto rounded-md bg-slate-950 p-3">
+            <div className="overflow-x-auto overflow-y-hidden rounded-md bg-slate-950 p-3">
               <TerrainApprovedMapPreview
                 annotations={annotations}
                 asset={asset}
@@ -103,6 +108,7 @@ export const TerrainSpatialAnnotationEditor: FC<TerrainSpatialAnnotationEditorPr
                 onSelectCell={setSelectedCellIndex}
                 selectedIndex={boundedCellIndex}
                 tilesets={tilesets}
+                zoom={zoom}
               />
             </div>
           </div>

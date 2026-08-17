@@ -1,4 +1,5 @@
 import { type FC, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import type {
   TerrainAnnotationDefinition,
   TerrainApprovedAsset,
@@ -19,6 +20,7 @@ interface TerrainApprovedMapPreviewProps {
   selectedIndex?: number;
   showOverrideMarkers?: boolean;
   tilesets: TerrainTilesetView[];
+  zoom?: number;
 }
 
 interface PointerState {
@@ -44,14 +46,27 @@ export const TerrainApprovedMapPreview: FC<TerrainApprovedMapPreviewProps> = (pr
     paintResolution = 1,
     selectedIndex,
     showOverrideMarkers,
-    tilesets
+    tilesets,
+    zoom
   } = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const images = useRef(new Map<string, HTMLImageElement>());
   const pointerState = useRef<PointerState>();
   const lastTarget = useRef("");
   const [imageRevision, setImageRevision] = useState(0);
-  const cellSize = Math.max(4, Math.min(36, Math.floor(maxSize / Math.max(asset.width, asset.height))));
+  const referencedTilesetIds = new Set(
+    [...asset.cells, ...asset.cellOverrides.map((override) => override.tiles)].flatMap((stack) =>
+      stack.flatMap((tile) => (tile ? [tile.tilesetId] : []))
+    )
+  );
+  const referencedTileSizes = tilesets.filter((tileset) => referencedTilesetIds.has(tileset.id)).map((tileset) => tileset.tileSize);
+  const nativeCellSize = Math.max(
+    ...(referencedTileSizes.length > 0 ? referencedTileSizes : tilesets.map((tileset) => tileset.tileSize)),
+    1
+  );
+  const cellSize = zoom
+    ? Math.max(1, Math.round((nativeCellSize * zoom) / 100))
+    : Math.max(4, Math.min(36, Math.floor(maxSize / Math.max(asset.width, asset.height))));
 
   useEffect(() => {
     images.current.clear();
@@ -218,7 +233,10 @@ export const TerrainApprovedMapPreview: FC<TerrainApprovedMapPreviewProps> = (pr
   return (
     <canvas
       aria-label={`${asset.slug} approved map preview`}
-      className="mx-auto block max-w-full touch-none [image-rendering:pixelated] data-[paintable=true]:cursor-crosshair"
+      className={cn(
+        "mx-auto block touch-none [image-rendering:pixelated] data-[paintable=true]:cursor-crosshair",
+        zoom ? "max-w-none" : "max-w-full"
+      )}
       data-paintable={Boolean(onPaintCell)}
       onContextMenu={(event) => event.preventDefault()}
       onPointerCancel={pointerUp}
