@@ -8,6 +8,8 @@ import {
   TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID,
   TERRAIN_APPROVED_ASSET_COLUMNS,
   TERRAIN_APPROVED_ASSETS_TABLE_ID,
+  TERRAIN_ANNOTATION_COLUMNS,
+  TERRAIN_ANNOTATIONS_TABLE_ID,
   TERRAIN_PIECE_COLUMNS,
   TERRAIN_PIECES_TABLE_ID,
   TERRAIN_PIECE_SET_COLUMNS,
@@ -23,6 +25,7 @@ import {
 } from "../../shared/terrain-tables";
 import {
   terrainAdjacencyOverrideSchema,
+  terrainAnnotationDefinitionSchema,
   terrainApprovedAssetSchema,
   terrainPieceSchema,
   terrainPieceSetSchema,
@@ -108,18 +111,29 @@ class TerrainGeneratorService {
   }
 
   public async load(): Promise<TerrainWorkspaceView> {
-    const [assets, bindingsTable, socketsTable, piecesTable, pieceSetsTable, overridesTable, templatesTable, approvedTable, layoutsTable] =
-      await Promise.all([
-        assetService.getAllAssets(),
-        this.systemTable(TERRAIN_TILE_BINDINGS_TABLE_ID),
-        this.systemTable(TERRAIN_SOCKETS_TABLE_ID),
-        this.systemTable(TERRAIN_PIECES_TABLE_ID),
-        this.systemTable(TERRAIN_PIECE_SETS_TABLE_ID),
-        this.systemTable(TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID),
-        this.systemTable(TERRAIN_SITE_TEMPLATES_TABLE_ID),
-        this.systemTable(TERRAIN_APPROVED_ASSETS_TABLE_ID),
-        this.systemTable(TERRAIN_SPATIAL_LAYOUTS_TABLE_ID)
-      ]);
+    const [
+      assets,
+      bindingsTable,
+      socketsTable,
+      piecesTable,
+      pieceSetsTable,
+      overridesTable,
+      templatesTable,
+      approvedTable,
+      annotationsTable,
+      layoutsTable
+    ] = await Promise.all([
+      assetService.getAllAssets(),
+      this.systemTable(TERRAIN_TILE_BINDINGS_TABLE_ID),
+      this.systemTable(TERRAIN_SOCKETS_TABLE_ID),
+      this.systemTable(TERRAIN_PIECES_TABLE_ID),
+      this.systemTable(TERRAIN_PIECE_SETS_TABLE_ID),
+      this.systemTable(TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID),
+      this.systemTable(TERRAIN_SITE_TEMPLATES_TABLE_ID),
+      this.systemTable(TERRAIN_APPROVED_ASSETS_TABLE_ID),
+      this.systemTable(TERRAIN_ANNOTATIONS_TABLE_ID),
+      this.systemTable(TERRAIN_SPATIAL_LAYOUTS_TABLE_ID)
+    ]);
     const projectPath = appStore.getState().computed.project.path;
     const tilesets = assets
       .filter((asset) => asset.category === AssetCategoryEnum.tileset)
@@ -180,6 +194,12 @@ class TerrainGeneratorService {
         terrainApprovedAssetSchema.parse({ ...(cell(entry, TERRAIN_APPROVED_ASSET_COLUMNS.definition) as object), slug: entry.slug })
       )
     );
+    const annotations = annotationsTable.rows.map((entry) =>
+      terrainAnnotationDefinitionSchema.parse({
+        slug: entry.slug,
+        color: stringCell(entry, TERRAIN_ANNOTATION_COLUMNS.color)
+      })
+    );
     const spatialLayouts = layoutsTable.rows.map((entry) =>
       terrainSpatialLayoutSchema.parse({ ...(cell(entry, TERRAIN_SPATIAL_LAYOUT_COLUMNS.definition) as object), slug: entry.slug })
     );
@@ -194,24 +214,19 @@ class TerrainGeneratorService {
       ["Adjacency override", adjacencyOverrides.map((entry) => entry.slug)],
       ["Template", templates.map((entry) => entry.slug)],
       ["Approved asset", approvedAssets.map((entry) => entry.slug)],
+      ["Annotation", annotations.map((entry) => entry.slug)],
       ["Spatial layout", spatialLayouts.map((entry) => entry.slug)]
     ] as const) {
       for (const duplicate of duplicateTerrainSlugs(slugs)) problems.push(`${kind} slug '${duplicate}' is duplicated`);
     }
-    for (const layout of spatialLayouts) {
-      for (const [kind, slugs] of [
-        ["zone", layout.zones.map((entry) => entry.slug)],
-        ["marker", layout.markers.map((entry) => entry.slug)],
-        ["placement", layout.placements.map((entry) => entry.slug)]
-      ] as const) {
-        for (const duplicate of duplicateTerrainSlugs(slugs)) {
-          problems.push(`Spatial layout '${layout.slug}' ${kind} slug '${duplicate}' is duplicated`);
-        }
-      }
+    const sourceAssets = spatialLayouts.map((entry) => entry.sourceAsset);
+    for (const duplicate of duplicateTerrainSlugs(sourceAssets)) {
+      problems.push(`Approved asset '${duplicate}' has more than one annotation layout`);
     }
     const socketSlugs = new Set(sockets.map((entry) => entry.slug));
     const pieceSlugs = new Set(pieces.map((entry) => entry.slug));
     const approvedBySlug = new Map(approvedAssets.map((entry) => [entry.slug, entry]));
+    const annotationSlugs = new Set(annotations.map((entry) => entry.slug));
     const setSlugs = new Set(pieceSets.map((entry) => entry.slug));
     const setsBySlug = new Map(pieceSets.map((entry) => [entry.slug, entry]));
     for (const [key, binding] of Object.entries(tileBindings)) {
@@ -270,23 +285,30 @@ class TerrainGeneratorService {
         problems.push(`Spatial layout '${layout.slug}' references missing approved asset '${layout.sourceAsset}'`);
         continue;
       }
-      for (const zone of layout.zones) {
-        if (zone.cells.some((index) => index >= asset.width * asset.height)) {
-          problems.push(`Spatial layout '${layout.slug}' zone '${zone.slug}' extends outside '${asset.slug}'`);
+      for (const taggedCell of layout.cells) {
+        if (taggedCell.index >= asset.width * asset.height) {
+          problems.push(`Spatial layout '${layout.slug}' cell ${taggedCell.index} extends outside '${asset.slug}'`);
         }
-      }
-      for (const marker of layout.markers) {
-        if (marker.x >= asset.width || marker.y >= asset.height) {
-          problems.push(`Spatial layout '${layout.slug}' marker '${marker.slug}' extends outside '${asset.slug}'`);
-        }
-      }
-      for (const placement of layout.placements) {
-        if (placement.x + placement.width > asset.width || placement.y + placement.height > asset.height) {
-          problems.push(`Spatial layout '${layout.slug}' placement '${placement.slug}' extends outside '${asset.slug}'`);
+        for (const annotation of taggedCell.annotations) {
+          if (!annotationSlugs.has(annotation)) {
+            problems.push(`Spatial layout '${layout.slug}' references missing annotation '${annotation}'`);
+          }
         }
       }
     }
-    return { tilesets, tileBindings, sockets, pieces, pieceSets, adjacencyOverrides, templates, approvedAssets, spatialLayouts, problems };
+    return {
+      tilesets,
+      tileBindings,
+      sockets,
+      pieces,
+      pieceSets,
+      adjacencyOverrides,
+      templates,
+      approvedAssets,
+      annotations,
+      spatialLayouts,
+      problems
+    };
   }
 
   public async save(workspace: TerrainWorkspaceView): Promise<TerrainWorkspaceView> {
@@ -318,38 +340,53 @@ class TerrainGeneratorService {
       "spatial layout",
       workspace.spatialLayouts.map((entry) => entry.slug)
     );
-    for (const layout of workspace.spatialLayouts) {
-      assertUniqueTerrainSlugs(
-        `zone in '${layout.slug}'`,
-        layout.zones.map((entry) => entry.slug)
-      );
-      assertUniqueTerrainSlugs(
-        `marker in '${layout.slug}'`,
-        layout.markers.map((entry) => entry.slug)
-      );
-      assertUniqueTerrainSlugs(
-        `placement in '${layout.slug}'`,
-        layout.placements.map((entry) => entry.slug)
-      );
-    }
+    assertUniqueTerrainSlugs(
+      "annotation",
+      workspace.annotations.map((entry) => entry.slug)
+    );
+    assertUniqueTerrainSlugs(
+      "annotation layout source asset",
+      workspace.spatialLayouts.map((entry) => entry.sourceAsset)
+    );
     const sockets = workspace.sockets.map((entry) => terrainSocketDefinitionSchema.parse(entry));
     const pieces = workspace.pieces.map((entry) => terrainPieceSchema.parse(entry));
     const pieceSets = workspace.pieceSets.map((entry) => terrainPieceSetSchema.parse(entry));
     const overrides = workspace.adjacencyOverrides.map((entry) => terrainAdjacencyOverrideSchema.parse(entry));
     const templates = workspace.templates.map((entry) => terrainSiteTemplateSchema.parse(entry));
     const approvedAssets = parseApprovedAssets(workspace.approvedAssets);
+    const annotations = workspace.annotations.map((entry) => terrainAnnotationDefinitionSchema.parse(entry));
     const spatialLayouts = workspace.spatialLayouts.map((entry) => terrainSpatialLayoutSchema.parse(entry));
-    const [bindingsTable, socketsTable, piecesTable, pieceSetsTable, overridesTable, templatesTable, approvedTable, layoutsTable] =
-      await Promise.all([
-        this.systemTable(TERRAIN_TILE_BINDINGS_TABLE_ID),
-        this.systemTable(TERRAIN_SOCKETS_TABLE_ID),
-        this.systemTable(TERRAIN_PIECES_TABLE_ID),
-        this.systemTable(TERRAIN_PIECE_SETS_TABLE_ID),
-        this.systemTable(TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID),
-        this.systemTable(TERRAIN_SITE_TEMPLATES_TABLE_ID),
-        this.systemTable(TERRAIN_APPROVED_ASSETS_TABLE_ID),
-        this.systemTable(TERRAIN_SPATIAL_LAYOUTS_TABLE_ID)
-      ]);
+    const annotationSlugs = new Set(annotations.map((entry) => entry.slug));
+    for (const layout of spatialLayouts) {
+      for (const taggedCell of layout.cells) {
+        for (const annotation of taggedCell.annotations) {
+          if (!annotationSlugs.has(annotation)) {
+            throw new Error(`Spatial layout '${layout.slug}' references missing annotation '${annotation}'`);
+          }
+        }
+      }
+    }
+    const [
+      bindingsTable,
+      socketsTable,
+      piecesTable,
+      pieceSetsTable,
+      overridesTable,
+      templatesTable,
+      approvedTable,
+      annotationsTable,
+      layoutsTable
+    ] = await Promise.all([
+      this.systemTable(TERRAIN_TILE_BINDINGS_TABLE_ID),
+      this.systemTable(TERRAIN_SOCKETS_TABLE_ID),
+      this.systemTable(TERRAIN_PIECES_TABLE_ID),
+      this.systemTable(TERRAIN_PIECE_SETS_TABLE_ID),
+      this.systemTable(TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID),
+      this.systemTable(TERRAIN_SITE_TEMPLATES_TABLE_ID),
+      this.systemTable(TERRAIN_APPROVED_ASSETS_TABLE_ID),
+      this.systemTable(TERRAIN_ANNOTATIONS_TABLE_ID),
+      this.systemTable(TERRAIN_SPATIAL_LAYOUTS_TABLE_ID)
+    ]);
     const bindingIds = idsBySlug(bindingsTable);
     const bindingRows = Object.entries(workspace.tileBindings).map(([key, binding]) => {
       const separator = key.lastIndexOf(":");
@@ -418,6 +455,10 @@ class TerrainGeneratorService {
       );
     });
     const approvedRows = approvedAssetRows(approvedAssets, approvedTable);
+    const annotationIds = idsBySlug(annotationsTable);
+    const annotationRows = annotations.map((entry) =>
+      row(entry.slug, [rowValue(TERRAIN_ANNOTATION_COLUMNS.color, entry.color)], annotationIds.get(entry.slug))
+    );
     const layoutIds = idsBySlug(layoutsTable);
     const layoutRows = spatialLayouts.map((entry) => {
       const { slug, ...definition } = entry;
@@ -436,6 +477,7 @@ class TerrainGeneratorService {
     await tableService.saveSystemTableRows(TERRAIN_PIECE_SETS_TABLE_ID, setRows);
     await tableService.saveSystemTableRows(TERRAIN_ADJACENCY_OVERRIDES_TABLE_ID, overrideRows);
     await tableService.saveSystemTableRows(TERRAIN_SITE_TEMPLATES_TABLE_ID, templateRows);
+    await tableService.saveSystemTableRows(TERRAIN_ANNOTATIONS_TABLE_ID, annotationRows);
     await tableService.saveSystemTableRows(TERRAIN_SPATIAL_LAYOUTS_TABLE_ID, layoutRows);
     await tableService.saveSystemTableRows(TERRAIN_APPROVED_ASSETS_TABLE_ID, approvedRows);
     return this.load();

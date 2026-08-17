@@ -1,6 +1,6 @@
 import { type FC, useEffect, useRef, useState } from "react";
 import type { TerrainPiece, TerrainTilesetView } from "../../../../shared/terrain-authoring";
-import { drawTerrainCell } from "./terrain-rendering";
+import { drawTerrainCell, drawTerrainCollision } from "./terrain-rendering";
 
 interface TerrainPiecePreviewProps {
   ariaLabel: string;
@@ -70,19 +70,7 @@ export const TerrainPiecePreview: FC<TerrainPiecePreviewProps> = (props) => {
       context.fillStyle = (x + y) % 2 === 0 ? "#252a32" : "#1d222a";
       context.fillRect(left, top, cellSize, cellSize);
       drawTerrainCell(context, cell.tiles, tilesets, images.current, left, top, cellSize);
-      if (showCollision && cell.blocking) {
-        context.fillStyle = "rgba(225, 29, 72, 0.32)";
-        context.fillRect(left, top, cellSize, cellSize);
-        context.strokeStyle = "#fb7185";
-        context.lineWidth = Math.max(1, Math.floor(cellSize / 20));
-        const inset = Math.max(3, Math.floor(cellSize * 0.16));
-        context.beginPath();
-        context.moveTo(left + inset, top + inset);
-        context.lineTo(left + cellSize - inset, top + cellSize - inset);
-        context.moveTo(left + cellSize - inset, top + inset);
-        context.lineTo(left + inset, top + cellSize - inset);
-        context.stroke();
-      }
+      if (showCollision) drawTerrainCollision(context, cell, left, top, cellSize, 0.32);
     });
     context.strokeStyle = "rgba(255,255,255,0.22)";
     context.lineWidth = 1;

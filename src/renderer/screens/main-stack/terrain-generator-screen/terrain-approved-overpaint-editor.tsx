@@ -13,6 +13,13 @@ import {
   revertApprovedTerrainCell,
   setApprovedTerrainCellOverride
 } from "../../../../shared/terrain-approved-overpaint";
+import {
+  hasTerrainCollision,
+  isTerrainCollisionFullyBlocked,
+  setTerrainCollisionCell,
+  terrainCollisionResolutions,
+  terrainCollisionResolutionsUpTo
+} from "../../../../shared/terrain-collision";
 import { parseTerrainSlugList } from "../../../../shared/terrain-slug";
 import { TerrainApprovedMapPreview } from "./terrain-approved-map-preview";
 
@@ -29,6 +36,7 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
   const { asset, onChange, selectedTile, tilesets } = props;
   const [activeLayer, setActiveLayer] = useState(0);
   const [brushMode, setBrushMode] = useState<OverpaintBrushMode>("terrain");
+  const [collisionResolution, setCollisionResolution] = useState(1);
   const [orientation, setOrientation] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const boundedSelectedIndex = Math.min(selectedIndex, asset.cells.length - 1);
@@ -36,13 +44,32 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
   const selectedOverride = approvedTerrainOverride(asset, boundedSelectedIndex);
   const selectedX = boundedSelectedIndex % asset.width;
   const selectedY = Math.floor(boundedSelectedIndex / asset.width);
+  const referencedTilesetIds = new Set(
+    [...asset.cells, ...asset.cellOverrides.map((override) => override.tiles)].flatMap((stack) =>
+      stack.flatMap((tile) => (tile ? [tile.tilesetId] : []))
+    )
+  );
+  const referencedTilesets = tilesets.filter((tileset) => referencedTilesetIds.has(tileset.id));
+  const collisionPixelLimit = Math.min(
+    ...(referencedTilesets.length > 0 ? referencedTilesets : tilesets).map((tileset) => tileset.tileSize),
+    64
+  );
+  const availableCollisionResolutions = terrainCollisionResolutionsUpTo(collisionPixelLimit);
 
   useEffect(() => {
     setActiveLayer((current) => Math.min(current, asset.layerCount - 1));
     setSelectedIndex((current) => Math.min(current, asset.cells.length - 1));
   }, [asset.cells.length, asset.layerCount, asset.slug]);
 
-  function paint(index: number, erase: boolean): void {
+  useEffect(() => {
+    setCollisionResolution((current) =>
+      current <= collisionPixelLimit
+        ? current
+        : ([...terrainCollisionResolutions].reverse().find((value) => value <= collisionPixelLimit) ?? 1)
+    );
+  }, [collisionPixelLimit]);
+
+  function paint(index: number, erase: boolean, collisionX: number, collisionY: number): void {
     const cell = resolveApprovedTerrainCell(asset, index);
     const tiles = [...cell.tiles];
     const metadata = { ...cell.metadata, tags: [...cell.metadata.tags] };
@@ -50,7 +77,9 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
       if (!erase && !selectedTile) return;
       tiles[activeLayer] = erase ? null : { ...selectedTile!, orientation };
     } else {
-      metadata.blocking = !erase;
+      const collision = setTerrainCollisionCell(metadata, collisionResolution, collisionY * collisionResolution + collisionX, !erase);
+      metadata.blocking = collision.blocking;
+      metadata.collision = collision.collision;
     }
     onChange(setApprovedTerrainCellOverride(asset, index, tiles, metadata));
   }
@@ -105,6 +134,24 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
           </Button>
         </div>
         <div className="flex flex-wrap items-end gap-2">
+          {brushMode === "collision" && (
+            <Label className="space-y-1 text-xs">
+              Detail
+              <select
+                aria-label="Approved collision detail"
+                className="block h-8 rounded border border-input bg-background px-2"
+                onChange={(event) => setCollisionResolution(Number(event.target.value))}
+                value={collisionResolution}
+              >
+                {availableCollisionResolutions.map((resolution) => (
+                  <option key={resolution} value={resolution}>
+                    {resolution}×{resolution}
+                    {resolution === 1 ? " · whole tile" : resolution === collisionPixelLimit ? " · pixel" : ""}
+                  </option>
+                ))}
+              </select>
+            </Label>
+          )}
           <Label className="space-y-1 text-xs">
             Layer
             <select
@@ -139,7 +186,7 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
         <p className="w-full text-[11px] text-muted-foreground">
           {brushMode === "terrain"
             ? "Choose a sprite in the palette. Left-drag paints it; right-drag or Ctrl-drag clears the active layer."
-            : "Left-drag makes cells blocking; right-drag or Ctrl-drag makes them walkable."}
+            : "Choose collision detail per tile. Left-drag blocks subcells; right-drag or Ctrl-drag clears them."}
         </p>
       </div>
       <div className="overflow-auto rounded-md bg-slate-950 p-3">
@@ -148,6 +195,7 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
           maxSize={640}
           onPaintCell={paint}
           onSelectCell={setSelectedIndex}
+          paintResolution={brushMode === "collision" ? collisionResolution : 1}
           selectedIndex={boundedSelectedIndex}
           showOverrideMarkers
           tilesets={tilesets}
@@ -159,13 +207,21 @@ export const TerrainApprovedOverpaintEditor: FC<TerrainApprovedOverpaintEditorPr
             Selected cell {selectedX},{selectedY}
           </p>
           <Badge variant={selectedOverride ? "secondary" : "outline"}>{selectedOverride ? "Overridden" : "Generated base"}</Badge>
+          {selectedCell.metadata.collision && (
+            <Badge variant="destructive">
+              {selectedCell.metadata.collision.cells.filter(Boolean).length}/{selectedCell.metadata.collision.cells.length} collision
+            </Badge>
+          )}
+          {!selectedCell.metadata.collision && hasTerrainCollision(selectedCell.metadata) && (
+            <Badge variant="destructive">Fully blocking</Badge>
+          )}
         </div>
         <Label className="flex items-center gap-2 text-sm">
           <Checkbox
-            checked={selectedCell.metadata.blocking}
-            onCheckedChange={(checked) => updateSelectedMetadata({ blocking: checked === true })}
+            checked={isTerrainCollisionFullyBlocked(selectedCell.metadata)}
+            onCheckedChange={(checked) => updateSelectedMetadata({ blocking: checked === true, collision: undefined })}
           />
-          Blocks movement
+          Block entire tile
         </Label>
         <Label className="space-y-1 text-xs">
           Elevation

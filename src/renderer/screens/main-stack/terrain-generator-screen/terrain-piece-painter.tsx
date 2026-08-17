@@ -16,8 +16,16 @@ import {
   type TerrainTileRef,
   type TerrainTilesetView
 } from "../../../../shared/terrain-authoring";
+import {
+  hasTerrainCollision,
+  isTerrainCollisionFullyBlocked,
+  setTerrainCollisionCell,
+  terrainCollisionCoverage,
+  terrainCollisionResolutions,
+  terrainCollisionResolutionsUpTo
+} from "../../../../shared/terrain-collision";
 import { parseTerrainSlugList } from "../../../../shared/terrain-slug";
-import { drawTerrainCell } from "./terrain-rendering";
+import { drawTerrainCell, drawTerrainCollision } from "./terrain-rendering";
 
 interface TerrainPiecePainterProps {
   onChange: (piece: TerrainPiece) => void;
@@ -31,20 +39,31 @@ interface PaintState {
   clear: boolean;
   mode: PieceBrushMode;
   pointerId: number;
+  resolution: number;
+}
+
+interface PaintTarget {
+  cellIndex: number;
+  collisionIndex: number;
+  key: string;
 }
 
 type PieceBrushMode = "terrain" | "collision";
 
 const displayCellSize = 64;
+const socketIndicatorGutter = 8;
+const socketIndicatorOffset = 4;
+const socketIndicatorWidth = 6;
 
 export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
   const { onChange, piece, selectedTile, sockets, tilesets } = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef(new Map<string, HTMLImageElement>());
   const paintRef = useRef<PaintState>();
-  const lastCellRef = useRef(-1);
+  const lastTargetRef = useRef("");
   const [activeLayer, setActiveLayer] = useState(0);
   const [brushMode, setBrushMode] = useState<PieceBrushMode>("terrain");
+  const [collisionResolution, setCollisionResolution] = useState(1);
   const [selectedCellIndex, setSelectedCellIndex] = useState(0);
   const [imageRevision, setImageRevision] = useState(0);
 
@@ -52,6 +71,22 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
     setActiveLayer((current) => Math.min(current, (piece?.layerCount ?? 1) - 1));
     setSelectedCellIndex((current) => Math.min(current, (piece?.cells.length ?? 1) - 1));
   }, [piece?.cells.length, piece?.layerCount, piece?.slug]);
+
+  const referencedTilesetIds = new Set(piece?.cells.flatMap((cell) => cell.tiles.flatMap((tile) => (tile ? [tile.tilesetId] : []))));
+  const referencedTilesets = tilesets.filter((tileset) => referencedTilesetIds.has(tileset.id));
+  const collisionPixelLimit = Math.min(
+    ...(referencedTilesets.length > 0 ? referencedTilesets : tilesets).map((tileset) => tileset.tileSize),
+    64
+  );
+  const availableCollisionResolutions = terrainCollisionResolutionsUpTo(collisionPixelLimit);
+
+  useEffect(() => {
+    setCollisionResolution((current) =>
+      current <= collisionPixelLimit
+        ? current
+        : ([...terrainCollisionResolutions].reverse().find((value) => value <= collisionPixelLimit) ?? 1)
+    );
+  }, [collisionPixelLimit]);
 
   useEffect(() => {
     imagesRef.current.clear();
@@ -78,13 +113,16 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
     const ratio = window.devicePixelRatio || 1;
     const width = piece.width * displayCellSize;
     const height = piece.height * displayCellSize;
-    canvas.width = width * ratio;
-    canvas.height = height * ratio;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    const canvasWidth = width + socketIndicatorGutter * 2;
+    const canvasHeight = height + socketIndicatorGutter * 2;
+    canvas.width = canvasWidth * ratio;
+    canvas.height = canvasHeight * ratio;
+    canvas.style.width = `${canvasWidth}px`;
+    canvas.style.height = `${canvasHeight}px`;
     const context = canvas.getContext("2d");
     if (!context) return;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.translate(socketIndicatorGutter, socketIndicatorGutter);
     context.imageSmoothingEnabled = false;
     context.fillStyle = "#151515";
     context.fillRect(0, 0, width, height);
@@ -94,9 +132,15 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
       context.fillStyle = index === selectedCellIndex ? "#30302a" : (x + y) % 2 === 0 ? "#202020" : "#191919";
       context.fillRect(x * displayCellSize, y * displayCellSize, displayCellSize, displayCellSize);
       drawTerrainCell(context, cell.tiles, tilesets, imagesRef.current, x * displayCellSize, y * displayCellSize, displayCellSize);
-      if (cell.blocking) {
-        context.fillStyle = brushMode === "collision" ? "rgba(225, 29, 72, 0.48)" : "rgba(225, 29, 72, 0.2)";
-        context.fillRect(x * displayCellSize, y * displayCellSize, displayCellSize, displayCellSize);
+      drawTerrainCollision(
+        context,
+        cell,
+        x * displayCellSize,
+        y * displayCellSize,
+        displayCellSize,
+        brushMode === "collision" ? 0.48 : 0.2
+      );
+      if (isTerrainCollisionFullyBlocked(cell)) {
         context.strokeStyle = "#fb7185";
         context.lineWidth = brushMode === "collision" ? 4 : 2;
         context.beginPath();
@@ -104,6 +148,19 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
         context.lineTo((x + 1) * displayCellSize - 10, (y + 1) * displayCellSize - 10);
         context.moveTo((x + 1) * displayCellSize - 10, y * displayCellSize + 10);
         context.lineTo(x * displayCellSize + 10, (y + 1) * displayCellSize - 10);
+        context.stroke();
+      }
+      if (brushMode === "collision" && collisionResolution > 1) {
+        const subcellSize = displayCellSize / collisionResolution;
+        context.strokeStyle = "rgba(255,255,255,0.12)";
+        context.lineWidth = 1;
+        context.beginPath();
+        for (let subcell = 1; subcell < collisionResolution; subcell += 1) {
+          context.moveTo(x * displayCellSize + subcell * subcellSize, y * displayCellSize);
+          context.lineTo(x * displayCellSize + subcell * subcellSize, (y + 1) * displayCellSize);
+          context.moveTo(x * displayCellSize, y * displayCellSize + subcell * subcellSize);
+          context.lineTo((x + 1) * displayCellSize, y * displayCellSize + subcell * subcellSize);
+        }
         context.stroke();
       }
     });
@@ -119,43 +176,57 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
       context.lineTo(width, y * displayCellSize);
     }
     context.stroke();
-    context.lineWidth = 6;
+    context.lineWidth = socketIndicatorWidth;
     for (const direction of terrainDirections) {
       piece.sockets[direction].forEach((socketSlug, index) => {
         context.strokeStyle = sockets.find((socket) => socket.slug === socketSlug)?.color ?? "#ef4444";
         context.beginPath();
         if (direction === "north" || direction === "south") {
-          const y = direction === "north" ? 3 : height - 3;
+          const y = direction === "north" ? -socketIndicatorOffset : height + socketIndicatorOffset;
           context.moveTo(index * displayCellSize + 4, y);
           context.lineTo((index + 1) * displayCellSize - 4, y);
         } else {
-          const x = direction === "west" ? 3 : width - 3;
+          const x = direction === "west" ? -socketIndicatorOffset : width + socketIndicatorOffset;
           context.moveTo(x, index * displayCellSize + 4);
           context.lineTo(x, (index + 1) * displayCellSize - 4);
         }
         context.stroke();
       });
     }
-  }, [brushMode, imageRevision, piece, selectedCellIndex, sockets, tilesets]);
+  }, [brushMode, collisionResolution, imageRevision, piece, selectedCellIndex, sockets, tilesets]);
 
-  function cellAt(event: ReactPointerEvent<HTMLCanvasElement>): number {
-    if (!piece) return -1;
+  function targetAt(event: ReactPointerEvent<HTMLCanvasElement>, resolution: number): PaintTarget | undefined {
+    if (!piece) return undefined;
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.floor(((event.clientX - rect.left) / rect.width) * piece.width);
-    const y = Math.floor(((event.clientY - rect.top) / rect.height) * piece.height);
-    if (x < 0 || x >= piece.width || y < 0 || y >= piece.height) return -1;
-    return y * piece.width + x;
+    const canvasWidth = piece.width * displayCellSize + socketIndicatorGutter * 2;
+    const canvasHeight = piece.height * displayCellSize + socketIndicatorGutter * 2;
+    const pointerX = ((event.clientX - rect.left) / rect.width) * canvasWidth - socketIndicatorGutter;
+    const pointerY = ((event.clientY - rect.top) / rect.height) * canvasHeight - socketIndicatorGutter;
+    const pieceX = pointerX / displayCellSize;
+    const pieceY = pointerY / displayCellSize;
+    const x = Math.floor(pieceX);
+    const y = Math.floor(pieceY);
+    if (x < 0 || x >= piece.width || y < 0 || y >= piece.height) return undefined;
+    const collisionX = Math.min(resolution - 1, Math.floor((pieceX - x) * resolution));
+    const collisionY = Math.min(resolution - 1, Math.floor((pieceY - y) * resolution));
+    const cellIndex = y * piece.width + x;
+    const collisionIndex = collisionY * resolution + collisionX;
+    return { cellIndex, collisionIndex, key: `${cellIndex}:${collisionIndex}` };
   }
 
-  function paint(index: number, clear: boolean, mode: PieceBrushMode): void {
-    if (!piece || index < 0 || index === lastCellRef.current || (mode === "terrain" && !clear && !selectedTile)) return;
-    lastCellRef.current = index;
-    setSelectedCellIndex(index);
-    const cells = piece.cells.map((cell) => ({ ...cell, tiles: [...cell.tiles] }));
+  function paint(target: PaintTarget | undefined, clear: boolean, mode: PieceBrushMode, resolution: number): void {
+    if (!piece || !target || target.key === lastTargetRef.current || (mode === "terrain" && !clear && !selectedTile)) return;
+    lastTargetRef.current = target.key;
+    setSelectedCellIndex(target.cellIndex);
+    const cells = piece.cells.map((cell) => ({
+      ...cell,
+      tiles: [...cell.tiles],
+      ...(cell.collision ? { collision: { resolution: cell.collision.resolution, cells: [...cell.collision.cells] } } : {})
+    }));
     if (mode === "terrain") {
-      cells[index].tiles[activeLayer] = clear ? null : { ...selectedTile!, orientation: selectedTile!.orientation };
+      cells[target.cellIndex].tiles[activeLayer] = clear ? null : { ...selectedTile!, orientation: selectedTile!.orientation };
     } else {
-      cells[index].blocking = !clear;
+      cells[target.cellIndex] = setTerrainCollisionCell(cells[target.cellIndex], resolution, target.collisionIndex, !clear);
     }
     onChange({ ...piece, cells });
   }
@@ -163,21 +234,22 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
   function pointerDown(event: ReactPointerEvent<HTMLCanvasElement>): void {
     if (!piece) return;
     const clear = event.button === 2 || event.ctrlKey;
+    const resolution = brushMode === "collision" ? collisionResolution : 1;
     event.currentTarget.setPointerCapture(event.pointerId);
-    paintRef.current = { clear, mode: brushMode, pointerId: event.pointerId };
-    lastCellRef.current = -1;
-    paint(cellAt(event), clear, brushMode);
+    paintRef.current = { clear, mode: brushMode, pointerId: event.pointerId, resolution };
+    lastTargetRef.current = "";
+    paint(targetAt(event, resolution), clear, brushMode, resolution);
   }
 
   function pointerMove(event: ReactPointerEvent<HTMLCanvasElement>): void {
     const state = paintRef.current;
     if (!state || state.pointerId !== event.pointerId) return;
-    paint(cellAt(event), state.clear, state.mode);
+    paint(targetAt(event, state.resolution), state.clear, state.mode, state.resolution);
   }
 
   function pointerUp(event: ReactPointerEvent<HTMLCanvasElement>): void {
     if (paintRef.current?.pointerId === event.pointerId) paintRef.current = undefined;
-    lastCellRef.current = -1;
+    lastTargetRef.current = "";
   }
 
   function updateCell(update: Partial<TerrainPieceCell>): void {
@@ -198,7 +270,10 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
   const selectedCell = piece?.cells[selectedCellIndex];
   const selectedCellX = piece ? selectedCellIndex % piece.width : 0;
   const selectedCellY = piece ? Math.floor(selectedCellIndex / piece.width) : 0;
-  const blockingCellCount = piece?.cells.filter((cell) => cell.blocking).length ?? 0;
+  const collisionCellCount = piece?.cells.filter(hasTerrainCollision).length ?? 0;
+  const collisionCoverage = piece
+    ? Math.round((piece.cells.reduce((total, cell) => total + terrainCollisionCoverage(cell), 0) / piece.cells.length) * 100)
+    : 0;
   const logicalCellCount = piece?.cells.filter((cell) => cell.tiles[0] === null).length ?? 0;
 
   return (
@@ -249,7 +324,7 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
             <div className="space-y-1">
               <p className="text-xs font-semibold">Authoring mode</p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={() => setBrushMode("terrain")}
                   size="sm"
@@ -266,19 +341,45 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
                 >
                   Paint collision
                 </Button>
+                {brushMode === "collision" && (
+                  <Label className="flex items-center gap-2 text-xs">
+                    Detail
+                    <select
+                      aria-label="Collision detail"
+                      className="h-8 rounded-md border border-input bg-background px-2"
+                      onChange={(event) => setCollisionResolution(Number(event.target.value))}
+                      value={collisionResolution}
+                    >
+                      {availableCollisionResolutions.map((resolution) => (
+                        <option key={resolution} value={resolution}>
+                          {resolution}×{resolution}
+                          {resolution === 1 ? " · whole tile" : resolution === collisionPixelLimit ? " · pixel" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </Label>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Badge variant={logicalCellCount > 0 ? "secondary" : "outline"}>
                 {logicalCellCount} logical-only {logicalCellCount === 1 ? "cell" : "cells"}
               </Badge>
-              <Badge variant={blockingCellCount > 0 ? "destructive" : "outline"}>
-                {blockingCellCount} of {piece.cells.length} cells blocking
+              <Badge variant={collisionCellCount > 0 ? "destructive" : "outline"}>
+                {collisionCellCount} collision cells · {collisionCoverage}% coverage
               </Badge>
               {brushMode === "collision" && (
                 <>
                   <Button
-                    onClick={() => onChange({ ...piece, cells: piece.cells.map((cell) => ({ ...cell, blocking: true })) })}
+                    onClick={() =>
+                      onChange({
+                        ...piece,
+                        cells: piece.cells.map((cell) => {
+                          const { collision: _, ...rest } = cell;
+                          return { ...rest, blocking: true };
+                        })
+                      })
+                    }
                     size="sm"
                     type="button"
                     variant="outline"
@@ -286,7 +387,15 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
                     Block all
                   </Button>
                   <Button
-                    onClick={() => onChange({ ...piece, cells: piece.cells.map((cell) => ({ ...cell, blocking: false })) })}
+                    onClick={() =>
+                      onChange({
+                        ...piece,
+                        cells: piece.cells.map((cell) => {
+                          const { collision: _, ...rest } = cell;
+                          return { ...rest, blocking: false };
+                        })
+                      })
+                    }
                     size="sm"
                     type="button"
                     variant="outline"
@@ -299,7 +408,7 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
             <p className="w-full text-[11px] text-muted-foreground">
               {brushMode === "terrain"
                 ? "Left-drag paints the selected sprite. Right-drag or Ctrl-drag erases the active layer. An erased base remains a valid logical cell controlled by its flags, collision, and sockets."
-                : "Left-drag marks piece cells as blocking. Right-drag or Ctrl-drag makes them walkable. Red X cells become collision areas in generated terrain."}
+                : "Choose collision detail per tile. Left-drag blocks subcells; right-drag or Ctrl-drag clears them. One subdivision is 2×2, while Pixel matches one collision cell to one source pixel."}
             </p>
           </div>
           <div className="overflow-auto rounded-md bg-black p-4">
@@ -346,15 +455,27 @@ export const TerrainPiecePainter: FC<TerrainPiecePainterProps> = (props) => {
                   Selected cell {selectedCellX},{selectedCellY}
                 </p>
                 <div className="flex flex-wrap gap-1">
-                  <Badge variant={selectedCell.blocking ? "destructive" : "outline"}>
-                    {selectedCell.blocking ? "Blocking" : "Walkable"}
+                  <Badge variant={hasTerrainCollision(selectedCell) ? "destructive" : "outline"}>
+                    {isTerrainCollisionFullyBlocked(selectedCell)
+                      ? "Fully blocking"
+                      : hasTerrainCollision(selectedCell)
+                        ? `${selectedCell.collision?.cells.filter(Boolean).length}/${selectedCell.collision?.cells.length} collision`
+                        : "Walkable"}
                   </Badge>
+                  {selectedCell.collision && (
+                    <Badge variant="outline">
+                      {selectedCell.collision.resolution}×{selectedCell.collision.resolution}
+                    </Badge>
+                  )}
                   {selectedCell.tiles[0] === null && <Badge variant="secondary">Logical only</Badge>}
                 </div>
               </div>
               <Label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={selectedCell.blocking} onCheckedChange={(checked) => updateCell({ blocking: checked === true })} />
-                This cell blocks movement
+                <Checkbox
+                  checked={isTerrainCollisionFullyBlocked(selectedCell)}
+                  onCheckedChange={(checked) => updateCell({ blocking: checked === true, collision: undefined })}
+                />
+                Block entire cell
               </Label>
               <Label className="space-y-1 text-xs">
                 Elevation

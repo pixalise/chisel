@@ -33,7 +33,7 @@ Terrain Generator is divided into five focused pages:
 2. **Pieces** — paint modules and inspect compatibility with the cart icon.
 3. **Collections** — choose the pieces solved together. Adjacency exceptions remain under Advanced.
 4. **Generate** — choose a template and batch size. Every **Generate** click creates a fresh random contact sheet. Anchors, stamps, zones, and per-cell tag constraints remain under **Edit advanced constraints**.
-5. **Annotations** — polish approved maps with sparse cell overrides, then paint separate spatial dressings for runtime content placement.
+5. **Annotations** — polish approved maps with sparse cell overrides, define global annotation slugs, and tag resolved map cells.
 
 ## Tile catalog
 
@@ -65,7 +65,7 @@ A piece is a rectangular module from 1×1 through 8×8 cells. It contains:
 - biome tags, site tags, semantic flags, and an optional mutation family;
 - per-cell movement blocking, elevation, and semantic flags.
 
-The piece painter has two explicit modes. **Paint terrain** applies render sprites and layers. Erasing the base creates a valid logical-only cell that still carries sockets, semantic flags, elevation, and collision. **Paint collision** applies a red per-cell collision mask: left-drag blocks cells, while right-drag or Ctrl-drag clears them. A 2×2 piece may therefore block any combination of its four cells, and that mask rotates or reflects with the piece.
+The piece painter has two explicit modes. **Paint terrain** applies render sprites and layers. Erasing the base creates a valid logical-only cell that still carries sockets, semantic flags, elevation, and collision. **Paint collision** supports `1×1`, `2×2`, `4×4`, and progressively finer power-of-two detail up to the source tile's pixel resolution. Left-drag blocks collision subcells, while right-drag or Ctrl-drag clears them. Uniform masks collapse back to one whole-tile boolean, while partial masks remain sparse authoring data and rotate or reflect with the piece.
 
 For directional art, shadows, text, or asymmetrical collision, enable only visually valid transforms. The compiler transforms both artwork and socket profiles.
 
@@ -119,35 +119,32 @@ Every Generate click starts from fresh randomness and replaces the current conta
 1. Compile every enabled transform into per-cell states.
 2. Pre-ban module origins that would clip a boundary.
 3. Apply template tag constraints and required stamps.
-4. Collapse the map by lowest entropy and propagate exact socket constraints.
+4. Collapse the map by lowest entropy, propagate exact socket constraints, and backtrack locally when a choice causes a contradiction.
 5. Compose tile stacks, collision, elevation, and semantic metadata.
 6. Validate anchors, zones, elevation steps, and walkable components.
 
-Contradictions are retried from the current random solve. If every attempt fails, fix the grammar or constraints; the generator does not emit an invalid partial map.
+The solver uses a priority queue for changed-cell entropy, a linear propagation queue, bounded local backtracking, and fresh attempts when a branch becomes expensive. Piece-library compilation and static tag/anchor analysis are shared across the complete contact-sheet batch.
+
+If every bounded attempt still fails, Chisel returns the most-resolved coherent state instead of discarding it. The contact sheet renders this as a partial candidate. Unresolved cells are empty, blocked, and tagged `UNRESOLVED`, making their boundaries explicit and safe rather than inventing terrain.
 
 ## Candidate review and approval
 
 Generate a batch rather than judging one result. The contact sheet reports validation issues and metrics including walkable components, reachable anchors, and distinct piece usage.
 
-Approve a useful result as:
+Approve a useful complete or explicit partial result as:
 
 - `MAP`: a complete authored site;
 - `SUBMODULE`: frozen reusable geography intended for a later composition step.
 
 Approval deep-copies concrete tile stacks, resolved metadata, placements, anchors, and metrics. Later changes to sockets, pieces, weights, templates, or the solver cannot alter that generated base.
 
-Every approved asset has a rendered preview under **Terrain → Terrain Annotations**. Its Terrain polish tab stores sparse per-cell overrides for tile layers, collision, elevation, and semantic tags while retaining the generated base for individual or complete reversion. The final resolved geography updates connectivity and anchor metrics immediately.
+Complete candidates must still pass every validation rule before approval. Partial candidates may be approved deliberately; their unresolved blocked cells remain editable through Terrain polish, so an author can repair or replace them without losing the successfully generated area.
 
-The separate Spatial annotations tab references—but never edits—the resolved geography and can define:
+Every approved asset has a rendered preview under **Terrain → Terrain Annotations**. Its Terrain polish tab stores sparse per-cell overrides for tile layers, granular collision, elevation, and semantic tags while retaining the generated base for individual or complete reversion. Granular masks remain visible in the approved preview and Love2D export. The final resolved geography updates tile-level connectivity and anchor metrics immediately.
 
-- painted `PLACEMENT`, `EXCLUSION`, and `RESERVED` zones with semantic tags;
-- typed point markers such as POIs, quest sites, spawn hints, or landmarks, including radius and direction;
-- fixed placements that reference one concrete content-table row;
-- rule placements that name an engine-owned runtime rule set.
+The Cell annotations tab references—but never edits—the resolved geography. Annotation slugs such as `ENTRANCE`, `EXIT`, `QUEST`, or `SPAWN_ALLOWED` are defined once in the global vocabulary and painted onto any number of cells and maps. A cell may carry several annotations. Each approved asset has at most one sparse annotation layout, created automatically on the first paint and removed when cleared.
 
-An approved asset may have multiple interchangeable dressings. This lets one polished terrain result support different quest, encounter, or prop arrangements while retaining exactly the same final geography. Chisel owns the coordinates, terrain overrides, annotation tags, references, overlays, and validation. The engine interprets rule-set slugs, instantiates content, applies runtime eligibility rules, and owns spawned instance state.
-
-Template stamps are intentionally separate: they force terrain pieces during WFC generation and become part of the frozen geography. Spatial placements happen after approval and never rerun or modify WFC.
+Annotation definitions can be renamed by index; Chisel updates every cell reference atomically after the edit is committed. A definition cannot be deleted while any cell references it. The engine receives dense numeric enum IDs and per-cell ID lists, then interprets those tags however gameplay requires. Chisel does not model engine behavior, radii, directions, content placement, or runtime instances.
 
 ## Authoring and runtime data boundary
 
@@ -160,11 +157,12 @@ The current terrain tables are:
 - `terrain_adjacency_overrides`
 - `terrain_site_templates`
 - `terrain_approved_assets`
+- `terrain_annotations`
 - `terrain_spatial_layouts`
 
-All eight remain editor-owned system tables and are excluded from ordinary generated table modules. The LÖVE exporter does, however, compile `terrain_approved_assets` and `terrain_spatial_layouts` into the resolved `gamedata/terrain.lua` runtime projection. That module contains final overpainted cells, atlas metadata, annotations, and resolved fixed-content references; it never contains raw generator grammar or sparse override documents. Other export targets do not currently emit this terrain projection.
+All nine remain editor-owned system tables and are excluded from ordinary generated table modules. The LÖVE exporter does, however, compile `terrain_approved_assets`, `terrain_annotations`, and `terrain_spatial_layouts` into the resolved `gamedata/terrain.lua` runtime projection. That module contains final overpainted cells, atlas metadata, global annotation enum IDs, and sparse per-cell ID lists; it never contains raw generator grammar or sparse override documents. Other export targets do not currently emit this terrain projection.
 
-Deleting an approved asset also deletes the spatial dressings that reference it. Deleting a tileset is refused while an authored piece or approved asset uses it; if only unused tile bindings remain, Chisel removes those bindings with the asset.
+Deleting an approved asset also deletes its cell annotations. Deleting a tileset is refused while an authored piece or approved asset uses it; if only unused tile bindings remain, Chisel removes those bindings with the asset.
 
 ## Recommended first setup for a new tileset
 
@@ -176,4 +174,4 @@ Deleting an approved asset also deletes the spatial dressings that reference it.
 6. Create one collection and generate a small unconstrained template.
 7. Add anchors, zones, tag constraints, and required stamps only after the local grammar is healthy.
 8. Review a candidate batch and freeze only geography worth keeping.
-9. Select an approved map, polish any terrain cells that need manual correction, create one or more spatial dressings, then paint placement/exclusion zones and add only the markers or placements the engine needs.
+9. Select an approved map, polish any terrain cells that need manual correction, define the global engine annotation slugs you need, then paint those tags onto cells.

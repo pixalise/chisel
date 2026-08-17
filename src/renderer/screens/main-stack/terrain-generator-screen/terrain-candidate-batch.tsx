@@ -7,7 +7,7 @@ import { type FC, useEffect, useRef, useState } from "react";
 import type { TerrainApprovedAsset, TerrainTilesetView } from "../../../../shared/terrain-authoring";
 import { normalizeTerrainSlugDraft } from "../../../../shared/terrain-slug";
 import { freezeTerrainCandidate, type TerrainCandidate, type TerrainCandidateResult } from "../../../../shared/terrain-wfc";
-import { drawTerrainCell } from "./terrain-rendering";
+import { drawTerrainCell, drawTerrainCollision } from "./terrain-rendering";
 
 interface TerrainCandidateBatchProps {
   approvedAssets: TerrainApprovedAsset[];
@@ -54,17 +54,12 @@ export const TerrainCandidateBatch: FC<TerrainCandidateBatchProps> = (props) => 
       context.imageSmoothingEnabled = false;
       context.fillStyle = "#0e0f0e";
       context.fillRect(0, 0, canvas.width, canvas.height);
-      candidate.cells.forEach((cell, index) =>
-        drawTerrainCell(
-          context,
-          cell,
-          tilesets,
-          images.current,
-          (index % candidate.width) * cellSize,
-          Math.floor(index / candidate.width) * cellSize,
-          cellSize
-        )
-      );
+      candidate.cells.forEach((cell, index) => {
+        const x = (index % candidate.width) * cellSize;
+        const y = Math.floor(index / candidate.width) * cellSize;
+        drawTerrainCell(context, cell, tilesets, images.current, x, y, cellSize);
+        drawTerrainCollision(context, candidate.cellMetadata[index], x, y, cellSize, 0.24);
+      });
     }
   }, [imageRevision, results, tilesets]);
 
@@ -83,7 +78,8 @@ export const TerrainCandidateBatch: FC<TerrainCandidateBatchProps> = (props) => 
         <div>
           <h3 className="text-sm font-semibold">Candidate contact sheet</h3>
           <p className="text-xs text-muted-foreground">
-            Every Generate click creates a fresh random batch; invalid candidates remain inspectable but cannot be approved.
+            Complete valid candidates and explicit partial solves can be approved. Unresolved partial cells are empty and blocked for
+            safety.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -99,11 +95,15 @@ export const TerrainCandidateBatch: FC<TerrainCandidateBatchProps> = (props) => 
         {results.map((result, index) => {
           const candidate = result.candidate;
           const valid = candidate !== undefined && candidate.issues.length === 0;
+          const partial = candidate !== undefined && !candidate.complete;
+          const resolvedCells = candidate?.cellMetadata.filter((metadata) => metadata.piece !== "UNRESOLVED").length ?? 0;
           return (
             <div className="space-y-2 rounded border border-border bg-card p-2" key={result.seed}>
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs">Candidate {index + 1}</span>
-                <Badge variant={valid ? "secondary" : "destructive"}>{valid ? "valid" : "rejected"}</Badge>
+                <Badge variant={valid ? "secondary" : partial ? "outline" : "destructive"}>
+                  {valid ? "valid" : partial ? "partial" : "rejected"}
+                </Badge>
               </div>
               {candidate && (
                 <div className="flex min-h-36 items-center justify-center overflow-auto rounded bg-slate-950 p-2">
@@ -120,6 +120,7 @@ export const TerrainCandidateBatch: FC<TerrainCandidateBatchProps> = (props) => 
               {candidate && (
                 <>
                   <p className="text-[11px] text-muted-foreground">
+                    {partial && `${resolvedCells}/${candidate.cells.length} cells · `}
                     {candidate.metrics.distinctPieces} pieces · {candidate.metrics.walkableComponents} walkable components ·{" "}
                     {candidate.metrics.reachableAnchors}/{candidate.metrics.requiredAnchors} anchors
                   </p>
@@ -129,13 +130,13 @@ export const TerrainCandidateBatch: FC<TerrainCandidateBatchProps> = (props) => 
                     </p>
                   ))}
                   <Button
-                    disabled={!valid}
+                    disabled={!valid && !partial}
                     onClick={() => setSelected(candidate)}
                     size="sm"
                     type="button"
                     variant={selected?.seed === candidate.seed ? "default" : "outline"}
                   >
-                    Select for approval
+                    {partial ? "Select partial for approval" : "Select for approval"}
                   </Button>
                 </>
               )}
@@ -144,25 +145,33 @@ export const TerrainCandidateBatch: FC<TerrainCandidateBatchProps> = (props) => 
         })}
       </div>
       {selected && (
-        <div className="grid gap-2 rounded border border-border p-3 md:grid-cols-[1fr_10rem_auto] md:items-end">
-          <Label className="space-y-1 text-xs">
-            Approved asset slug
-            <Input onChange={(event) => setSlug(normalizeTerrainSlugDraft(event.target.value))} value={slug} />
-          </Label>
-          <Label className="space-y-1 text-xs">
-            Kind
-            <select
-              className="h-9 w-full rounded border border-input bg-background px-2 text-sm"
-              onChange={(event) => setKind(event.target.value as typeof kind)}
-              value={kind}
-            >
-              <option value="MAP">Complete map</option>
-              <option value="SUBMODULE">Submodule</option>
-            </select>
-          </Label>
-          <Button onClick={() => void approve()} type="button">
-            <Check className="size-4" /> Freeze approved asset
-          </Button>
+        <div className="space-y-2 rounded border border-border p-3">
+          {!selected.complete && (
+            <p className="text-xs text-amber-500">
+              This is a partial solve. Unresolved cells will remain empty, blocked, and tagged UNRESOLVED so they can be repaired with
+              terrain polish.
+            </p>
+          )}
+          <div className="grid gap-2 md:grid-cols-[1fr_10rem_auto] md:items-end">
+            <Label className="space-y-1 text-xs">
+              Approved asset slug
+              <Input onChange={(event) => setSlug(normalizeTerrainSlugDraft(event.target.value))} value={slug} />
+            </Label>
+            <Label className="space-y-1 text-xs">
+              Kind
+              <select
+                className="h-9 w-full rounded border border-input bg-background px-2 text-sm"
+                onChange={(event) => setKind(event.target.value as typeof kind)}
+                value={kind}
+              >
+                <option value="MAP">Complete map</option>
+                <option value="SUBMODULE">Submodule</option>
+              </select>
+            </Label>
+            <Button onClick={() => void approve()} type="button">
+              <Check className="size-4" /> Freeze {selected.complete ? "approved asset" : "partial asset"}
+            </Button>
+          </div>
         </div>
       )}
     </div>

@@ -1,16 +1,20 @@
 import type { AnyDataTable, Asset, DataColumnDefinition, DataTableRow } from "./schemas";
 import {
+  terrainAnnotationDefinitionSchema,
   terrainApprovedAssetSchema,
   terrainSpatialLayoutSchema,
+  type TerrainAnnotationDefinition,
   type TerrainApprovedAsset,
+  type TerrainCollisionMask,
   type TerrainSpatialLayout,
-  type TerrainSpatialPlacement,
   type TerrainTileRef
 } from "./terrain-authoring";
 import { resolveApprovedTerrainCell, refreshApprovedTerrainMetrics } from "./terrain-approved-overpaint";
 import {
   TERRAIN_APPROVED_ASSET_COLUMNS,
   TERRAIN_APPROVED_ASSETS_TABLE_ID,
+  TERRAIN_ANNOTATION_COLUMNS,
+  TERRAIN_ANNOTATIONS_TABLE_ID,
   TERRAIN_SPATIAL_LAYOUT_COLUMNS,
   TERRAIN_SPATIAL_LAYOUTS_TABLE_ID
 } from "./terrain-tables";
@@ -26,6 +30,7 @@ export interface Love2dTerrainExportFile {
 }
 
 export interface Love2dTerrainExport {
+  annotationCount: number;
   assetCount: number;
   files: Love2dTerrainExportFile[];
   layoutCount: number;
@@ -136,6 +141,17 @@ function parseApprovedAssets(table: AnyDataTable): TerrainApprovedAsset[] {
   return assets;
 }
 
+function parseAnnotations(table: AnyDataTable): TerrainAnnotationDefinition[] {
+  const annotations = table.rows.map((row) =>
+    terrainAnnotationDefinitionSchema.parse({
+      slug: row.slug,
+      color: requiredStringCell(row, TERRAIN_ANNOTATION_COLUMNS.color)
+    })
+  );
+  assertUniqueSlugs(annotations, "annotation");
+  return annotations;
+}
+
 function parseSpatialLayouts(table: AnyDataTable): TerrainSpatialLayout[] {
   const layouts = table.rows.map((row) => {
     const parsed = terrainSpatialLayoutSchema.parse({
@@ -171,6 +187,19 @@ function renderTile(tile: TerrainTileRef, layer: number, assetIds: Map<string, n
   ]);
 }
 
+function renderCollision(mask: TerrainCollisionMask): string {
+  const rows = Array.from({ length: mask.resolution }, (_, y) =>
+    mask.cells
+      .slice(y * mask.resolution, (y + 1) * mask.resolution)
+      .map((blocking) => (blocking ? "1" : "0"))
+      .join("")
+  );
+  return luaRecord([
+    ["resolution", String(mask.resolution)],
+    ["rows", luaStrings(rows)]
+  ]);
+}
+
 function renderApprovedAsset(
   asset: TerrainApprovedAsset,
   assetIds: Map<string, number>,
@@ -184,7 +213,7 @@ function renderApprovedAsset(
       usedTilesets.add(tile.tilesetId);
       return [renderTile(tile, layerIndex + 1, assetIds, assetsById)];
     });
-    return luaRecord([
+    const fields: Array<[string, string]> = [
       ["x", String(index % asset.width)],
       ["y", String(Math.floor(index / asset.width))],
       ["tiles", luaArray(tiles)],
@@ -192,7 +221,9 @@ function renderApprovedAsset(
       ["elevation", String(resolved.metadata.elevation)],
       ["tags", luaStrings(resolved.metadata.tags)],
       ["piece", luaString(resolved.metadata.piece)]
-    ]);
+    ];
+    if (resolved.metadata.collision) fields.push(["collision", renderCollision(resolved.metadata.collision)]);
+    return luaRecord(fields);
   });
   const placements = asset.placements.map((placement) =>
     luaRecord([
@@ -237,37 +268,11 @@ function renderApprovedAsset(
   ]);
 }
 
-interface ContentReference {
-  id: number;
-  slug: string;
-  table: string;
-}
-
-function resolveContentReference(
-  placement: TerrainSpatialPlacement,
-  runtimeTablesById: Map<string, AnyDataTable>
-): ContentReference | undefined {
-  if (placement.mode !== "FIXED") return undefined;
-  const table = runtimeTablesById.get(placement.contentTable);
-  if (!table) {
-    throw new Error(
-      `LÖVE terrain export fixed placement "${placement.slug}" targets table "${placement.contentTable}", which is not exported.`
-    );
-  }
-  const rowIndex = table.rows.findIndex((row) => row.slug === placement.contentSlug);
-  if (rowIndex < 0) {
-    throw new Error(
-      `LÖVE terrain export fixed placement "${placement.slug}" targets missing row "${placement.contentSlug}" in table "${placement.contentTable}".`
-    );
-  }
-  return { id: rowIndex + 1, slug: placement.contentSlug, table: placement.contentTable };
-}
-
 function renderSpatialLayout(
   layout: TerrainSpatialLayout,
   approvedIds: Map<string, number>,
   approvedBySlug: Map<string, TerrainApprovedAsset>,
-  runtimeTablesById: Map<string, AnyDataTable>
+  annotationIds: Map<string, number>
 ): string {
   const sourceAsset = approvedBySlug.get(layout.sourceAsset);
   const sourceAssetId = approvedIds.get(layout.sourceAsset);
@@ -275,59 +280,27 @@ function renderSpatialLayout(
     throw new Error(`LÖVE terrain export layout "${layout.slug}" references missing approved asset "${layout.sourceAsset}".`);
   }
   const cellCount = sourceAsset.width * sourceAsset.height;
-  const zones = layout.zones.map((zone) => {
-    if (zone.cells.some((cell) => cell >= cellCount)) {
-      throw new Error(`LÖVE terrain export zone "${zone.slug}" extends outside approved asset "${sourceAsset.slug}".`);
+  const cells = layout.cells.map((cell) => {
+    if (cell.index >= cellCount) {
+      throw new Error(`LÖVE terrain export annotated cell ${cell.index} extends outside approved asset "${sourceAsset.slug}".`);
     }
+    const ids = cell.annotations.map((slug) => {
+      const id = annotationIds.get(slug);
+      if (!id) throw new Error(`LÖVE terrain export layout "${layout.slug}" references missing annotation "${slug}".`);
+      return id;
+    });
     return luaRecord([
-      ["slug", luaString(zone.slug)],
-      ["kind", luaString(zone.kind)],
-      ["cells", luaArray(zone.cells.map((cell) => String(cell + 1)))],
-      ["tags", luaStrings(zone.tags)],
-      ["rule_set", luaString(zone.ruleSet)]
-    ]);
-  });
-  const markers = layout.markers.map((marker) => {
-    if (marker.x >= sourceAsset.width || marker.y >= sourceAsset.height) {
-      throw new Error(`LÖVE terrain export marker "${marker.slug}" extends outside approved asset "${sourceAsset.slug}".`);
-    }
-    return luaRecord([
-      ["slug", luaString(marker.slug)],
-      ["kind", luaString(marker.kind)],
-      ["x", String(marker.x)],
-      ["y", String(marker.y)],
-      ["radius", String(marker.radius)],
-      ["direction", luaString(marker.direction)],
-      ["tags", luaStrings(marker.tags)]
-    ]);
-  });
-  const placements = layout.placements.map((placement) => {
-    if (placement.x + placement.width > sourceAsset.width || placement.y + placement.height > sourceAsset.height) {
-      throw new Error(`LÖVE terrain export placement "${placement.slug}" extends outside approved asset "${sourceAsset.slug}".`);
-    }
-    const content = resolveContentReference(placement, runtimeTablesById);
-    return luaRecord([
-      ["slug", luaString(placement.slug)],
-      ["mode", luaString(placement.mode)],
-      ["x", String(placement.x)],
-      ["y", String(placement.y)],
-      ["width", String(placement.width)],
-      ["height", String(placement.height)],
-      ["orientation", String(placement.orientation)],
-      ["content_table", luaString(content?.table ?? "")],
-      ["content_id", String(content?.id ?? 0)],
-      ["content_slug", luaString(content?.slug ?? "")],
-      ["rule_set", luaString(placement.ruleSet)],
-      ["tags", luaStrings(placement.tags)]
+      ["cell", String(cell.index + 1)],
+      ["x", String(cell.index % sourceAsset.width)],
+      ["y", String(Math.floor(cell.index / sourceAsset.width))],
+      ["annotations", luaArray(ids.map(String))]
     ]);
   });
   return luaRecord([
     ["slug", luaString(layout.slug)],
     ["source_asset", String(sourceAssetId)],
     ["source_asset_slug", luaString(sourceAsset.slug)],
-    ["zones", luaArray(zones)],
-    ["markers", luaArray(markers)],
-    ["placements", luaArray(placements)]
+    ["cells", luaArray(cells)]
   ]);
 }
 
@@ -354,18 +327,24 @@ function renderTilesets(usedTilesets: Set<string>, assetIds: Map<string, number>
 
 function renderTerrainModule(
   approvedAssets: TerrainApprovedAsset[],
+  annotations: TerrainAnnotationDefinition[],
   layouts: TerrainSpatialLayout[],
-  runtimeTables: AnyDataTable[],
   assets: Asset[]
 ): Love2dTerrainExportFile {
   const assetIds = new Map(assets.map((asset, index) => [asset.id, index + 1]));
   const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
   const approvedIds = new Map(approvedAssets.map((asset, index) => [asset.slug, index + 1]));
   const approvedBySlug = new Map(approvedAssets.map((asset) => [asset.slug, asset]));
-  const runtimeTablesById = new Map(runtimeTables.map((table) => [table.id, table]));
+  const annotationIds = new Map(annotations.map((annotation, index) => [annotation.slug, index + 1]));
   const usedTilesets = new Set<string>();
   const renderedAssets = approvedAssets.map((asset) => renderApprovedAsset(asset, assetIds, assetsById, usedTilesets));
-  const renderedLayouts = layouts.map((layout) => renderSpatialLayout(layout, approvedIds, approvedBySlug, runtimeTablesById));
+  const renderedAnnotations = annotations.map((annotation) =>
+    luaRecord([
+      ["slug", luaString(annotation.slug)],
+      ["color", luaString(annotation.color)]
+    ])
+  );
+  const renderedLayouts = layouts.map((layout) => renderSpatialLayout(layout, approvedIds, approvedBySlug, annotationIds));
   const matrices = Array.from({ length: 8 }, (_, orientation) => {
     const matrix = terrainOrientationMatrix(orientation);
     return `[${orientation}] = ${luaArray(matrix.map(String))}`;
@@ -375,14 +354,18 @@ function renderTerrainModule(
     "-- Coordinates and tile local_ids are 0-based; Lua cell ids and layer ids are 1-based.",
     "local terrain = {",
     `\tASSET_COUNT = ${approvedAssets.length},`,
+    `\tANNOTATION_COUNT = ${annotations.length},`,
     `\tLAYOUT_COUNT = ${layouts.length},`,
     `\tASSET_ID = ${renderIdTable(approvedAssets.map((asset) => asset.slug))},`,
+    `\tANNOTATION_ID = ${renderIdTable(annotations.map((annotation) => annotation.slug))},`,
     `\tLAYOUT_ID = ${renderIdTable(layouts.map((layout) => layout.slug))},`,
     `\tASSET_SLUGS = ${luaStrings(approvedAssets.map((asset) => asset.slug))},`,
+    `\tANNOTATION_SLUGS = ${luaStrings(annotations.map((annotation) => annotation.slug))},`,
     `\tLAYOUT_SLUGS = ${luaStrings(layouts.map((layout) => layout.slug))},`,
     `\tORIENTATIONS = { ${matrices.join(", ")} },`,
     `\tTILESETS = ${renderTilesets(usedTilesets, assetIds, assetsById)},`,
     `\tASSETS = ${luaArray(renderedAssets)},`,
+    `\tANNOTATIONS = ${luaArray(renderedAnnotations)},`,
     `\tLAYOUTS = ${luaArray(renderedLayouts)},`,
     "}",
     "",
@@ -399,6 +382,10 @@ function renderTerrainModule(
     "",
     "function terrain.layout(id)",
     '\treturn terrain.LAYOUTS[checkedId(id, terrain.LAYOUT_COUNT, "layout")]',
+    "end",
+    "",
+    "function terrain.annotation(id)",
+    '\treturn terrain.ANNOTATIONS[checkedId(id, terrain.ANNOTATION_COUNT, "annotation")]',
     "end",
     "",
     "function terrain.cellId(assetId, x, y)",
@@ -430,20 +417,29 @@ function renderTerrainModule(
 
 export function renderLove2dTerrainExport(
   sourceTables: AnyDataTable[],
-  runtimeTables: AnyDataTable[],
+  _runtimeTables: AnyDataTable[],
   assets: Asset[]
 ): Love2dTerrainExport {
   const approvedTable = sourceTables.find((table) => table.id === TERRAIN_APPROVED_ASSETS_TABLE_ID);
+  const annotationsTable = sourceTables.find((table) => table.id === TERRAIN_ANNOTATIONS_TABLE_ID);
   const layoutsTable = sourceTables.find((table) => table.id === TERRAIN_SPATIAL_LAYOUTS_TABLE_ID);
-  if (!approvedTable && !layoutsTable) return { assetCount: 0, files: [], layoutCount: 0 };
-  if (!approvedTable || !layoutsTable) {
-    throw new Error("LÖVE terrain export requires both current approved-assets and spatial-layout system tables.");
+  if (!approvedTable && !annotationsTable && !layoutsTable) return { annotationCount: 0, assetCount: 0, files: [], layoutCount: 0 };
+  if (!approvedTable || !annotationsTable || !layoutsTable) {
+    throw new Error("LÖVE terrain export requires current approved-assets, annotations, and spatial-layout system tables.");
   }
   const approvedAssets = parseApprovedAssets(approvedTable);
+  const annotations = parseAnnotations(annotationsTable);
   const layouts = parseSpatialLayouts(layoutsTable);
+  const duplicateSourceAsset = layouts.find(
+    (layout, index) => layouts.findIndex((entry) => entry.sourceAsset === layout.sourceAsset) !== index
+  );
+  if (duplicateSourceAsset) {
+    throw new Error(`LÖVE terrain export approved asset "${duplicateSourceAsset.sourceAsset}" has more than one annotation layout.`);
+  }
   return {
+    annotationCount: annotations.length,
     assetCount: approvedAssets.length,
-    files: [renderTerrainModule(approvedAssets, layouts, runtimeTables, assets)],
+    files: [renderTerrainModule(approvedAssets, annotations, layouts, assets)],
     layoutCount: layouts.length
   };
 }

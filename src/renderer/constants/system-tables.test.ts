@@ -5,6 +5,7 @@ import {
   EDITOR_ONLY_TERRAIN_TABLE_IDS,
   SYSTEM_TERRAIN_TABLES,
   TERRAIN_APPROVED_ASSETS_TABLE_ID,
+  TERRAIN_ANNOTATIONS_TABLE_ID,
   TERRAIN_PIECES_TABLE_ID,
   TERRAIN_SITE_TEMPLATES_TABLE_ID,
   TERRAIN_SPATIAL_LAYOUTS_TABLE_ID,
@@ -28,7 +29,7 @@ describe("system tables", () => {
   });
 
   it("keeps every terrain authoring table inside Chisel", () => {
-    expect(SYSTEM_TERRAIN_TABLES).toHaveLength(8);
+    expect(SYSTEM_TERRAIN_TABLES).toHaveLength(9);
     expect(SYSTEM_TERRAIN_TABLES.map((table) => table.id)).toEqual([
       "terrain_tile_bindings",
       "terrain_sockets",
@@ -37,14 +38,18 @@ describe("system tables", () => {
       "terrain_adjacency_overrides",
       "terrain_site_templates",
       "terrain_approved_assets",
+      "terrain_annotations",
       "terrain_spatial_layouts"
     ]);
     expect(EDITOR_ONLY_TERRAIN_TABLE_IDS).toEqual(new Set(SYSTEM_TERRAIN_TABLES.map((table) => table.id)));
     expect(EDITOR_ONLY_TERRAIN_TABLE_IDS).toContain(TERRAIN_PIECES_TABLE_ID);
     expect(EDITOR_ONLY_TERRAIN_TABLE_IDS).toContain(TERRAIN_SITE_TEMPLATES_TABLE_ID);
     expect(EDITOR_ONLY_TERRAIN_TABLE_IDS).toContain(TERRAIN_APPROVED_ASSETS_TABLE_ID);
+    expect(EDITOR_ONLY_TERRAIN_TABLE_IDS).toContain(TERRAIN_ANNOTATIONS_TABLE_ID);
     expect(EDITOR_ONLY_TERRAIN_TABLE_IDS).toContain(TERRAIN_SPATIAL_LAYOUTS_TABLE_ID);
-    expect(VISIBLE_TERRAIN_SYSTEM_TABLE_IDS).toEqual(new Set([TERRAIN_APPROVED_ASSETS_TABLE_ID, TERRAIN_SPATIAL_LAYOUTS_TABLE_ID]));
+    expect(VISIBLE_TERRAIN_SYSTEM_TABLE_IDS).toEqual(
+      new Set([TERRAIN_APPROVED_ASSETS_TABLE_ID, TERRAIN_ANNOTATIONS_TABLE_ID, TERRAIN_SPATIAL_LAYOUTS_TABLE_ID])
+    );
     expect(TERRAIN_TILE_BINDING_COLUMNS.tileset.assetCategory).toBe(AssetCategoryEnum.tileset);
     expect(TERRAIN_TILE_BINDING_COLUMNS.tags.required).toBe(false);
     expect(Object.keys(TERRAIN_TILE_BINDING_COLUMNS)).not.toContain("blocking");

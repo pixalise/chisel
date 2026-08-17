@@ -6,6 +6,8 @@ import { assetSchema, dataTableRowSchema, dataTableSchema, type AnyDataTable, ty
 import {
   TERRAIN_APPROVED_ASSET_COLUMNS,
   TERRAIN_APPROVED_ASSETS_TABLE,
+  TERRAIN_ANNOTATION_COLUMNS,
+  TERRAIN_ANNOTATIONS_TABLE,
   TERRAIN_SPATIAL_LAYOUT_COLUMNS,
   TERRAIN_SPATIAL_LAYOUTS_TABLE
 } from "./terrain-tables";
@@ -15,7 +17,7 @@ function value(column: { id: string; type: DataTableRow["values"][number]["type"
   return { columnId: column.id, type: column.type, value: entry } as DataTableRow["values"][number];
 }
 
-function sourceTables(contentTable: AnyDataTable, fixedContentSlug = "OAK_CHEST"): AnyDataTable[] {
+function sourceTables(): AnyDataTable[] {
   const cells = Array.from({ length: 9 }, () => [{ tilesetId: "FOREST_TILES", localId: 0, orientation: 0 }, null]);
   const approvedDefinition = {
     kind: "MAP",
@@ -25,7 +27,13 @@ function sourceTables(contentTable: AnyDataTable, fixedContentSlug = "OAK_CHEST"
     height: 3,
     layerCount: 2,
     cells,
-    cellMetadata: Array.from({ length: 9 }, () => ({ blocking: false, elevation: 0, tags: ["FOREST"], piece: "GROUND" })),
+    cellMetadata: Array.from({ length: 9 }, (_, index) => ({
+      blocking: false,
+      ...(index === 0 ? { collision: { resolution: 2, cells: [true, false, false, false] } } : {}),
+      elevation: 0,
+      tags: ["FOREST"],
+      piece: "GROUND"
+    })),
     cellOverrides: [
       {
         index: 1,
@@ -53,37 +61,26 @@ function sourceTables(contentTable: AnyDataTable, fixedContentSlug = "OAK_CHEST"
       })
     ]
   };
+  const annotationsTable: AnyDataTable = {
+    ...TERRAIN_ANNOTATIONS_TABLE,
+    rows: [
+      dataTableRowSchema.parse({
+        id: nanoid(),
+        slug: "ENTRANCE",
+        values: [value(TERRAIN_ANNOTATION_COLUMNS.color, "#22D3EE")]
+      }),
+      dataTableRowSchema.parse({
+        id: nanoid(),
+        slug: "QUEST",
+        values: [value(TERRAIN_ANNOTATION_COLUMNS.color, "#A78BFA")]
+      })
+    ]
+  };
   const layoutDefinition = {
     sourceAsset: "FOREST_SITE",
-    zones: [{ slug: "INTERIOR", kind: "PLACEMENT", cells: [0, 1], tags: ["LOOT_ALLOWED"], ruleSet: "FOREST_LOOT" }],
-    markers: [{ slug: "QUEST", kind: "POI", x: 1, y: 2, radius: 2, direction: "north", tags: ["QUEST_ALLOWED"] }],
-    placements: [
-      {
-        slug: "CHEST",
-        mode: "FIXED",
-        x: 1,
-        y: 1,
-        width: 1,
-        height: 1,
-        orientation: 0,
-        contentTable: contentTable.id,
-        contentSlug: fixedContentSlug,
-        ruleSet: "",
-        tags: ["GUARANTEED"]
-      },
-      {
-        slug: "CURIOSITY",
-        mode: "RULE",
-        x: 2,
-        y: 2,
-        width: 1,
-        height: 1,
-        orientation: 0,
-        contentTable: "",
-        contentSlug: "",
-        ruleSet: "FOREST_CURIOSITIES",
-        tags: ["OPTIONAL"]
-      }
+    cells: [
+      { index: 0, annotations: ["ENTRANCE"] },
+      { index: 7, annotations: ["QUEST", "ENTRANCE"] }
     ]
   };
   const layoutsTable: AnyDataTable = {
@@ -99,7 +96,7 @@ function sourceTables(contentTable: AnyDataTable, fixedContentSlug = "OAK_CHEST"
       })
     ]
   };
-  return [contentTable, approvedTable, layoutsTable];
+  return [approvedTable, annotationsTable, layoutsTable];
 }
 
 function fixtures() {
@@ -131,7 +128,7 @@ function fixtures() {
 describe("LÖVE terrain export", () => {
   it("exports resolved approved geography and spatial annotations without raw editor definitions", () => {
     const { contentTable, project, tileset } = fixtures();
-    const tables = sourceTables(contentTable);
+    const tables = sourceTables();
     const bundle = createLove2dExportBundle(project, [contentTable], "2026-01-01", [tileset], emptyLocalizationDocument, {
       terrainSourceTables: tables
     });
@@ -139,32 +136,44 @@ describe("LÖVE terrain export", () => {
     const manifest = bundle.files.find((file) => file.path === "gamedata/manifest.lua");
 
     expect(terrain?.content).toContain("FOREST_SITE = 1");
+    expect(terrain?.content).toContain("ENTRANCE = 1");
+    expect(terrain?.content).toContain("QUEST = 2");
     expect(terrain?.content).toContain("FOREST_DRESSING = 1");
     expect(terrain?.content).toContain('slug = "FOREST_TILES", tile_size = 32, columns = 2, rows = 2');
     expect(terrain?.content).toContain("layer = 2, asset = 1, local_id = 1, orientation = 5");
     expect(terrain?.content).toContain('blocking = true, elevation = 2, tags = { "CLIFF" }');
-    expect(terrain?.content).toContain('cells = { 1, 2 }, tags = { "LOOT_ALLOWED" }');
-    expect(terrain?.content).toContain('content_table = "world_objects", content_id = 1, content_slug = "OAK_CHEST"');
-    expect(terrain?.content).toContain('content_id = 0, content_slug = "", rule_set = "FOREST_CURIOSITIES"');
+    expect(terrain?.content).toContain('collision = { resolution = 2, rows = { "10", "00" } }');
+    expect(terrain?.content).toContain('slug = "ENTRANCE", color = "#22D3EE"');
+    expect(terrain?.content).toContain("cell = 1, x = 0, y = 0, annotations = { 1 }");
+    expect(terrain?.content).toContain("cell = 8, x = 1, y = 2, annotations = { 2, 1 }");
     expect(terrain?.content).not.toContain("cellOverrides");
     expect(terrain?.content).not.toContain("cell_overrides");
-    expect(manifest?.content).toContain('TERRAIN = { module = "gamedata.terrain", enabled = true, asset_count = 1, layout_count = 1 }');
+    expect(manifest?.content).toContain(
+      'TERRAIN = { module = "gamedata.terrain", enabled = true, asset_count = 1, annotation_count = 2, layout_count = 1 }'
+    );
   });
 
-  it("fails when a fixed placement does not resolve to an exported content row", () => {
+  it("fails when a cell references an undefined global annotation", () => {
     const { contentTable, project, tileset } = fixtures();
+    const tables = sourceTables();
+    const layoutsTable = tables.find((table) => table.id === TERRAIN_SPATIAL_LAYOUTS_TABLE.id)!;
+    const definition = layoutsTable.rows[0].values.find((entry) => entry.columnId === TERRAIN_SPATIAL_LAYOUT_COLUMNS.definition.id)!;
+    if (definition.type !== TERRAIN_SPATIAL_LAYOUT_COLUMNS.definition.type || typeof definition.value !== "object") {
+      throw new Error("Invalid test fixture");
+    }
+    definition.value = { sourceAsset: "FOREST_SITE", cells: [{ index: 0, annotations: ["MISSING"] }] };
     expect(() =>
       createLove2dExportBundle(project, [contentTable], "2026-01-01", [tileset], emptyLocalizationDocument, {
-        terrainSourceTables: sourceTables(contentTable, "MISSING_CHEST")
+        terrainSourceTables: tables
       })
-    ).toThrow('targets missing row "MISSING_CHEST" in table "world_objects"');
+    ).toThrow('references missing annotation "MISSING"');
   });
 
   it("fails when resolved geography references a missing managed tileset", () => {
     const { contentTable, project } = fixtures();
     expect(() =>
       createLove2dExportBundle(project, [contentTable], "2026-01-01", [], emptyLocalizationDocument, {
-        terrainSourceTables: sourceTables(contentTable)
+        terrainSourceTables: sourceTables()
       })
     ).toThrow('could not find tileset asset "FOREST_TILES"');
   });

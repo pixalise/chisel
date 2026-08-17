@@ -151,7 +151,9 @@ describe("LÖVE export", () => {
     expect(manifestFile?.content).toContain('["units"] = { module = "gamedata.tables.units", count = 1 }');
     expect(manifestFile?.content).toContain('module = "gamedata.asset_manager"');
     expect(manifestFile?.content).toContain("INPUT = { module = nil, enabled = false }");
-    expect(manifestFile?.content).toContain("TERRAIN = { module = nil, enabled = false, asset_count = 0, layout_count = 0 }");
+    expect(manifestFile?.content).toContain(
+      "TERRAIN = { module = nil, enabled = false, asset_count = 0, annotation_count = 0, layout_count = 0 }"
+    );
   });
 
   it("exports audio assets beneath the generated audio root", () => {

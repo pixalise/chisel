@@ -1,4 +1,10 @@
-import type { TerrainTileRef, TerrainTilesetView, TerrainTileStack } from "../../../../shared/terrain-authoring";
+import type {
+  TerrainCollisionMask,
+  TerrainResolvedCellMetadata,
+  TerrainTileRef,
+  TerrainTilesetView,
+  TerrainTileStack
+} from "../../../../shared/terrain-authoring";
 import { terrainOrientationMatrix } from "../../../../shared/terrain-wfc";
 
 export function drawTerrainTile(
@@ -45,4 +51,39 @@ export function drawTerrainCell(
   for (const tile of cell) {
     if (tile) drawTerrainTile(context, tile, tilesets, images, destinationX, destinationY, destinationSize);
   }
+}
+
+export function drawTerrainCollision(
+  context: CanvasRenderingContext2D,
+  collision: Pick<TerrainResolvedCellMetadata, "blocking" | "collision">,
+  destinationX: number,
+  destinationY: number,
+  destinationSize: number,
+  alpha = 0.4
+): void {
+  context.fillStyle = `rgba(225, 29, 72, ${alpha})`;
+  if (!collision.collision) {
+    if (collision.blocking) context.fillRect(destinationX, destinationY, destinationSize, destinationSize);
+    return;
+  }
+  drawCollisionMask(context, collision.collision, destinationX, destinationY, destinationSize);
+}
+
+function drawCollisionMask(
+  context: CanvasRenderingContext2D,
+  mask: TerrainCollisionMask,
+  destinationX: number,
+  destinationY: number,
+  destinationSize: number
+): void {
+  const subcellSize = destinationSize / mask.resolution;
+  mask.cells.forEach((blocking, index) => {
+    if (!blocking) return;
+    context.fillRect(
+      destinationX + (index % mask.resolution) * subcellSize,
+      destinationY + Math.floor(index / mask.resolution) * subcellSize,
+      subcellSize,
+      subcellSize
+    );
+  });
 }

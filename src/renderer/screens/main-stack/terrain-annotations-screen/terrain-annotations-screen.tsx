@@ -59,7 +59,7 @@ export const TerrainAnnotationsScreen: FC = () => {
         spatialLayouts: workspace.spatialLayouts.filter((entry) => entry.sourceAsset !== slug)
       });
       setWorkspace(saved);
-      setMessage(`Removed approved asset '${slug}' and its spatial annotations.`);
+      setMessage(`Removed approved asset '${slug}' and its cell annotations.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -68,7 +68,7 @@ export const TerrainAnnotationsScreen: FC = () => {
   }
 
   return (
-    <Section title="Terrain Annotations" copy="Polish approved geography, then author separate spatial meaning over the final terrain.">
+    <Section title="Terrain Annotations" copy="Polish approved geography, then tag resolved map cells with shared engine annotations.">
       <div className="space-y-4">
         {error && (
           <Alert className="py-2" variant="destructive">
@@ -86,15 +86,20 @@ export const TerrainAnnotationsScreen: FC = () => {
                 <Badge variant="outline">
                   {workspace.approvedAssets.reduce((count, asset) => count + asset.cellOverrides.length, 0)} terrain overrides
                 </Badge>
-                <Badge variant="outline">{workspace.spatialLayouts.length} annotation layouts</Badge>
+                <Badge variant="outline">{workspace.annotations.length} annotation slugs</Badge>
+                <Badge variant="outline">
+                  {workspace.spatialLayouts.reduce((count, layout) => count + layout.cells.length, 0)} tagged cells
+                </Badge>
               </div>
               <Button disabled={isBusy} onClick={() => void saveApprovedTerrain()} type="button">
                 <Save className="size-4" /> Save terrain work
               </Button>
             </div>
             <TerrainApprovedLibrary
+              annotations={workspace.annotations}
               assets={workspace.approvedAssets}
               layouts={workspace.spatialLayouts}
+              onAnnotationsChange={(annotations) => setWorkspace((current) => (current ? { ...current, annotations } : current))}
               onAssetsChange={(approvedAssets) => setWorkspace((current) => (current ? { ...current, approvedAssets } : current))}
               onBindingsChange={(tileBindings) => setWorkspace((current) => (current ? { ...current, tileBindings } : current))}
               onDelete={deleteApprovedAsset}

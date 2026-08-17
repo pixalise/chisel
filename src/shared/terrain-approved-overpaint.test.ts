@@ -28,7 +28,8 @@ describe("approved terrain overpainting", () => {
     const base = approvedAsset();
     const painted = setApprovedTerrainCellOverride(base, 1, [{ tilesetId: "TERRAIN", localId: 9, orientation: 2 }], {
       ...base.cellMetadata[1],
-      blocking: true,
+      blocking: false,
+      collision: { resolution: 2, cells: [true, false, false, false] },
       elevation: 1,
       tags: ["WALL"]
     });
@@ -38,7 +39,13 @@ describe("approved terrain overpainting", () => {
     expect(painted.cellOverrides).toHaveLength(1);
     expect(resolveApprovedTerrainCell(painted, 1)).toMatchObject({
       tiles: [{ localId: 9, orientation: 2 }],
-      metadata: { blocking: true, elevation: 1, tags: ["WALL"], piece: "GROUND" }
+      metadata: {
+        blocking: false,
+        collision: { resolution: 2, cells: [true, false, false, false] },
+        elevation: 1,
+        tags: ["WALL"],
+        piece: "GROUND"
+      }
     });
   });
 

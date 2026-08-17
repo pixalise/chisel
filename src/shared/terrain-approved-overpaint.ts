@@ -16,6 +16,9 @@ export function resolveApprovedTerrainCell(asset: TerrainApprovedAsset, index: n
     metadata: {
       ...baseMetadata,
       blocking: override.blocking,
+      ...(override.collision
+        ? { collision: { resolution: override.collision.resolution, cells: [...override.collision.cells] } }
+        : { collision: undefined }),
       elevation: override.elevation,
       tags: override.tags
     }
@@ -34,6 +37,7 @@ export function setApprovedTerrainCellOverride(
   const matchesBase =
     JSON.stringify(tiles) === JSON.stringify(baseTiles) &&
     metadata.blocking === baseMetadata.blocking &&
+    JSON.stringify(metadata.collision) === JSON.stringify(baseMetadata.collision) &&
     metadata.elevation === baseMetadata.elevation &&
     JSON.stringify(metadata.tags) === JSON.stringify(baseMetadata.tags);
   const remaining = asset.cellOverrides.filter((entry) => entry.index !== index);
@@ -45,6 +49,7 @@ export function setApprovedTerrainCellOverride(
           index,
           tiles: tiles.map((tile) => (tile ? { ...tile } : null)),
           blocking: metadata.blocking,
+          ...(metadata.collision ? { collision: { resolution: metadata.collision.resolution, cells: [...metadata.collision.cells] } } : {}),
           elevation: metadata.elevation,
           tags: [...metadata.tags]
         }

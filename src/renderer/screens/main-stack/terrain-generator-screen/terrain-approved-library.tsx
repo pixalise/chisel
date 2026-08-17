@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Trash2 } from "lucide-react";
 import { type FC, useEffect, useState } from "react";
 import type {
+  TerrainAnnotationDefinition,
   TerrainApprovedAsset,
   TerrainSpatialLayout,
   TerrainTileBinding,
@@ -13,21 +14,25 @@ import type {
 } from "../../../../shared/terrain-authoring";
 import { TerrainApprovedMapPreview } from "./terrain-approved-map-preview";
 import { TerrainApprovedOverpaintEditor } from "./terrain-approved-overpaint-editor";
+import { TerrainAnnotationCatalog } from "./terrain-annotation-catalog";
 import { TerrainSpatialAnnotationEditor } from "./terrain-spatial-annotation-editor";
 import { TerrainTileCatalog } from "./terrain-tile-catalog";
 
 interface TerrainApprovedLibraryProps {
+  annotations: TerrainAnnotationDefinition[];
   assets: TerrainApprovedAsset[];
   layouts: TerrainSpatialLayout[];
   onDelete: (slug: string) => Promise<void>;
   onAssetsChange: (assets: TerrainApprovedAsset[]) => void;
+  onAnnotationsChange: (annotations: TerrainAnnotationDefinition[]) => void;
   onBindingsChange: (bindings: Record<string, TerrainTileBinding>) => void;
   onLayoutsChange: (layouts: TerrainSpatialLayout[]) => void;
   workspace: TerrainWorkspaceView;
 }
 
 export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) => {
-  const { assets, layouts, onAssetsChange, onBindingsChange, onDelete, onLayoutsChange, workspace } = props;
+  const { annotations, assets, layouts, onAnnotationsChange, onAssetsChange, onBindingsChange, onDelete, onLayoutsChange, workspace } =
+    props;
   const [selectedAssetIndex, setSelectedAssetIndex] = useState<number | undefined>(assets.length > 0 ? 0 : undefined);
   const [selectedTile, setSelectedTile] = useState<TerrainTileRef>();
   const selectedAsset = typeof selectedAssetIndex === "number" ? assets[selectedAssetIndex] : undefined;
@@ -40,12 +45,18 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
 
   return (
     <div className="space-y-4">
+      <TerrainAnnotationCatalog
+        annotations={annotations}
+        layouts={layouts}
+        onAnnotationsChange={onAnnotationsChange}
+        onLayoutsChange={onLayoutsChange}
+      />
       <div className="space-y-3 rounded-md border border-border p-3">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold">Approved geography library</h3>
             <p className="text-xs text-muted-foreground">
-              Preview approved maps, then polish their terrain or add separate spatial annotations.
+              Preview approved maps, then polish terrain or tag cells with the global annotations above.
             </p>
           </div>
           <Badge variant="secondary">{assets.length}</Badge>
@@ -57,7 +68,8 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
         )}
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {assets.map((asset, index) => {
-            const assetLayouts = layouts.filter((layout) => layout.sourceAsset === asset.slug);
+            const assetLayout = layouts.find((layout) => layout.sourceAsset === asset.slug);
+            const taggedCellCount = assetLayout?.cells.length ?? 0;
             const selected = index === selectedAssetIndex;
             return (
               <div
@@ -75,7 +87,13 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
                 }}
               >
                 <div className="overflow-hidden rounded bg-slate-950 p-2">
-                  <TerrainApprovedMapPreview asset={asset} layout={assetLayouts[0]} maxSize={320} tilesets={workspace.tilesets} />
+                  <TerrainApprovedMapPreview
+                    annotations={annotations}
+                    asset={asset}
+                    layout={assetLayout}
+                    maxSize={320}
+                    tilesets={workspace.tilesets}
+                  />
                 </div>
                 <div className="pr-9">
                   <p className="truncate text-sm font-medium">{asset.slug}</p>
@@ -84,7 +102,7 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
                   </p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {asset.metrics.distinctPieces} piece types · {asset.metrics.walkableComponents} walkable components ·{" "}
-                    {asset.cellOverrides.length} overrides · {assetLayouts.length} {assetLayouts.length === 1 ? "dressing" : "dressings"}
+                    {asset.cellOverrides.length} overrides · {taggedCellCount} tagged cells
                   </p>
                 </div>
                 <Button
@@ -92,7 +110,7 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
                   className="absolute bottom-2 right-2"
                   onClick={(event) => {
                     event.stopPropagation();
-                    if (!window.confirm(`Delete approved asset '${asset.slug}' and all of its spatial dressings?`)) return;
+                    if (!window.confirm(`Delete approved asset '${asset.slug}' and all of its cell annotations?`)) return;
                     void onDelete(asset.slug);
                   }}
                   size="icon"
@@ -110,7 +128,7 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
         <Tabs defaultValue="polish">
           <TabsList className="grid h-auto w-full grid-cols-2">
             <TabsTrigger value="polish">Terrain polish</TabsTrigger>
-            <TabsTrigger value="annotations">Spatial annotations</TabsTrigger>
+            <TabsTrigger value="annotations">Cell annotations</TabsTrigger>
           </TabsList>
           <TabsContent className="space-y-4" value="polish">
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.7fr)] xl:items-start">
@@ -131,6 +149,7 @@ export const TerrainApprovedLibrary: FC<TerrainApprovedLibraryProps> = (props) =
           </TabsContent>
           <TabsContent value="annotations">
             <TerrainSpatialAnnotationEditor
+              annotations={annotations}
               asset={selectedAsset}
               layouts={layouts}
               onChange={onLayoutsChange}

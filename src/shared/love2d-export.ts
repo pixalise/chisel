@@ -473,7 +473,7 @@ function renderManifest(
     `\tASSETS = { module = ${luaString(`${LOVE2D_GAME_DATA_EXPORT_ROOT}.asset_manager`)}, root = ${luaString(LOVE2D_ASSET_EXPORT_ROOT)}, count = ${assets.length} },`,
     `\tLOCALIZATION = { module = ${luaString(`${LOVE2D_GAME_DATA_EXPORT_ROOT}.localization`)}, count = ${localization.keys.length}, locales = ${localization.locales.length} },`,
     `\tINPUT = { module = ${hasInput ? luaString(`${LOVE2D_GAME_DATA_EXPORT_ROOT}.input`) : "nil"}, enabled = ${hasInput ? "true" : "false"} },`,
-    `\tTERRAIN = { module = ${terrain.files.length > 0 ? luaString(LOVE2D_TERRAIN_MODULE) : "nil"}, enabled = ${terrain.files.length > 0 ? "true" : "false"}, asset_count = ${terrain.assetCount}, layout_count = ${terrain.layoutCount} },`,
+    `\tTERRAIN = { module = ${terrain.files.length > 0 ? luaString(LOVE2D_TERRAIN_MODULE) : "nil"}, enabled = ${terrain.files.length > 0 ? "true" : "false"}, asset_count = ${terrain.assetCount}, annotation_count = ${terrain.annotationCount}, layout_count = ${terrain.layoutCount} },`,
     "}",
     ""
   ];

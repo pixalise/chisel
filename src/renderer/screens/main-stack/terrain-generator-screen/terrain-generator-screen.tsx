@@ -144,10 +144,16 @@ export const TerrainGeneratorScreen: FC = () => {
     if (!workspace) return;
     setError("");
     try {
+      const startedAt = performance.now();
       const generated = generateTerrainCandidateBatch(workspace, source, randomTerrainSeed());
+      const elapsed = performance.now() - startedAt;
+      const complete = generated.filter((result) => result.candidate?.complete).length;
+      const partial = generated.filter((result) => result.candidate && !result.candidate.complete).length;
       setCandidateResults(generated);
       setGeneratedTemplateSlug(source.slug);
-      setMessage(`Generated ${generated.length} fresh random candidates for '${source.slug}'.`);
+      setMessage(
+        `Generated ${generated.length} candidates for '${source.slug}' in ${elapsed.toFixed(0)} ms: ${complete} complete, ${partial} partial.`
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     }

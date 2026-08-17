@@ -45,6 +45,29 @@ function piece(
   });
 }
 
+function directedPiece(slug: string, tag: string, sockets: { north: string; east: string; south: string; west: string }): TerrainPiece {
+  return terrainPieceSchema.parse({
+    slug,
+    width: 1,
+    height: 1,
+    layerCount: 1,
+    cells: [{ ...createTerrainPieceCell(1), tiles: [tile(0)], semanticFlags: [tag] }],
+    sockets: {
+      north: [sockets.north],
+      east: [sockets.east],
+      south: [sockets.south],
+      west: [sockets.west]
+    },
+    allowRotations: false,
+    allowReflections: false,
+    weight: 1,
+    biomeTags: [],
+    siteTags: [],
+    semanticFlags: [],
+    mutationFamily: ""
+  });
+}
+
 function set(slug: string, pieceSlugs: string[], pieceWeights: Record<string, number> = {}): TerrainPieceSet {
   return { slug, pieceSlugs, pieceWeights, biomeTags: [], siteTags: [] };
 }
@@ -203,6 +226,105 @@ describe("Simple-Tiled socket WFC", () => {
     expect(frozen).not.toHaveProperty("seed");
   });
 
+  it("backtracks through mixed-size choices and completes a 20×20 map", () => {
+    const ground = piece("GROUND", 0, "GROUND");
+    const block = terrainPieceSchema.parse({
+      slug: "GROUND_BLOCK",
+      width: 2,
+      height: 2,
+      layerCount: 1,
+      cells: Array.from({ length: 4 }, () => ({ ...createTerrainPieceCell(1), tiles: [tile(1)] })),
+      sockets: {
+        north: ["GROUND", "GROUND"],
+        east: ["GROUND", "GROUND"],
+        south: ["GROUND", "GROUND"],
+        west: ["GROUND", "GROUND"]
+      },
+      allowRotations: false,
+      allowReflections: false,
+      weight: 1,
+      biomeTags: [],
+      siteTags: [],
+      semanticFlags: [],
+      mutationFamily: ""
+    });
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: [ground, block],
+        pieceSets: [set("LARGE_SET", [ground.slug, block.slug])],
+        adjacencyOverrides: [],
+        tileBindings: bindings()
+      },
+      {
+        slug: "LARGE_SITE",
+        width: 20,
+        height: 20,
+        pieceSet: "LARGE_SET",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells: createTerrainTemplateCells(20, 20),
+        anchors: [],
+        stamps: [],
+        zones: []
+      },
+      17
+    );
+    expect(candidate.complete).toBe(true);
+    expect(candidate.cells).toHaveLength(400);
+    expect(candidate.cellMetadata).not.toContainEqual(expect.objectContaining({ piece: "UNRESOLVED" }));
+  });
+
+  it("returns and freezes the best safe partial map when the grammar is globally contradictory", () => {
+    const variants = [
+      directedPiece("P00_0", "P00", { north: "O", east: "H0", south: "V0", west: "O" }),
+      directedPiece("P00_1", "P00", { north: "O", east: "H1", south: "V1", west: "O" }),
+      directedPiece("P10_0", "P10", { north: "O", east: "O", south: "N0", west: "H0" }),
+      directedPiece("P10_1", "P10", { north: "O", east: "O", south: "N1", west: "H1" }),
+      directedPiece("P01_0", "P01", { north: "V0", east: "E0", south: "O", west: "O" }),
+      directedPiece("P01_1", "P01", { north: "V1", east: "E1", south: "O", west: "O" }),
+      directedPiece("P11_0", "P11", { north: "N0", east: "O", south: "O", west: "E1" }),
+      directedPiece("P11_1", "P11", { north: "N1", east: "O", south: "O", west: "E0" }),
+      directedPiece("FILLER", "FILLER", { north: "O", east: "O", south: "O", west: "O" })
+    ];
+    const cells = createTerrainTemplateCells(3, 3).map((cell) => ({ ...cell, requiredTags: ["FILLER"] }));
+    cells[0].requiredTags = ["P00"];
+    cells[1].requiredTags = ["P10"];
+    cells[3].requiredTags = ["P01"];
+    cells[4].requiredTags = ["P11"];
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: variants,
+        pieceSets: [
+          set(
+            "CONTRADICTORY",
+            variants.map((entry) => entry.slug)
+          )
+        ],
+        adjacencyOverrides: [],
+        tileBindings: bindings()
+      },
+      {
+        slug: "PARTIAL_SITE",
+        width: 3,
+        height: 3,
+        pieceSet: "CONTRADICTORY",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells,
+        anchors: [],
+        stamps: [],
+        zones: []
+      },
+      1
+    );
+    expect(candidate.complete).toBe(false);
+    expect(candidate.issues[0].code).toBe("PARTIAL_WFC");
+    expect(candidate.cellMetadata.filter((metadata) => metadata.piece === "UNRESOLVED")).toHaveLength(4);
+    const frozen = freezeTerrainCandidate(candidate, "PARTIAL", "MAP");
+    expect(frozen.cellMetadata.filter((metadata) => metadata.tags.includes("UNRESOLVED"))).toHaveLength(4);
+    expect(frozen.cellMetadata.filter((metadata) => metadata.piece === "UNRESOLVED").every((metadata) => metadata.blocking)).toBe(true);
+  });
+
   it("uses resolved cell tags and anchor sockets as macro constraints", () => {
     const plain = piece("PLAIN", 0, "GROUND");
     const tagged = piece("TAGGED", 1, "GROUND");
@@ -300,5 +422,33 @@ describe("Simple-Tiled socket WFC", () => {
     );
     expect(candidate.cellMetadata.filter((cell) => cell.blocking)).toHaveLength(12);
     expect(candidate.cellMetadata.filter((cell) => !cell.blocking)).toHaveLength(4);
+  });
+
+  it("preserves granular collision masks in generated cell metadata", () => {
+    const granular = piece("GRANULAR", 0, "GROUND");
+    granular.cells[0].collision = { resolution: 2, cells: [true, false, false, false] };
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: [granular],
+        pieceSets: [set("TERRAIN_SET", [granular.slug])],
+        adjacencyOverrides: [],
+        tileBindings: bindings()
+      },
+      {
+        slug: "GRANULAR_SITE",
+        width: 3,
+        height: 3,
+        pieceSet: "TERRAIN_SET",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells: createTerrainTemplateCells(3, 3),
+        anchors: [],
+        stamps: [],
+        zones: []
+      },
+      1
+    );
+    expect(candidate.cellMetadata.every((cell) => cell.blocking === false)).toBe(true);
+    expect(candidate.cellMetadata.every((cell) => cell.collision?.cells.join("") === "truefalsefalsefalse")).toBe(true);
   });
 });

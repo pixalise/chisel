@@ -3,6 +3,7 @@ import {
   appendTerrainPieceLayer,
   createTerrainPieceCell,
   createTerrainTemplateCells,
+  terrainAnnotationDefinitionSchema,
   terrainApprovedAssetSchema,
   terrainPieceSchema,
   terrainPieceSetSchema,
@@ -67,6 +68,44 @@ describe("socket terrain authoring contract", () => {
 
   it("creates a cell with one empty render layer and neutral metadata", () => {
     expect(createTerrainPieceCell(1)).toEqual({ tiles: [null], blocking: false, elevation: 0, semanticFlags: [] });
+  });
+
+  it("accepts sparse power-of-two collision masks and rejects uniform or malformed masks", () => {
+    const cell = { ...createTerrainPieceCell(1), collision: { resolution: 2, cells: [true, false, false, false] } };
+    expect(
+      terrainPieceSchema.safeParse({
+        slug: "QUARTER_COLLISION",
+        width: 1,
+        height: 1,
+        layerCount: 1,
+        cells: [cell],
+        sockets: { north: ["GROUND"], east: ["GROUND"], south: ["GROUND"], west: ["GROUND"] },
+        allowRotations: false,
+        allowReflections: false,
+        weight: 1,
+        biomeTags: [],
+        siteTags: [],
+        semanticFlags: [],
+        mutationFamily: ""
+      }).success
+    ).toBe(true);
+    expect(() =>
+      terrainPieceSchema.parse({
+        slug: "BAD_COLLISION",
+        width: 1,
+        height: 1,
+        layerCount: 1,
+        cells: [{ ...cell, collision: { resolution: 2, cells: [true, true, true, true] } }],
+        sockets: { north: ["GROUND"], east: ["GROUND"], south: ["GROUND"], west: ["GROUND"] },
+        allowRotations: false,
+        allowReflections: false,
+        weight: 1,
+        biomeTags: [],
+        siteTags: [],
+        semanticFlags: [],
+        mutationFamily: ""
+      })
+    ).toThrow("Uniform collision belongs in the cell blocking flag");
   });
 
   it("accepts an intentionally unpainted logical first-layer cell", () => {
@@ -178,37 +217,26 @@ describe("socket terrain authoring contract", () => {
     ).toMatchObject({ slug: "SITE_1", kind: "MAP" });
   });
 
-  it("keeps post-approval spatial annotations separate from frozen geography", () => {
+  it("keeps global annotation definitions and sparse cell references separate from frozen geography", () => {
+    expect(terrainAnnotationDefinitionSchema.parse({ slug: "ENTRANCE", color: "#22D3EE" })).toEqual({
+      slug: "ENTRANCE",
+      color: "#22D3EE"
+    });
     expect(
       terrainSpatialLayoutSchema.parse({
-        slug: "FOREST_DRESSING",
+        slug: "FOREST_ANNOTATIONS",
         sourceAsset: "FOREST_SITE",
-        zones: [
-          {
-            slug: "CURIOSITY_AREA",
-            kind: "PLACEMENT",
-            cells: [0, 1, 3, 4],
-            tags: ["FOREST_INTERIOR", "CURIOSITY_ALLOWED"],
-            ruleSet: "FOREST_CURIOSITIES"
-          }
-        ],
-        markers: [{ slug: "QUEST_HOOK", kind: "POI", x: 1, y: 1, radius: 2, direction: "north", tags: ["QUEST_ALLOWED"] }],
-        placements: [
-          {
-            slug: "CURIOSITY_SLOT",
-            mode: "RULE",
-            x: 1,
-            y: 1,
-            width: 1,
-            height: 1,
-            orientation: 0,
-            contentTable: "",
-            contentSlug: "",
-            ruleSet: "FOREST_CURIOSITIES",
-            tags: ["OPTIONAL"]
-          }
+        cells: [
+          { index: 0, annotations: ["ENTRANCE"] },
+          { index: 4, annotations: ["ENTRANCE", "QUEST"] }
         ]
       })
-    ).toMatchObject({ sourceAsset: "FOREST_SITE", zones: [{ cells: [0, 1, 3, 4] }] });
+    ).toMatchObject({
+      sourceAsset: "FOREST_SITE",
+      cells: [
+        { index: 0, annotations: ["ENTRANCE"] },
+        { index: 4, annotations: ["ENTRANCE", "QUEST"] }
+      ]
+    });
   });
 });

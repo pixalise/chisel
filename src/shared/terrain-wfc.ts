@@ -20,6 +20,7 @@ import {
   type TerrainTileRef,
   type TerrainTileStack
 } from "./terrain-authoring";
+import { isTerrainCollisionFullyBlocked, transformTerrainCollision } from "./terrain-collision";
 
 type Matrix = readonly [number, number, number, number];
 
@@ -72,6 +73,7 @@ export interface TerrainValidationIssue {
 }
 
 export interface TerrainCandidate {
+  complete: boolean;
   sourceTemplate: string;
   seed: number;
   width: number;
@@ -95,9 +97,26 @@ interface SolveConstraint {
   allowed: (state: TerrainCompiledState, x: number, y: number) => boolean;
 }
 
+interface TerrainGenerationWorkspace {
+  adjacencyOverrides: TerrainAdjacencyOverride[];
+  pieceSets: TerrainPieceSet[];
+  pieces: TerrainPiece[];
+  tileBindings: Record<string, TerrainTileBinding>;
+}
+
+interface PreparedTerrainGeneration {
+  anchorsByCell: Map<number, TerrainTemplateAnchor[]>;
+  library: TerrainCompiledLibrary;
+  stampRequirements: ReturnType<typeof stampStateRequirements>;
+  stateTags: string[][];
+  template: TerrainSiteTemplate;
+}
+
 interface SolvedPass {
+  complete: boolean;
+  error?: string;
   placements: TerrainPlacement[];
-  stateIds: number[];
+  stateIds: Array<number | undefined>;
 }
 
 const identityMatrix: Matrix = [1, 0, 0, 1];
@@ -204,7 +223,10 @@ function transformTile(tile: TerrainTileRef, orientation: number): TerrainTileRe
 }
 
 function transformCell(cell: TerrainPieceCell, orientation: number): TerrainPieceCell {
-  return { ...cell, tiles: cell.tiles.map((tile) => (tile ? transformTile(tile, orientation) : null)) };
+  return transformTerrainCollision(
+    { ...cell, tiles: cell.tiles.map((tile) => (tile ? transformTile(tile, orientation) : null)) },
+    orientation
+  );
 }
 
 function emptySocketProfiles(width: number, height: number): TerrainSocketProfiles {
@@ -379,15 +401,54 @@ function randomGenerator(seed: number): () => number {
   };
 }
 
+interface EntropyQueueEntry {
+  entropy: number;
+  index: number;
+  version: number;
+}
+
+function pushEntropy(queue: EntropyQueueEntry[], entry: EntropyQueueEntry): void {
+  queue.push(entry);
+  let index = queue.length - 1;
+  while (index > 0) {
+    const parent = Math.floor((index - 1) / 2);
+    if (queue[parent].entropy <= entry.entropy) break;
+    queue[index] = queue[parent];
+    index = parent;
+  }
+  queue[index] = entry;
+}
+
+function popEntropy(queue: EntropyQueueEntry[]): EntropyQueueEntry | undefined {
+  const first = queue[0];
+  const last = queue.pop();
+  if (!first || !last || queue.length === 0) return first;
+  let index = 0;
+  while (true) {
+    const left = index * 2 + 1;
+    const right = left + 1;
+    if (left >= queue.length) break;
+    const child = right < queue.length && queue[right].entropy < queue[left].entropy ? right : left;
+    if (queue[child].entropy >= last.entropy) break;
+    queue[index] = queue[child];
+    index = child;
+  }
+  queue[index] = last;
+  return first;
+}
+
 function solveLibrary(
   library: TerrainCompiledLibrary,
   width: number,
   height: number,
   seed: number,
   constraint: SolveConstraint,
-  maxAttempts = 20
+  maxAttempts = 8,
+  maxBacktracks = 128
 ): SolvedPass {
   let lastError: unknown;
+  let bestStateIds: Array<number | undefined> = Array<number | undefined>(width * height).fill(undefined);
+  let bestResolved = 0;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const attemptSeed = (seed + Math.imul(attempt, 0x9e3779b1)) >>> 0;
     try {
@@ -414,14 +475,79 @@ function solveLibrary(
       });
       if (domains.some((domain) => domain.size === 0)) throw new Error("A constrained output cell has no legal piece state");
       const queue = domains.map((_, index) => index);
+      let queueHead = 0;
       const queued = new Uint8Array(domains.length).fill(1);
-      const adjacencySets = Object.fromEntries(
-        terrainDirections.map((direction) => [direction, library.adjacency[direction].map((ids) => new Set(ids))])
-      ) as Record<TerrainDirection, Set<number>[]>;
+      const supportMarks = new Uint32Array(library.states.length);
+      const domainVersions = new Uint32Array(domains.length);
+      const entropyQueue: EntropyQueueEntry[] = [];
+      let supportStamp = 0;
+      const trail: Array<{ index: number; state: number }> = [];
+      const decisions: Array<{ alternatives: number[]; index: number; trailStart: number }> = [];
+      let backtracks = 0;
 
-      function propagate(): void {
-        while (queue.length > 0) {
-          const sourceIndex = queue.shift()!;
+      function enqueue(index: number): void {
+        if (queued[index] === 1) return;
+        queue.push(index);
+        queued[index] = 1;
+      }
+
+      function clearQueue(): void {
+        queue.length = 0;
+        queueHead = 0;
+        queued.fill(0);
+      }
+
+      function removeState(index: number, state: number): void {
+        if (!domains[index].delete(state)) return;
+        trail.push({ index, state });
+      }
+
+      function entropy(index: number): number {
+        let sum = 0;
+        let weightedLogSum = 0;
+        for (const stateId of domains[index]) {
+          const weight = library.states[stateId].weight;
+          sum += weight;
+          weightedLogSum += weight * Math.log(weight);
+        }
+        return Math.log(sum) - weightedLogSum / sum + random() * 1e-8;
+      }
+
+      function touchDomain(index: number): void {
+        domainVersions[index] += 1;
+        if (domains[index].size > 1) {
+          pushEntropy(entropyQueue, { entropy: entropy(index), index, version: domainVersions[index] });
+        }
+      }
+
+      function restoreTrail(start: number): void {
+        const restored = new Set<number>();
+        for (let index = trail.length - 1; index >= start; index -= 1) {
+          const removal = trail[index];
+          domains[removal.index].add(removal.state);
+          restored.add(removal.index);
+        }
+        trail.length = start;
+        for (const index of restored) touchDomain(index);
+      }
+
+      function captureBest(): void {
+        let resolved = 0;
+        const stateIds = domains.map((domain) => {
+          if (domain.size !== 1) return undefined;
+          resolved += 1;
+          return domain.values().next().value as number;
+        });
+        if (resolved > bestResolved) {
+          bestResolved = resolved;
+          bestStateIds = stateIds;
+        }
+      }
+
+      function propagate(): boolean {
+        while (queueHead < queue.length) {
+          const sourceIndex = queue[queueHead];
+          queueHead += 1;
           queued[sourceIndex] = 0;
           const sourceX = sourceIndex % width;
           const sourceY = Math.floor(sourceIndex / width);
@@ -432,66 +558,114 @@ function solveLibrary(
             if (targetX < 0 || targetX >= width || targetY < 0 || targetY >= height) continue;
             const targetIndex = targetY * width + targetX;
             const targetDomain = domains[targetIndex];
+            supportStamp += 1;
+            if (supportStamp === 0xffffffff) {
+              supportMarks.fill(0);
+              supportStamp = 1;
+            }
+            for (const sourceState of domains[sourceIndex]) {
+              for (const targetState of library.adjacency[direction][sourceState]) supportMarks[targetState] = supportStamp;
+            }
             let changed = false;
-            for (const targetState of [...targetDomain]) {
-              if (![...domains[sourceIndex]].some((sourceState) => adjacencySets[direction][sourceState].has(targetState))) {
-                targetDomain.delete(targetState);
+            for (const targetState of targetDomain) {
+              if (supportMarks[targetState] !== supportStamp) {
+                removeState(targetIndex, targetState);
                 changed = true;
               }
             }
-            if (targetDomain.size === 0) throw new Error(`WFC contradiction at ${targetX},${targetY}`);
-            if (changed && queued[targetIndex] === 0) {
-              queue.push(targetIndex);
-              queued[targetIndex] = 1;
-            }
+            if (changed) touchDomain(targetIndex);
+            if (targetDomain.size === 0) return false;
+            if (changed) enqueue(targetIndex);
           }
         }
+        queue.length = 0;
+        queueHead = 0;
+        return true;
       }
 
-      propagate();
+      function weightedOrder(domain: Set<number>): number[] {
+        return [...domain]
+          .map((stateId) => ({ stateId, priority: -Math.log(Math.max(Number.EPSILON, random())) / library.states[stateId].weight }))
+          .sort((left, right) => left.priority - right.priority)
+          .map((entry) => entry.stateId);
+      }
+
+      function collapse(index: number, chosen: number): void {
+        for (const stateId of domains[index]) {
+          if (stateId !== chosen) removeState(index, stateId);
+        }
+        touchDomain(index);
+        enqueue(index);
+      }
+
+      if (!propagate()) throw new Error("Initial constraints contradict the terrain grammar");
+      trail.length = 0;
+      entropyQueue.length = 0;
+      domains.forEach((domain, index) => {
+        if (domain.size > 1) pushEntropy(entropyQueue, { entropy: entropy(index), index, version: domainVersions[index] });
+      });
+      captureBest();
       while (true) {
         let selectedIndex = -1;
-        let selectedEntropy = Number.POSITIVE_INFINITY;
-        for (let index = 0; index < domains.length; index += 1) {
-          if (domains[index].size <= 1) continue;
-          const weights = [...domains[index]].map((stateId) => library.states[stateId].weight);
-          const sum = weights.reduce((total, weight) => total + weight, 0);
-          const entropy = Math.log(sum) - weights.reduce((total, weight) => total + weight * Math.log(weight), 0) / sum + random() * 1e-8;
-          if (entropy < selectedEntropy) {
-            selectedEntropy = entropy;
-            selectedIndex = index;
-          }
-        }
-        if (selectedIndex < 0) break;
-        const choices = [...domains[selectedIndex]];
-        const sum = choices.reduce((total, stateId) => total + library.states[stateId].weight, 0);
-        let cursor = random() * sum;
-        let chosen = choices[choices.length - 1];
-        for (const stateId of choices) {
-          cursor -= library.states[stateId].weight;
-          if (cursor <= 0) {
-            chosen = stateId;
+        while (entropyQueue.length > 0) {
+          const entry = popEntropy(entropyQueue)!;
+          if (entry.version === domainVersions[entry.index] && domains[entry.index].size > 1) {
+            selectedIndex = entry.index;
             break;
           }
         }
-        domains[selectedIndex] = new Set([chosen]);
-        queue.push(selectedIndex);
-        queued[selectedIndex] = 1;
-        propagate();
+        if (selectedIndex < 0) break;
+        const choices = weightedOrder(domains[selectedIndex]);
+        const decision = { alternatives: choices.slice(1), index: selectedIndex, trailStart: trail.length };
+        decisions.push(decision);
+        collapse(selectedIndex, choices[0]);
+
+        let consistent = propagate();
+        while (!consistent) {
+          backtracks += 1;
+          if (backtracks > maxBacktracks) throw new Error(`Backtracking budget of ${maxBacktracks} was exhausted`);
+          let alternativeFound = false;
+          while (decisions.length > 0) {
+            const active = decisions[decisions.length - 1];
+            restoreTrail(active.trailStart);
+            clearQueue();
+            const alternative = active.alternatives.shift();
+            if (alternative !== undefined) {
+              collapse(active.index, alternative);
+              consistent = propagate();
+              if (consistent) {
+                alternativeFound = true;
+                break;
+              }
+              backtracks += 1;
+              if (backtracks > maxBacktracks) throw new Error(`Backtracking budget of ${maxBacktracks} was exhausted`);
+            } else {
+              decisions.pop();
+            }
+          }
+          if (!alternativeFound && !consistent) throw new Error("Every backtracking branch contradicted the terrain grammar");
+        }
+        captureBest();
       }
-      const stateIds = domains.map((domain) => [...domain][0]);
-      return { stateIds, placements: reconstructPlacements(library, stateIds, width) };
+      const stateIds = domains.map((domain) => domain.values().next().value as number);
+      return { complete: true, stateIds, placements: reconstructPlacements(library, stateIds, width) };
     } catch (caught) {
       lastError = caught;
     }
   }
   const detail = lastError instanceof Error ? lastError.message : String(lastError);
-  throw new Error(`Socket WFC could not produce a ${width}×${height} terrain result after ${maxAttempts} attempts: ${detail}`);
+  return {
+    complete: false,
+    error: `Socket WFC resolved ${bestResolved}/${width * height} cells after ${maxAttempts} attempts: ${detail}`,
+    stateIds: bestStateIds,
+    placements: reconstructPlacements(library, bestStateIds, width)
+  };
 }
 
-function reconstructPlacements(library: TerrainCompiledLibrary, stateIds: number[], width: number): TerrainPlacement[] {
+function reconstructPlacements(library: TerrainCompiledLibrary, stateIds: Array<number | undefined>, width: number): TerrainPlacement[] {
   const placements = new Map<string, TerrainPlacement>();
   stateIds.forEach((stateId, index) => {
+    if (stateId === undefined) return;
     const state = library.states[stateId];
     const x = (index % width) - state.partX;
     const y = Math.floor(index / width) - state.partY;
@@ -520,7 +694,7 @@ function tagsForCell(cell: TerrainPieceCell, bindings: Record<string, TerrainTil
 }
 
 function blockingForCell(cell: TerrainPieceCell): boolean {
-  return cell.blocking;
+  return isTerrainCollisionFullyBlocked(cell);
 }
 
 function statePiece(library: TerrainCompiledLibrary, state: TerrainCompiledState): TerrainPiece {
@@ -554,14 +728,28 @@ function resolvedCellState(
   library: TerrainCompiledLibrary,
   solved: SolvedPass,
   index: number,
-  bindings: Record<string, TerrainTileBinding>
+  bindings: Record<string, TerrainTileBinding>,
+  layerCount: number
 ): { stack: TerrainTileStack; metadata: TerrainResolvedCellMetadata } {
-  const state = library.states[solved.stateIds[index]];
+  const stateId = solved.stateIds[index];
+  if (stateId === undefined) {
+    return {
+      stack: Array<TerrainTileRef | null>(layerCount).fill(null),
+      metadata: { blocking: true, elevation: 0, tags: ["UNRESOLVED"], piece: "UNRESOLVED" }
+    };
+  }
+  const state = library.states[stateId];
   const piece = statePiece(library, state);
   return {
-    stack: state.cell.tiles.map((tile) => (tile ? { ...tile } : null)),
+    stack: Array.from({ length: layerCount }, (_, layer) => {
+      const tile = state.cell.tiles[layer];
+      return tile ? { ...tile } : null;
+    }),
     metadata: {
       blocking: blockingForCell(state.cell),
+      ...(state.cell.collision
+        ? { collision: { resolution: state.cell.collision.resolution, cells: [...state.cell.collision.cells] } }
+        : {}),
       elevation: state.cell.elevation,
       tags: tagsForCell(state.cell, bindings, piece),
       piece: piece.slug
@@ -690,21 +878,29 @@ export function validateTerrainCandidate(
   };
 }
 
-export function generateTerrainCandidate(
-  workspace: {
-    pieces: TerrainPiece[];
-    pieceSets: TerrainPieceSet[];
-    adjacencyOverrides: TerrainAdjacencyOverride[];
-    tileBindings: Record<string, TerrainTileBinding>;
-  },
-  sourceTemplate: TerrainSiteTemplate,
-  seed: number
-): TerrainCandidate {
+function prepareTerrainGeneration(workspace: TerrainGenerationWorkspace, sourceTemplate: TerrainSiteTemplate): PreparedTerrainGeneration {
   const template = terrainSiteTemplateSchema.parse(sourceTemplate);
   const pieceSet = workspace.pieceSets.find((entry) => entry.slug === template.pieceSet);
   if (!pieceSet) throw new Error(`Template '${template.slug}' references missing collection '${template.pieceSet}'`);
   const library = compileTerrainPieceLibrary(workspace.pieces, pieceSet, workspace.adjacencyOverrides);
   const stampRequirements = stampStateRequirements(template, library);
+  const stateTags = library.states.map((state) => tagsForCell(state.cell, workspace.tileBindings, statePiece(library, state)));
+  const anchorsByCell = new Map<number, TerrainTemplateAnchor[]>();
+  for (const anchor of template.anchors) {
+    const index = anchor.y * template.width + anchor.x;
+    const anchors = anchorsByCell.get(index);
+    if (anchors) anchors.push(anchor);
+    else anchorsByCell.set(index, [anchor]);
+  }
+  return { anchorsByCell, library, stampRequirements, stateTags, template };
+}
+
+function generatePreparedTerrainCandidate(
+  workspace: TerrainGenerationWorkspace,
+  prepared: PreparedTerrainGeneration,
+  seed: number
+): TerrainCandidate {
+  const { anchorsByCell, library, stampRequirements, stateTags, template } = prepared;
   const solved = solveLibrary(library, template.width, template.height, seed, {
     allowed: (state, x, y) => {
       const index = y * template.width + x;
@@ -718,34 +914,51 @@ export function generateTerrainCandidate(
       ) {
         return false;
       }
-      const piece = statePiece(library, state);
       const cell = template.cells[index];
-      const stateTags = tagsForCell(state.cell, workspace.tileBindings, piece);
-      const anchors = template.anchors.filter((anchor) => anchor.x === x && anchor.y === y);
+      const tags = stateTags[state.id];
+      const anchors = anchorsByCell.get(index) ?? [];
       return (
-        cell.requiredTags.every((tag) => stateTags.includes(tag)) &&
-        cell.forbiddenTags.every((tag) => !stateTags.includes(tag)) &&
+        cell.requiredTags.every((tag) => tags.includes(tag)) &&
+        cell.forbiddenTags.every((tag) => !tags.includes(tag)) &&
         anchors.every((anchor) => state.edges[anchor.direction] === anchor.socket)
       );
     }
   });
-  const resolvedCells = solved.stateIds.map((_, index) => resolvedCellState(library, solved, index, workspace.tileBindings));
+  const layerCount = Math.max(...library.states.map((state) => state.cell.tiles.length));
+  const resolvedCells = solved.stateIds.map((_, index) => resolvedCellState(library, solved, index, workspace.tileBindings, layerCount));
   const cells = resolvedCells.map((entry) => entry.stack);
   const cellMetadata = resolvedCells.map((entry) => entry.metadata);
   const placements = [...solved.placements];
   const candidateWithoutValidation = {
+    complete: solved.complete,
     sourceTemplate: template.slug,
     seed: seed >>> 0,
     width: template.width,
     height: template.height,
-    layerCount: cells[0].length,
+    layerCount,
     cells,
     cellMetadata,
     placements,
     anchors: template.anchors
   };
   const validation = validateTerrainCandidate(candidateWithoutValidation, template);
-  return { ...candidateWithoutValidation, ...validation };
+  const partialIssue = solved.complete
+    ? []
+    : [
+        {
+          code: "PARTIAL_WFC",
+          message: solved.error ?? "Socket WFC stopped before every cell was resolved"
+        }
+      ];
+  return { ...candidateWithoutValidation, ...validation, issues: [...partialIssue, ...validation.issues] };
+}
+
+export function generateTerrainCandidate(
+  workspace: TerrainGenerationWorkspace,
+  sourceTemplate: TerrainSiteTemplate,
+  seed: number
+): TerrainCandidate {
+  return generatePreparedTerrainCandidate(workspace, prepareTerrainGeneration(workspace, sourceTemplate), seed);
 }
 
 export function generateTerrainCandidateBatch(
@@ -753,10 +966,17 @@ export function generateTerrainCandidateBatch(
   template: TerrainSiteTemplate,
   firstSeed: number
 ): TerrainCandidateResult[] {
+  let prepared: PreparedTerrainGeneration;
+  try {
+    prepared = prepareTerrainGeneration(workspace, template);
+  } catch (caught) {
+    const error = caught instanceof Error ? caught.message : String(caught);
+    return Array.from({ length: template.candidateCount }, (_, index) => ({ seed: (firstSeed + index) >>> 0, error }));
+  }
   return Array.from({ length: template.candidateCount }, (_, index) => {
     const seed = (firstSeed + index) >>> 0;
     try {
-      return { seed, candidate: generateTerrainCandidate(workspace, template, seed) };
+      return { seed, candidate: generatePreparedTerrainCandidate(workspace, prepared, seed) };
     } catch (caught) {
       return { seed, error: caught instanceof Error ? caught.message : String(caught) };
     }
@@ -764,7 +984,9 @@ export function generateTerrainCandidateBatch(
 }
 
 export function freezeTerrainCandidate(candidate: TerrainCandidate, slug: string, kind: "MAP" | "SUBMODULE"): TerrainApprovedAsset {
-  if (candidate.issues.length > 0) throw new Error("Only candidates that pass every validation rule can be approved");
+  if (candidate.complete && candidate.issues.length > 0) {
+    throw new Error("Only complete candidates that pass every validation rule or explicit partial candidates can be approved");
+  }
   return {
     slug,
     kind,

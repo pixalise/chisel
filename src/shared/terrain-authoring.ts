@@ -47,10 +47,32 @@ export const terrainPieceDimensionSchema = z.number().int().min(1).max(8);
 export type TerrainPieceDimension = z.infer<typeof terrainPieceDimensionSchema>;
 export const terrainPieceWeightSchema = z.number().min(0).max(1);
 
+export const terrainCollisionMaskSchema = z
+  .object({
+    resolution: z
+      .number()
+      .int()
+      .min(2)
+      .max(64)
+      .refine((value) => (value & (value - 1)) === 0, "Collision resolution must be a power of two"),
+    cells: z.array(z.boolean())
+  })
+  .strict()
+  .superRefine((mask, context) => {
+    if (mask.cells.length !== mask.resolution * mask.resolution) {
+      context.addIssue({ code: "custom", message: "Collision mask cell count must match its resolution", path: ["cells"] });
+    }
+    if (mask.cells.every((cell) => cell === mask.cells[0])) {
+      context.addIssue({ code: "custom", message: "Uniform collision belongs in the cell blocking flag", path: ["cells"] });
+    }
+  });
+export type TerrainCollisionMask = z.infer<typeof terrainCollisionMaskSchema>;
+
 export const terrainPieceCellSchema = z
   .object({
     tiles: terrainTileStackSchema,
     blocking: z.boolean(),
+    collision: terrainCollisionMaskSchema.optional(),
     elevation: z.number().int().min(-8).max(8),
     semanticFlags: z.array(terrainSlugSchema)
   })
@@ -225,6 +247,7 @@ export type TerrainPlacement = z.infer<typeof terrainPlacementSchema>;
 export const terrainResolvedCellMetadataSchema = z
   .object({
     blocking: z.boolean(),
+    collision: terrainCollisionMaskSchema.optional(),
     elevation: z.number().int().min(-8).max(8),
     tags: z.array(terrainSlugSchema),
     piece: terrainSlugSchema
@@ -247,6 +270,7 @@ export const terrainApprovedCellOverrideSchema = z
     index: z.number().int().nonnegative(),
     tiles: terrainTileStackSchema,
     blocking: z.boolean(),
+    collision: terrainCollisionMaskSchema.optional(),
     elevation: z.number().int().min(-8).max(8),
     tags: z.array(terrainSlugSchema)
   })
@@ -302,69 +326,39 @@ export const terrainApprovedAssetSchema = z
   });
 export type TerrainApprovedAsset = z.infer<typeof terrainApprovedAssetSchema>;
 
-export const terrainSpatialZoneSchema = z
+export const terrainAnnotationDefinitionSchema = z
   .object({
     slug: terrainSlugSchema,
-    kind: z.enum(["PLACEMENT", "EXCLUSION", "RESERVED"]),
-    cells: z.array(z.number().int().nonnegative()),
-    tags: z.array(terrainSlugSchema),
-    ruleSet: z.union([terrainSlugSchema, z.literal("")])
-  })
-  .strict()
-  .superRefine((zone, context) => {
-    if (new Set(zone.cells).size !== zone.cells.length) {
-      context.addIssue({ code: "custom", message: "Zone cells must be unique", path: ["cells"] });
-    }
-  });
-export type TerrainSpatialZone = z.infer<typeof terrainSpatialZoneSchema>;
-
-export const terrainSpatialMarkerSchema = z
-  .object({
-    slug: terrainSlugSchema,
-    kind: terrainSlugSchema,
-    x: z.number().int().nonnegative(),
-    y: z.number().int().nonnegative(),
-    radius: z.number().int().min(0).max(32),
-    direction: terrainDirectionSchema,
-    tags: z.array(terrainSlugSchema)
+    color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use a six-digit hex color")
   })
   .strict();
-export type TerrainSpatialMarker = z.infer<typeof terrainSpatialMarkerSchema>;
+export type TerrainAnnotationDefinition = z.infer<typeof terrainAnnotationDefinitionSchema>;
 
-export const terrainSpatialPlacementSchema = z
+export const terrainCellAnnotationsSchema = z
   .object({
-    slug: terrainSlugSchema,
-    mode: z.enum(["FIXED", "RULE"]),
-    x: z.number().int().nonnegative(),
-    y: z.number().int().nonnegative(),
-    width: terrainPieceDimensionSchema,
-    height: terrainPieceDimensionSchema,
-    orientation: z.number().int().min(0).max(7),
-    contentTable: z.string().trim().max(96),
-    contentSlug: z.union([terrainSlugSchema, z.literal("")]),
-    ruleSet: z.union([terrainSlugSchema, z.literal("")]),
-    tags: z.array(terrainSlugSchema)
+    index: z.number().int().nonnegative(),
+    annotations: z.array(terrainSlugSchema).min(1)
   })
   .strict()
-  .superRefine((placement, context) => {
-    if (placement.mode === "FIXED" && (!placement.contentTable || !placement.contentSlug)) {
-      context.addIssue({ code: "custom", message: "Fixed placements require a content table and row slug" });
-    }
-    if (placement.mode === "RULE" && !placement.ruleSet) {
-      context.addIssue({ code: "custom", message: "Rule placements require a rule-set slug" });
+  .superRefine((cell, context) => {
+    if (new Set(cell.annotations).size !== cell.annotations.length) {
+      context.addIssue({ code: "custom", message: "Cell annotations must be unique", path: ["annotations"] });
     }
   });
-export type TerrainSpatialPlacement = z.infer<typeof terrainSpatialPlacementSchema>;
+export type TerrainCellAnnotations = z.infer<typeof terrainCellAnnotationsSchema>;
 
 export const terrainSpatialLayoutSchema = z
   .object({
     slug: terrainSlugSchema,
     sourceAsset: terrainSlugSchema,
-    zones: z.array(terrainSpatialZoneSchema),
-    markers: z.array(terrainSpatialMarkerSchema),
-    placements: z.array(terrainSpatialPlacementSchema)
+    cells: z.array(terrainCellAnnotationsSchema)
   })
-  .strict();
+  .strict()
+  .superRefine((layout, context) => {
+    if (new Set(layout.cells.map((cell) => cell.index)).size !== layout.cells.length) {
+      context.addIssue({ code: "custom", message: "Annotated cell indexes must be unique", path: ["cells"] });
+    }
+  });
 export type TerrainSpatialLayout = z.infer<typeof terrainSpatialLayoutSchema>;
 
 export interface TerrainTilesetView {
@@ -388,6 +382,7 @@ export interface TerrainWorkspaceView {
   adjacencyOverrides: TerrainAdjacencyOverride[];
   templates: TerrainSiteTemplate[];
   approvedAssets: TerrainApprovedAsset[];
+  annotations: TerrainAnnotationDefinition[];
   spatialLayouts: TerrainSpatialLayout[];
   problems: string[];
 }
