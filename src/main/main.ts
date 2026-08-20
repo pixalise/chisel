@@ -1,24 +1,11 @@
-import { BrowserWindow, app, dialog, ipcMain, nativeImage } from "electron";
+import { BrowserWindow, app, dialog, ipcMain, nativeImage, net, protocol } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { importAsset, replaceAssetReferences, upgradeAssetLibraryPaths } from "./asset-store";
+import { pathToFileURL } from "node:url";
+import { importAsset, replaceAssetReferences, replaceAssetSource } from "./asset-store";
 import { convertImagesToPng, createImageConversionPreview } from "./image-conversion";
 import { getFileMetadata } from "./file-metadata";
-import {
-  packedTexturePackagePreviewDataUrl,
-  type PackedTexturePackagePreviewKind,
-  packAlbedoHeightTextureInMemory,
-  packNormalRoughnessTextureInMemory,
-  packTexturePackageAsset,
-  unpackPackedTexturePackageDataUrls
-} from "./texture-packing";
-import type {
-  ConvertImages,
-  ImportAssetInput,
-  PackAlbedoHeightTexture,
-  PackNormalRoughnessTexture,
-  PackTexturePackage
-} from "../shared/schemas";
+import type { ConvertImages, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas";
 
 const APP_NAME = "Chisel";
 const APP_ICON_FILE = "chisel-apple.png";
@@ -26,6 +13,20 @@ const APP_ICON_FILE = "chisel-apple.png";
 let mainWindow: BrowserWindow | null = null;
 
 app.setName(APP_NAME);
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "chisel-asset",
+    privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true }
+  }
+]);
+
+function assetPathFromUrl(value: string): string {
+  const url = new URL(value);
+  if (url.protocol !== "chisel-asset:" || url.hostname !== "local") throw new Error(`Invalid Chisel asset URL: ${value}`);
+  const filePath = decodeURIComponent(url.pathname.slice(1));
+  if (!path.isAbsolute(filePath) || filePath.includes("\0")) throw new Error(`Invalid Chisel asset path: ${filePath}`);
+  return filePath;
+}
 
 function appIconPath(): string {
   return path.join(__dirname, "..", "..", "assets", APP_ICON_FILE);
@@ -115,11 +116,7 @@ async function ensureGitignoreEntry(filePath: string, entry: string): Promise<vo
   await fs.writeFile(filePath, `${prefix}${entry}\n`, "utf8");
 }
 
-async function createImagePreview(inputPath: string, gpptPreview?: PackedTexturePackagePreviewKind): Promise<string> {
-  if (/\.gppt$/i.test(inputPath)) {
-    return packedTexturePackagePreviewDataUrl(await fs.readFile(inputPath), gpptPreview);
-  }
-
+async function createImagePreview(inputPath: string): Promise<string> {
   const image = nativeImage.createFromPath(inputPath);
   if (image.isEmpty()) {
     return createImageConversionPreview(inputPath);
@@ -211,23 +208,16 @@ function registerIpc(): void {
   });
 
   ipcMain.handle("asset:import", (_event, input: ImportAssetInput) => importAsset(input));
-  ipcMain.handle("asset:upgrade-library-paths", (_event, projectPath: string) => upgradeAssetLibraryPaths(projectPath));
+  ipcMain.handle("asset:replace-source", (_event, input: ReplaceAssetSourceInput) => replaceAssetSource(input));
   ipcMain.handle("asset:replace-references", (_event, projectPath: string, assetIdChanges: Record<string, string>) =>
     replaceAssetReferences(projectPath, assetIdChanges)
   );
-  ipcMain.handle("texture:pack-albedo-height", (_event, input: PackAlbedoHeightTexture) => packAlbedoHeightTextureInMemory(input));
-  ipcMain.handle("texture:pack-normal-roughness", (_event, input: PackNormalRoughnessTexture) => packNormalRoughnessTextureInMemory(input));
-  ipcMain.handle("texture:pack-package", (_event, input: PackTexturePackage) => packTexturePackageAsset(input));
-  ipcMain.handle("texture:unpack-package", async (_event, inputPath: string) =>
-    unpackPackedTexturePackageDataUrls(await fs.readFile(inputPath))
-  );
   ipcMain.handle("image:convert-to-png", (_event, input: ConvertImages) => convertImagesToPng(input));
-  ipcMain.handle("image:conversion-preview", (_event, inputPath: string, preview?: PackedTexturePackagePreviewKind) =>
-    createImagePreview(inputPath, preview)
-  );
+  ipcMain.handle("image:conversion-preview", (_event, inputPath: string) => createImagePreview(inputPath));
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await protocol.handle("chisel-asset", (request) => net.fetch(pathToFileURL(assetPathFromUrl(request.url)).toString()));
   const icon = nativeImage.createFromPath(appIconPath());
   if (process.platform === "darwin" && !icon.isEmpty()) {
     app.dock.setIcon(icon);

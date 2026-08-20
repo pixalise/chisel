@@ -1,17 +1,46 @@
 import fileService from "@/services/file-service";
 import BaseService from "@/services/base-service";
 import appStore from "@/stores/app-store";
-import { assetSchema, addAssetSchema, type Asset, type AddAsset } from "../../shared/schemas";
+import {
+  assetCategoryForExtension,
+  assetSchema,
+  addAssetSchema,
+  type AnyDataTable,
+  type Asset,
+  type AddAsset,
+  type DataTableRow
+} from "../../shared/schemas";
 import { assetSlug, chiselAssetRelativePath } from "../../shared/asset-paths";
 import { findAssetReferences } from "../../shared/project-validation";
 import tableService from "@/services/table-service";
+import {
+  TERRAIN_APPROVED_ASSET_COLUMNS,
+  TERRAIN_APPROVED_ASSETS_TABLE_ID,
+  TERRAIN_PIECE_COLUMNS,
+  TERRAIN_PIECES_TABLE_ID,
+  TERRAIN_TILE_BINDING_COLUMNS,
+  TERRAIN_TILE_BINDINGS_TABLE_ID
+} from "../../shared/terrain-tables";
+import { AssetCategoryEnum } from "../../shared/types";
+
+function rowStringValue(row: DataTableRow, columnId: string): string {
+  const value = row.values.find((entry) => entry.columnId === columnId)?.value;
+  if (typeof value !== "string") throw new Error(`Terrain row is missing required column '${columnId}'`);
+  return value;
+}
+
+function definitionUsesTileset(value: unknown, assetId: string): boolean {
+  if (Array.isArray(value)) return value.some((entry) => definitionUsesTileset(entry, assetId));
+  if (typeof value !== "object" || value === null) return false;
+  if ("tilesetId" in value && value.tilesetId === assetId) return true;
+  return Object.values(value).some((entry) => definitionUsesTileset(entry, assetId));
+}
 
 class AssetService extends BaseService {
   private static schemaVersion: number = 1;
 
   public async getAllAssets(): Promise<Asset[]> {
-    const assets = await fileService.tryReadAssetsJson(this.getPath());
-    return assets?.assets ?? [];
+    return (await fileService.tryReadAssetsJson(this.getPath()))?.assets ?? [];
   }
 
   public async getAsset(assetId: string): Promise<Asset> {
@@ -27,17 +56,26 @@ class AssetService extends BaseService {
     const assets = await this.getAllAssets();
     const parsed = addAssetSchema.parse(input);
     const name = assetSlug(parsed.name);
-    const relativePath = chiselAssetRelativePath(parsed.category, name, parsed.extension);
+    const category = assetCategoryForExtension(parsed.extension, parsed.category);
+    const relativePath = chiselAssetRelativePath(category, name, parsed.extension);
     const existing = assets.find((entry) => entry.id === name || entry.relativePath === relativePath);
     if (existing) {
       throw new Error(`Asset slug ${name} already exists`);
     }
-    const asset = assetSchema.parse({ ...parsed, id: name, name, relativePath });
+    const asset = assetSchema.parse({ ...parsed, category, id: name, name, relativePath });
     await fileService.writeAssetsJson(appStore.getState().computed.project, {
       schemaVersion: AssetService.schemaVersion,
       assets: [...assets, asset]
     });
     return asset;
+  }
+
+  public async replaceAssetSource(assetId: string, sourcePath: string): Promise<Asset> {
+    return window.electron.replaceAssetSource({
+      projectPath: appStore.getState().computed.project.path,
+      assetId,
+      sourcePath
+    });
   }
 
   public async updateAsset(assetId: string, asset: Asset): Promise<void> {
@@ -75,8 +113,17 @@ class AssetService extends BaseService {
     if (!asset) {
       throw new Error(`Asset ${assetId} does not exist`);
     }
-    const references = findAssetReferences(await tableService.listAllTables(), assetId);
-    if (references.length > 0) {
+    const tables = await tableService.listAllTables();
+    const references = findAssetReferences(tables, assetId);
+    const managedTerrainReferences = new Set([TERRAIN_TILE_BINDINGS_TABLE_ID]);
+    const blockingReference = references.find((reference) => !managedTerrainReferences.has(reference.sourceTableId));
+    if (blockingReference) {
+      throw new Error(
+        `Asset ${assetId} is referenced by ${blockingReference.sourceTableName}.${blockingReference.sourceRowSlug}.${blockingReference.columnName}`
+      );
+    }
+    if (asset.category === AssetCategoryEnum.tileset) await this.removeUnusedTilesetAuthoring(assetId, tables);
+    else if (references.length > 0) {
       const reference = references[0]!;
       throw new Error(`Asset ${assetId} is referenced by ${reference.sourceTableName}.${reference.sourceRowSlug}.${reference.columnName}`);
     }
@@ -86,6 +133,26 @@ class AssetService extends BaseService {
       schemaVersion: AssetService.schemaVersion,
       assets: assets.filter((asset) => asset.id !== assetId)
     });
+  }
+
+  private async removeUnusedTilesetAuthoring(assetId: string, tables: AnyDataTable[]): Promise<void> {
+    const bindings = tables.find((table) => table.id === TERRAIN_TILE_BINDINGS_TABLE_ID);
+    const pieces = tables.find((table) => table.id === TERRAIN_PIECES_TABLE_ID);
+    const approvedAssets = tables.find((table) => table.id === TERRAIN_APPROVED_ASSETS_TABLE_ID);
+    if (!bindings || !pieces || !approvedAssets) throw new Error("Terrain system tables are missing");
+    const blockingPiece = pieces.rows.find((entry) =>
+      definitionUsesTileset(entry.values.find((value) => value.columnId === TERRAIN_PIECE_COLUMNS.definition.id)?.value, assetId)
+    );
+    if (blockingPiece) throw new Error(`Tileset ${assetId} is used by terrain piece ${blockingPiece.slug}`);
+    const blockingApproved = approvedAssets.rows.find((entry) =>
+      definitionUsesTileset(entry.values.find((value) => value.columnId === TERRAIN_APPROVED_ASSET_COLUMNS.definition.id)?.value, assetId)
+    );
+    if (blockingApproved) throw new Error(`Tileset ${assetId} is used by approved terrain asset ${blockingApproved.slug}`);
+    const removedBindings = bindings.rows.filter((row) => rowStringValue(row, TERRAIN_TILE_BINDING_COLUMNS.tileset.id) === assetId);
+    await tableService.saveSystemTableRows(
+      TERRAIN_TILE_BINDINGS_TABLE_ID,
+      bindings.rows.filter((row) => !removedBindings.some((removed) => removed.id === row.id))
+    );
   }
 }
 const assetService = new AssetService();

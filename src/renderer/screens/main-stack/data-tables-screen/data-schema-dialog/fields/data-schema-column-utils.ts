@@ -27,8 +27,14 @@ export function isVectorColumnType(type: ColumnType): boolean {
   return vectorLengthForColumnType(type) > 0;
 }
 
-export function createDefaultValueForColumnType(type: ColumnType, enumValues: string[] = [], minValue?: unknown): DataColumnDefaultValue {
+export function createDefaultValueForColumnType(
+  type: ColumnType,
+  enumValues: string[] = [],
+  minValue?: unknown,
+  requiredValue: unknown = true
+): DataColumnDefaultValue {
   const min = typeof minValue === "number" && Number.isFinite(minValue) ? minValue : 0;
+  const isRequired = requiredValue !== false;
 
   if (type === ColumnType.integer) {
     return Math.trunc(min);
@@ -46,9 +52,9 @@ export function createDefaultValueForColumnType(type: ColumnType, enumValues: st
     return Array.from({ length: vectorLengthForColumnType(type) }, () => min);
   }
   if (type === ColumnType.enum) {
-    return enumValues[0] ?? "";
+    return isRequired ? (enumValues[0] ?? "") : "";
   }
-  if (type === ColumnType.enumArray) {
+  if (type === ColumnType.enumArray || type === ColumnType.arrayRef) {
     return [];
   }
   if (type === ColumnType.json) {
@@ -57,7 +63,12 @@ export function createDefaultValueForColumnType(type: ColumnType, enumValues: st
   return "";
 }
 
-export function isDefaultValueValidForColumnType(type: ColumnType, value: unknown, enumValues: string[]): boolean {
+export function isDefaultValueValidForColumnType(
+  type: ColumnType,
+  value: unknown,
+  enumValues: string[],
+  requiredValue: unknown = true
+): boolean {
   if (value === null || typeof value === "undefined") {
     return false;
   }
@@ -74,11 +85,17 @@ export function isDefaultValueValidForColumnType(type: ColumnType, value: unknow
     return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value);
   }
   if (type === ColumnType.enum) {
+    if (requiredValue === false && value === "") {
+      return true;
+    }
     return typeof value === "string" && (enumValues.length === 0 || enumValues.includes(value));
   }
-  if (type === ColumnType.enumArray) {
+  if (type === ColumnType.enumArray || type === ColumnType.arrayRef) {
     return (
-      Array.isArray(value) && value.every((entry) => typeof entry === "string" && (enumValues.length === 0 || enumValues.includes(entry)))
+      Array.isArray(value) &&
+      value.every(
+        (entry) => typeof entry === "string" && (type === ColumnType.arrayRef || enumValues.length === 0 || enumValues.includes(entry))
+      )
     );
   }
   if (isVectorColumnType(type)) {
@@ -138,20 +155,22 @@ export function parseDefaultValue(columnType: ColumnType, enumValues: string[], 
     }
     return createDefaultValueForColumnType(columnType, enumValues, minValue);
   }
-  if (columnType === ColumnType.enumArray) {
+  if (columnType === ColumnType.enumArray || columnType === ColumnType.arrayRef) {
     if (!value.trim()) {
       return [];
     }
     try {
       const parsed = JSON.parse(value) as unknown;
       if (Array.isArray(parsed)) {
-        return parsed.map(String).filter((entry) => enumValues.length === 0 || enumValues.includes(entry));
+        return parsed
+          .map(String)
+          .filter((entry) => columnType === ColumnType.arrayRef || enumValues.length === 0 || enumValues.includes(entry));
       }
     } catch {
       return value
         .split(",")
         .map((entry) => entry.trim())
-        .filter((entry) => entry && (enumValues.length === 0 || enumValues.includes(entry)));
+        .filter((entry) => entry && (columnType === ColumnType.arrayRef || enumValues.length === 0 || enumValues.includes(entry)));
     }
     return [];
   }

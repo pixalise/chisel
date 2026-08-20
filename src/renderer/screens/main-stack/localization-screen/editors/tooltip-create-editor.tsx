@@ -23,7 +23,7 @@ const TooltipCreateEditor: FC<TooltipCreateEditorProps> = (props) => {
   const [iconAssetId, setIconAssetId] = useState("");
   const [titleKey, setTitleKey] = useState("");
   const [descriptionKey, setDescriptionKey] = useState("");
-  const uiIconAssets = assets.filter((asset) => asset.category === AssetCategoryEnum.uiIcon);
+  const uiIconAssets = assets.filter((asset) => asset.category === AssetCategoryEnum.ui);
 
   function onAddTooltip(): void {
     try {

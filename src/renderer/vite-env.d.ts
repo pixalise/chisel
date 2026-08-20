@@ -1,14 +1,6 @@
 /// <reference types="vite/client" />
 
-import type {
-  ConvertImages,
-  ConvertedImage,
-  ImportAssetInput,
-  PackAlbedoHeightTexture,
-  PackNormalRoughnessTexture,
-  PackTexturePackage,
-  AssetsJson
-} from "../shared/schemas";
+import type { ConvertImages, ConvertedImage, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas";
 import type { Asset, FileMetadata } from "../shared/types";
 
 type OpenFileDialogOptions = {
@@ -22,16 +14,6 @@ type OpenFileDialogOptions = {
 };
 
 declare global {
-  interface PackedTexturePackageDataUrls {
-    albedoHeight: string;
-    normalRoughness: string;
-  }
-
-  interface UpgradeAssetLibraryPathsResult {
-    assetIdChanges: Record<string, string>;
-    assetsJson: AssetsJson;
-  }
-
   interface Window {
     electron: {
       openFolderDialog: () => Promise<string | null>;
@@ -47,15 +29,12 @@ declare global {
       deleteDirectory: (path: string) => Promise<void>;
       getFileMetadata: (sourcePath: string) => Promise<FileMetadata>;
       importAsset: (input: ImportAssetInput) => Promise<Asset>;
-      upgradeAssetLibraryPaths: (projectPath: string) => Promise<UpgradeAssetLibraryPathsResult>;
+      replaceAssetSource: (input: ReplaceAssetSourceInput) => Promise<Asset>;
       replaceAssetReferences: (projectPath: string, assetIdChanges: Record<string, string>) => Promise<boolean>;
-      packAlbedoHeightTexture: (input: PackAlbedoHeightTexture) => Promise<string>;
-      packNormalRoughnessTexture: (input: PackNormalRoughnessTexture) => Promise<string>;
-      packTexturePackage: (input: PackTexturePackage) => Promise<Asset>;
-      unpackTexturePackage: (inputPath: string) => Promise<PackedTexturePackageDataUrls>;
       convertImages: (input: ConvertImages) => Promise<ConvertedImage[]>;
-      createImageConversionPreview: (inputPath: string, preview?: "albedoHeight" | "normalRoughness") => Promise<string>;
+      createImageConversionPreview: (inputPath: string) => Promise<string>;
       getPathForFile: (file: File) => string;
+      toAssetUrl: (filePath: string) => string;
     };
   }
 }

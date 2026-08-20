@@ -1,8 +1,9 @@
 import { type FC } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { assetCategoryOptionValues } from "../../../shared/types";
+import ControlledInput from "@/components/controls/controlled-input";
+import { AssetCategoryEnum, assetCategoryOptionValues } from "../../../shared/types";
 import ControlledSelectInput from "@/components/controls/controlled-select-input";
 import ControlledSlugInput from "@/components/controls/controlled-slug-input";
 import ControlledTextarea from "@/components/controls/controlled-textarea";
@@ -22,6 +23,7 @@ const AssetForm: FC<AssetFormProps> = (props) => {
     mode: "onChange",
     resolver: zodResolver(createOrUpdateAssetSchema)
   });
+  const category = useWatch({ control: form.control, name: "category" });
 
   return (
     <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
@@ -35,6 +37,10 @@ const AssetForm: FC<AssetFormProps> = (props) => {
           options={assetCategoryOptionValues}
         />
       </div>
+
+      {category === AssetCategoryEnum.tileset && (
+        <ControlledInput control={form.control} disabled={disabled} label="Tile size (px)" min={1} name="tileSize" type="number" />
+      )}
 
       <ControlledTextarea
         control={form.control}

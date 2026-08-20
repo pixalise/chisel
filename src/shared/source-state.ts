@@ -16,13 +16,13 @@ export type CommittedSourceSnapshot = z.infer<typeof committedSourceSnapshotSche
 
 export const sourceStateJsonSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(3),
     commits: z.array(committedSourceSnapshotSchema).default([])
   })
   .strict();
 export type SourceStateJson = z.infer<typeof sourceStateJsonSchema>;
 
 export const emptySourceStateJson = {
-  schemaVersion: 1,
+  schemaVersion: 3,
   commits: []
 } satisfies SourceStateJson;

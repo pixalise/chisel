@@ -93,7 +93,7 @@ function appendIconPreviewPart(
     return;
   }
   const asset = assetsById.get(iconSlug);
-  const iconAsset = asset?.category === AssetCategoryEnum.uiIcon ? asset : undefined;
+  const iconAsset = asset?.category === AssetCategoryEnum.ui ? asset : undefined;
   const label = iconAsset?.name ?? iconSlug;
   const style = activeStyles[activeStyles.length - 1];
   const tooltip = activeTooltips[activeTooltips.length - 1];

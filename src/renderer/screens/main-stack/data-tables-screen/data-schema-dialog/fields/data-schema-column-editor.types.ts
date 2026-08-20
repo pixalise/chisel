@@ -35,6 +35,8 @@ export interface ColumnDefaultValueEditorProps {
   minValue: unknown;
   onAddEnumArrayDefaultValue: (value: string) => void;
   onRemoveEnumArrayDefaultValue: (value: string) => void;
+  refTableId: unknown;
+  requiredValue: unknown;
   stepValue: unknown;
 }
 
@@ -46,6 +48,8 @@ export interface ColumnTypedDefaultValueEditorProps {
   fieldPrefix: string;
   maxValue: unknown;
   minValue: unknown;
+  refTableId: unknown;
+  requiredValue: unknown;
   stepValue: unknown;
 }
 

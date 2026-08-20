@@ -15,17 +15,30 @@ import { type DataColumnDefinition } from "../../../../../shared/schemas";
 import { ColumnType } from "../../../../../shared/types";
 import AssetRefCellEditor from "./asset-ref-cell-editor/asset-ref-cell-editor";
 import AssetRefCellValue from "./asset-ref-cell-value";
+import ArrayRefCellEditor from "./array-ref-cell-editor";
+import ArrayRefCellValue from "./array-ref-cell-value";
 
 const cellEditorClassName = "h-7 min-w-24 border border-border bg-background px-1.5 font-mono text-[0.7rem] shadow-sm";
+const emptyEnumValue = "__empty_enum_value__";
+const emptyRefValue = "__empty_ref_value__";
+const chooseRefValue = "__choose_ref_value__";
 const vectorComponentLabels = ["x", "y", "z", "w"];
+
+interface RefTableOption {
+  id: string;
+  name: string;
+  rows?: Array<{ id: string; slug: string }>;
+}
 
 export interface CellValueProps {
   column: DataColumnDefinition;
+  tables: RefTableOption[];
   value: unknown;
 }
 
 export interface CellEditorProps {
   column: DataColumnDefinition;
+  tables: RefTableOption[];
   value: unknown;
   onCommit: (value: unknown) => void;
 }
@@ -117,8 +130,12 @@ function rangeLabel(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(4)));
 }
 
+function tableRows(table: RefTableOption | undefined): Array<{ id: string; slug: string }> {
+  return table?.rows ?? [];
+}
+
 export const CellValue: FC<CellValueProps> = (props) => {
-  const { column, value } = props;
+  const { column, tables, value } = props;
 
   if (value === undefined || value === null || value === "" || (Array.isArray(value) && value.length === 0)) {
     return <span className="text-muted-foreground/65">-</span>;
@@ -142,6 +159,14 @@ export const CellValue: FC<CellValueProps> = (props) => {
 
   if (column.type === ColumnType.translationRef) {
     return <TranslationRefCellValue value={value} />;
+  }
+
+  if (column.type === ColumnType.ref) {
+    return <RefCellValue column={column} tables={tables} value={value} />;
+  }
+
+  if (column.type === ColumnType.arrayRef) {
+    return <ArrayRefCellValue column={column} tables={tables} value={value} />;
   }
 
   if (column.type === ColumnType.color) {
@@ -173,7 +198,7 @@ export const CellValue: FC<CellValueProps> = (props) => {
 };
 
 export const CellEditor: FC<CellEditorProps> = (props) => {
-  const { column, value, onCommit } = props;
+  const { column, tables, value, onCommit } = props;
   const [draft, setDraft] = useState(textValue(value));
 
   useEffect(() => {
@@ -185,12 +210,16 @@ export const CellEditor: FC<CellEditorProps> = (props) => {
   }
 
   if (column.type === ColumnType.enum && column.possibleValues?.length) {
+    const enumValue = textValue(value);
+    const selectValue = !column.required && enumValue === "" ? emptyEnumValue : enumValue;
+
     return (
-      <Select value={textValue(value)} onValueChange={(nextValue) => onCommit(nextValue)}>
+      <Select value={selectValue} onValueChange={(nextValue) => onCommit(nextValue === emptyEnumValue ? "" : nextValue)}>
         <SelectTrigger className={cellEditorClassName}>
-          <SelectValue />
+          <SelectValue placeholder={column.required ? undefined : "None"} />
         </SelectTrigger>
         <SelectContent>
+          {!column.required && <SelectItem value={emptyEnumValue}>None</SelectItem>}
           {column.possibleValues.map((option) => (
             <SelectItem key={option} value={option}>
               {option}
@@ -269,7 +298,15 @@ export const CellEditor: FC<CellEditorProps> = (props) => {
   }
 
   if (column.type === ColumnType.translationRef) {
-    return <TranslationRefCellEditor column={column} value={value} onCommit={onCommit} />;
+    return <TranslationRefCellEditor column={column} tables={tables} value={value} onCommit={onCommit} />;
+  }
+
+  if (column.type === ColumnType.ref) {
+    return <RefCellEditor column={column} tables={tables} value={value} onCommit={onCommit} />;
+  }
+
+  if (column.type === ColumnType.arrayRef) {
+    return <ArrayRefCellEditor column={column} tables={tables} value={value} onCommit={onCommit} />;
   }
 
   if (isStructuredColumnType(column.type)) {
@@ -417,6 +454,77 @@ const TranslationRefCellValue: FC<{ value: unknown }> = (props) => {
       <Badge variant={key ? "secondary" : "outline"}>{key ? "translation" : "missing"}</Badge>
       <span className="font-mono text-xs">{keyPath}</span>
     </span>
+  );
+};
+
+const RefCellValue: FC<CellValueProps> = (props) => {
+  const { column, tables, value } = props;
+  const slug = typeof value === "string" ? value : "";
+  const targetTable = tables.find((entry) => entry.id === column.refTableId);
+  const targetRow = tableRows(targetTable).find((entry) => entry.slug === slug);
+
+  if (!slug) {
+    return <span className="text-muted-foreground/65">-</span>;
+  }
+
+  return (
+    <span className="flex items-center gap-1.5">
+      <Badge variant={targetRow ? "secondary" : "outline"}>{targetRow ? (targetTable?.name ?? "ref") : "missing"}</Badge>
+      <span className="font-mono text-xs">{slug}</span>
+    </span>
+  );
+};
+
+const RefCellEditor: FC<CellEditorProps> = (props) => {
+  const { column, tables, value, onCommit } = props;
+  const slug = typeof value === "string" ? value : "";
+  const targetTable = tables.find((entry) => entry.id === column.refTableId);
+  const targetRows = tableRows(targetTable);
+  const selectedRow = targetRows.find((entry) => entry.slug === slug);
+  const selectValue = slug || (column.required ? chooseRefValue : emptyRefValue);
+
+  return (
+    <Select
+      value={selectValue}
+      onValueChange={(nextValue) => {
+        if (nextValue === chooseRefValue) {
+          return;
+        }
+        onCommit(nextValue === emptyRefValue ? "" : nextValue);
+      }}
+    >
+      <SelectTrigger className={cellEditorClassName}>
+        <SelectValue placeholder={targetTable ? `Choose ${targetTable.name}` : "Choose reference"} />
+      </SelectTrigger>
+      <SelectContent>
+        {column.required && !slug && (
+          <SelectItem disabled value={chooseRefValue}>
+            Choose {targetTable?.name ?? "reference"}
+          </SelectItem>
+        )}
+        {!column.required && <SelectItem value={emptyRefValue}>None</SelectItem>}
+        {slug && !selectedRow && (
+          <SelectItem disabled value={slug}>
+            Missing: {slug}
+          </SelectItem>
+        )}
+        {targetRows.map((row) => (
+          <SelectItem key={row.id} value={row.slug}>
+            {row.slug}
+          </SelectItem>
+        ))}
+        {targetTable && targetRows.length === 0 && (
+          <SelectItem disabled value="__no_ref_rows__">
+            No rows in {targetTable.name}
+          </SelectItem>
+        )}
+        {!targetTable && (
+          <SelectItem disabled value="__missing_ref_table__">
+            Missing target table
+          </SelectItem>
+        )}
+      </SelectContent>
+    </Select>
   );
 };
 

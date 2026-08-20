@@ -6,16 +6,10 @@ interface ImageDimensions {
   height: number;
 }
 
-interface RgbaImageResult extends ImageDimensions {
-  data: string;
-}
-
 type SharpWorkerJob =
   | { type: "metadata"; filePath: string }
   | { type: "preview"; inputPath: string }
-  | { type: "convertToPng"; inputPath: string; outputPath: string }
-  | { type: "loadRgba"; filePath: string }
-  | { type: "encodeRgbaPng"; data: string; width: number; height: number };
+  | { type: "convertToPng"; inputPath: string; outputPath: string };
 
 type SharpWorkerResponse = { id: number; ok: true; value: unknown } | { id: number; ok: false; error: string };
 
@@ -127,30 +121,4 @@ export async function convertSharpImageToPng(inputPath: string, outputPath: stri
   }
 
   await runSharpWorker<null>({ type: "convertToPng", inputPath, outputPath });
-}
-
-export async function loadSharpRgba(filePath: string): Promise<{ data: Buffer; width: number; height: number }> {
-  if (process.env.VITEST) {
-    const sharp = (await import("sharp")).default;
-    const { data, info } = await sharp(filePath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    if (!info.width || !info.height) {
-      throw new Error(`Could not read image dimensions for ${filePath}`);
-    }
-    return { data, width: info.width, height: info.height };
-  }
-
-  const result = await runSharpWorker<RgbaImageResult>({ type: "loadRgba", filePath });
-  return { data: Buffer.from(result.data, "base64"), width: result.width, height: result.height };
-}
-
-export async function encodeSharpRgbaPng(data: Buffer, width: number, height: number): Promise<Buffer> {
-  if (process.env.VITEST) {
-    const sharp = (await import("sharp")).default;
-    return sharp(data, { raw: { width, height, channels: 4 } })
-      .png()
-      .toBuffer();
-  }
-
-  const encoded = await runSharpWorker<string>({ type: "encodeRgbaPng", data: data.toString("base64"), width, height });
-  return Buffer.from(encoded, "base64");
 }

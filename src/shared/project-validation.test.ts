@@ -56,15 +56,72 @@ describe("project content validation", () => {
     expect(findTableReferences([factions, units], "factions", new Set(["MISSING_FACTION"]))).toHaveLength(1);
   });
 
+  it("validates every array reference and finds references to individual target rows", () => {
+    const mapsColumnId = nanoid();
+    const approvedMaps = dataTableSchema.parse({
+      columns: [],
+      description: "Approved maps",
+      id: "terrain_approved_assets",
+      kind: "user",
+      lastChangeAt: "2026-01-01T00:00:00.000Z",
+      name: "Approved Terrain Assets",
+      rows: [
+        { id: nanoid(), slug: "FOREST_OPEN", values: [] },
+        { id: nanoid(), slug: "FOREST_RUINS", values: [] }
+      ],
+      version: 1
+    });
+    const pools = dataTableSchema.parse({
+      columns: [
+        {
+          defaultValue: [],
+          id: mapsColumnId,
+          name: "approved_maps",
+          refTableId: approvedMaps.id,
+          required: true,
+          type: ColumnType.arrayRef,
+          unique: false
+        }
+      ],
+      description: "Map pools",
+      id: "map_pools",
+      kind: "user",
+      lastChangeAt: "2026-01-01T00:00:00.000Z",
+      name: "Map Pools",
+      rows: [
+        {
+          id: nanoid(),
+          slug: "FOREST_POOL",
+          values: [
+            {
+              columnId: mapsColumnId,
+              type: ColumnType.arrayRef,
+              value: ["FOREST_OPEN", "MISSING_MAP", "FOREST_OPEN"]
+            }
+          ]
+        }
+      ],
+      version: 1
+    });
+
+    const issues = validateProjectContent([approvedMaps, pools], []);
+
+    expect(issues).toContainEqual(
+      expect.objectContaining({ message: 'Reference "MISSING_MAP" does not exist in "Approved Terrain Assets"' })
+    );
+    expect(issues).toContainEqual(expect.objectContaining({ message: "Array reference contains duplicate rows" }));
+    expect(findTableReferences([approvedMaps, pools], approvedMaps.id, new Set(["FOREST_OPEN"]))).toHaveLength(2);
+  });
+
   it("reports asset reference misses and category mismatches", () => {
     const portraitColumnId = nanoid();
     const terrainAsset = assetSchema.parse({
       category: AssetCategoryEnum.terrainTexture,
-      extension: "gppt",
+      extension: "tga",
       height: 1024,
       id: "FOREST_SOIL",
       name: "FOREST_SOIL",
-      relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL.gppt",
+      relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL.tga",
       sizeBytes: 1024,
       width: 1024
     });

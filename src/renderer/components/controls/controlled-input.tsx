@@ -38,7 +38,7 @@ function ControlledInput<TFieldValues extends FieldValues>(props: ControlledInpu
               name={field.name}
               value={value}
               onBlur={field.onBlur}
-              onChange={field.onChange}
+              onChange={(event) => field.onChange(inputProps.type === "number" ? event.target.valueAsNumber : event)}
             />
             {hasError && <FieldError errors={[fieldError]} />}
           </Field>

@@ -1,6 +1,14 @@
 import z from "zod";
 import { assetSlug } from "./asset-paths";
-import { AssetCategoryEnum, ColumnType, isHdriExtension, isMeshExtension, isTerrainTextureExtension } from "./types";
+import {
+  AssetCategoryEnum,
+  ColumnType,
+  isAudioExtension,
+  isHdriExtension,
+  isMeshExtension,
+  isShaderExtension,
+  isTerrainTextureExtension
+} from "./types";
 
 export const projectSchema = z.object({
   id: z.nanoid(),
@@ -46,17 +54,26 @@ export type AssetSlug = z.infer<typeof assetSlugSchema>;
 
 const assetCategorySchema = z.enum(AssetCategoryEnum);
 
-function assetCategoryForExtension(extension: string, category: AssetCategoryEnum): AssetCategoryEnum {
-  if (isHdriExtension(extension)) {
+export function assetCategoryForExtension(extension: string, category: AssetCategoryEnum): AssetCategoryEnum {
+  const normalizedExtension = extension.replace(/^\./, "");
+  if (isHdriExtension(normalizedExtension)) {
     return AssetCategoryEnum.hdri;
   }
 
-  if (isTerrainTextureExtension(extension)) {
+  if (isTerrainTextureExtension(normalizedExtension)) {
     return AssetCategoryEnum.terrainTexture;
   }
 
-  if (isMeshExtension(extension)) {
+  if (isMeshExtension(normalizedExtension)) {
     return AssetCategoryEnum.mesh;
+  }
+
+  if (isAudioExtension(normalizedExtension)) {
+    return AssetCategoryEnum.audio;
+  }
+
+  if (isShaderExtension(normalizedExtension)) {
+    return AssetCategoryEnum.shader;
   }
 
   return category;
@@ -69,10 +86,32 @@ const assetInputFields = {
   sizeBytes: z.number(),
   width: z.number(),
   height: z.number(),
+  tileSize: z.int().positive().optional(),
   extension: z.string()
 };
 
-const assetInputSchema = z.object(assetInputFields);
+function validateTilesetAsset(
+  asset: { category: AssetCategoryEnum; extension: string; height: number; tileSize?: number; width: number },
+  context: z.RefinementCtx
+): void {
+  if (asset.category !== AssetCategoryEnum.tileset) return;
+  if (asset.extension.replace(/^\./, "").toLowerCase() !== "png") {
+    context.addIssue({ code: "custom", message: "Tilesets must use PNG images", path: ["extension"] });
+  }
+  if (!asset.tileSize) {
+    context.addIssue({ code: "custom", message: "Tile size is required", path: ["tileSize"] });
+    return;
+  }
+  if (asset.width <= 0 || asset.height <= 0) {
+    context.addIssue({ code: "custom", message: "Tileset image dimensions must be available", path: ["width"] });
+    return;
+  }
+  if (asset.width % asset.tileSize !== 0 || asset.height % asset.tileSize !== 0) {
+    context.addIssue({ code: "custom", message: "Image dimensions must be divisible by tile size", path: ["tileSize"] });
+  }
+}
+
+const assetInputSchema = z.object(assetInputFields).superRefine(validateTilesetAsset);
 
 const assetDocumentSchema = z
   .object({
@@ -81,6 +120,7 @@ const assetDocumentSchema = z
     name: z.string().min(1, "Asset slug is required").max(96, "Asset slug must be at most 96 characters"),
     relativePath: z.string()
   })
+  .superRefine(validateTilesetAsset)
   .transform((asset) => {
     const slug = assetSlugSchema.parse(assetSlug(asset.name));
     return {
@@ -147,11 +187,11 @@ export const importAssetSchema = z.object({
   sourcePath: filePathSchema,
   name: assetSlugSchema,
   category: assetCategorySchema,
-  note: z.string().optional()
+  note: z.string().optional(),
+  tileSize: z.int().positive().optional()
 });
 export type ImportAssetInput = z.infer<typeof importAssetSchema>;
 
-const pngImagePathSchema = filePathSchema.refine((value) => /\.png$/i.test(value), "Image must be a PNG file");
 const schemaVersionSchema = z.int().min(1);
 export const dataTableIdSchema = z
   .string()
@@ -159,27 +199,6 @@ export const dataTableIdSchema = z
   .min(1)
   .max(96)
   .regex(/^[A-Za-z0-9_-]+$/);
-
-export const packedTextureNameSchema = assetSlugSchema;
-
-export const packAlbedoHeightTextureSchema = z.object({
-  albedo: pngImagePathSchema,
-  height: pngImagePathSchema
-});
-export type PackAlbedoHeightTexture = z.infer<typeof packAlbedoHeightTextureSchema>;
-
-export const packNormalRoughnessTextureSchema = z.object({
-  normal: pngImagePathSchema,
-  roughness: pngImagePathSchema
-});
-export type PackNormalRoughnessTexture = z.infer<typeof packNormalRoughnessTextureSchema>;
-
-export const packTexturePackageSchema = packAlbedoHeightTextureSchema.merge(packNormalRoughnessTextureSchema).extend({
-  name: packedTextureNameSchema,
-  note: z.string().optional(),
-  projectPath: filePathSchema
-});
-export type PackTexturePackage = z.infer<typeof packTexturePackageSchema>;
 
 export const convertImagesSchema = z.object({
   inputPaths: z.array(filePathSchema).min(1, "Choose at least one image"),
@@ -275,6 +294,11 @@ export const refColumnValueSchema = dataColumnValueBaseSchema.extend({
   value: z.string().nullish()
 });
 
+export const arrayRefColumnValueSchema = dataColumnValueBaseSchema.extend({
+  type: z.literal(ColumnType.arrayRef),
+  value: z.array(z.string()).nullish()
+});
+
 export const colorColumnValueSchema = dataColumnValueBaseSchema.extend({
   type: z.literal(ColumnType.color),
   value: z.string().nullish()
@@ -312,6 +336,7 @@ export const typedDataColumnValueSchema = z.discriminatedUnion("type", [
   assetRefColumnValueSchema,
   translationRefColumnValueSchema,
   refColumnValueSchema,
+  arrayRefColumnValueSchema,
   colorColumnValueSchema,
   vector2ColumnValueSchema,
   vector3ColumnValueSchema,
@@ -438,3 +463,10 @@ export const validatedDataTableSchema = anyDataTableSchema.superRefine((table, c
   // });
 });
 export type ValidatedDataTable = z.infer<typeof validatedDataTableSchema>;
+
+export const replaceAssetSourceSchema = z.object({
+  projectPath: filePathSchema,
+  assetId: assetSlugSchema,
+  sourcePath: filePathSchema
+});
+export type ReplaceAssetSourceInput = z.infer<typeof replaceAssetSourceSchema>;

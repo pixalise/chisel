@@ -23,6 +23,7 @@ class SourceStateService extends BaseService {
   }
 
   public async getLatestCommit(): Promise<CommittedSourceSnapshot | undefined> {
+    await assetService.getAllAssets();
     return (await this.listCommits())[0];
   }
 
@@ -46,7 +47,7 @@ class SourceStateService extends BaseService {
     });
     const sourceState = await this.readSourceState();
     await this.writeSourceState({
-      schemaVersion: 1,
+      schemaVersion: 3,
       commits: [commit, ...sourceState.commits].slice(0, maxCommitCount)
     });
     return commit;

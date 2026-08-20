@@ -7,7 +7,15 @@ import useCopyAssetFile from "@/hooks/use-copy-asset-file";
 import { Nullish } from "../../../shared/nullish";
 import { isNil } from "lodash";
 import useAddAssetMutation from "@/hooks/use-add-asset-mutation";
-import { AssetCategoryEnum, FileMetadata, isHdriExtension, isMeshExtension, isTerrainTextureExtension } from "../../../shared/types";
+import {
+  AssetCategoryEnum,
+  FileMetadata,
+  isAudioExtension,
+  isHdriExtension,
+  isMeshExtension,
+  isShaderExtension,
+  isTerrainTextureExtension
+} from "../../../shared/types";
 import fileService from "@/services/file-service";
 import { CreateOrUpdateAsset } from "../../../shared/schemas";
 import { normalizeConstantCaseInput } from "../../../shared/asset-paths";
@@ -31,8 +39,11 @@ function categoryForFile(metadata: FileMetadata): AssetCategoryEnum {
     return AssetCategoryEnum.image;
   }
 
-  if (["mp3", "ogg", "wav", "flac", "m4a"].includes(extension)) {
+  if (isAudioExtension(extension)) {
     return AssetCategoryEnum.audio;
+  }
+  if (isShaderExtension(extension)) {
+    return AssetCategoryEnum.shader;
   }
   if (["otf", "ttf", "woff", "woff2"].includes(extension)) {
     return AssetCategoryEnum.font;

@@ -3,6 +3,7 @@ import { Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import AssetForm from "@/components/asset-dialog/asset-form";
+import { ReplaceAssetSource } from "@/components/asset-dialog/replace-asset-source";
 import useUpdateAssetMutation from "@/hooks/use-update-asset-mutation";
 import type { Asset, CreateOrUpdateAsset } from "../../../shared/schemas";
 
@@ -20,7 +21,8 @@ const EditAssetDialogButton: FC<EditAssetDialogButtonProps> = (props) => {
       ...asset,
       category: input.category,
       name: input.name,
-      note: input.note
+      note: input.note,
+      tileSize: input.tileSize
     });
     setIsOpen(false);
   };
@@ -48,6 +50,7 @@ const EditAssetDialogButton: FC<EditAssetDialogButtonProps> = (props) => {
           </DialogTitle>
           <DialogDescription>Update asset metadata. Slug changes move the managed file and update asset references.</DialogDescription>
         </DialogHeader>
+        {isOpen && <ReplaceAssetSource asset={asset} disabled={isUpdateAssetLoading} onReplaced={() => setIsOpen(false)} />}
         {isOpen && (
           <AssetForm
             defaultValues={{
@@ -56,6 +59,7 @@ const EditAssetDialogButton: FC<EditAssetDialogButtonProps> = (props) => {
               name: asset.name,
               note: asset.note ?? "",
               sizeBytes: asset.sizeBytes,
+              tileSize: asset.tileSize,
               category: asset.category,
               width: asset.width
             }}

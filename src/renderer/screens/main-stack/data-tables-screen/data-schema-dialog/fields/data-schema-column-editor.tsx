@@ -22,6 +22,8 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
   const maxValue = useWatch({ control, name: `${fieldPrefix}.max` });
   const minValue = useWatch({ control, name: `${fieldPrefix}.min` });
   const possibleValues = useWatch({ control, name: `${fieldPrefix}.possibleValues` });
+  const refTableId = useWatch({ control, name: `${fieldPrefix}.refTableId` });
+  const requiredValue = useWatch({ control, name: `${fieldPrefix}.required` });
   const stepValue = useWatch({ control, name: `${fieldPrefix}.step` });
   const [possibleValueInput, setPossibleValueInput] = useState("");
   const enumValues = Array.isArray(possibleValues) ? possibleValues.map(String) : [];
@@ -32,20 +34,21 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
     isVectorColumnType(columnType);
   const supportsMaxChars = columnType === ColumnType.string || columnType === ColumnType.text;
   const supportsStep = columnType === ColumnType.range || isVectorColumnType(columnType);
+  const usesIntegerNumericMetadata = columnType === ColumnType.integer;
 
   useEffect(() => {
     if (!Object.values(ColumnType).includes(columnType)) {
       return;
     }
     const currentEnumValues = Array.isArray(possibleValues) ? possibleValues.map(String) : [];
-    if (isDefaultValueValidForColumnType(columnType, defaultValue, currentEnumValues)) {
+    if (isDefaultValueValidForColumnType(columnType, defaultValue, currentEnumValues, requiredValue)) {
       return;
     }
-    setValue(`${fieldPrefix}.defaultValue`, createDefaultValueForColumnType(columnType, currentEnumValues, minValue), {
+    setValue(`${fieldPrefix}.defaultValue`, createDefaultValueForColumnType(columnType, currentEnumValues, minValue, requiredValue), {
       shouldDirty: true,
       shouldValidate: true
     });
-  }, [columnType, defaultValue, fieldPrefix, minValue, possibleValues, setValue]);
+  }, [columnType, defaultValue, fieldPrefix, minValue, possibleValues, requiredValue, setValue]);
 
   function addPossibleValue(): void {
     const value = possibleValueInput;
@@ -64,7 +67,7 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
     );
     if (defaultValue === value) {
       const nextValues = enumValues.filter((entry) => entry !== value);
-      setValue(`${fieldPrefix}.defaultValue`, createDefaultValueForColumnType(ColumnType.enum, nextValues), {
+      setValue(`${fieldPrefix}.defaultValue`, createDefaultValueForColumnType(ColumnType.enum, nextValues, minValue, requiredValue), {
         shouldDirty: true,
         shouldValidate: true
       });
@@ -141,13 +144,29 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
         minValue={minValue}
         onAddEnumArrayDefaultValue={addEnumArrayDefaultValue}
         onRemoveEnumArrayDefaultValue={removeEnumArrayDefaultValue}
+        refTableId={refTableId}
+        requiredValue={requiredValue}
         stepValue={stepValue}
       />
 
       {supportsNumericBounds && (
         <div className="grid grid-cols-2 gap-2 max-[640px]:grid-cols-1">
-          <NumericMetadataInput control={control} disabled={disabled} fieldPrefix={fieldPrefix} label="Min" name="min" />
-          <NumericMetadataInput control={control} disabled={disabled} fieldPrefix={fieldPrefix} label="Max" name="max" />
+          <NumericMetadataInput
+            control={control}
+            disabled={disabled}
+            fieldPrefix={fieldPrefix}
+            integer={usesIntegerNumericMetadata}
+            label="Min"
+            name="min"
+          />
+          <NumericMetadataInput
+            control={control}
+            disabled={disabled}
+            fieldPrefix={fieldPrefix}
+            integer={usesIntegerNumericMetadata}
+            label="Max"
+            name="max"
+          />
         </div>
       )}
 
@@ -167,7 +186,9 @@ const DataSchemaColumnEditor: FC<DataSchemaColumnEditorProps> = (props) => {
         <AssetRefCategoryFilterEditor control={control} disabled={disabled} fieldPrefix={fieldPrefix} />
       )}
 
-      {columnType === ColumnType.ref && <RefTableTargetEditor control={control} disabled={disabled} fieldPrefix={fieldPrefix} />}
+      {(columnType === ColumnType.ref || columnType === ColumnType.arrayRef) && (
+        <RefTableTargetEditor control={control} disabled={disabled} fieldPrefix={fieldPrefix} />
+      )}
 
       {(columnType === ColumnType.enum || columnType === ColumnType.enumArray) && (
         <PossibleValuesEditor

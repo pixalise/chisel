@@ -1,0 +1,454 @@
+import { describe, expect, it } from "vitest";
+import {
+  createTerrainPieceCell,
+  createTerrainTemplateCells,
+  terrainPieceSchema,
+  terrainTileKey,
+  type TerrainPiece,
+  type TerrainPieceSet,
+  type TerrainSiteTemplate,
+  type TerrainTileBinding,
+  type TerrainTileRef
+} from "./terrain-authoring";
+import {
+  compileTerrainPieceLibrary,
+  freezeTerrainCandidate,
+  generateTerrainCandidate,
+  generateTerrainCandidateBatch,
+  inspectTerrainPieceCompatibility
+} from "./terrain-wfc";
+
+function tile(localId: number): TerrainTileRef {
+  return { tilesetId: "TERRAIN", localId, orientation: 0 };
+}
+
+function piece(
+  slug: string,
+  localId: number,
+  socket: string,
+  options: Partial<Pick<TerrainPiece, "weight" | "semanticFlags">> = {}
+): TerrainPiece {
+  return terrainPieceSchema.parse({
+    slug,
+    width: 1,
+    height: 1,
+    layerCount: 1,
+    cells: [{ ...createTerrainPieceCell(1), tiles: [tile(localId)] }],
+    sockets: { north: [socket], east: [socket], south: [socket], west: [socket] },
+    allowRotations: false,
+    allowReflections: false,
+    weight: options.weight ?? 1,
+    biomeTags: [],
+    siteTags: [],
+    semanticFlags: options.semanticFlags ?? [],
+    mutationFamily: ""
+  });
+}
+
+function directedPiece(slug: string, tag: string, sockets: { north: string; east: string; south: string; west: string }): TerrainPiece {
+  return terrainPieceSchema.parse({
+    slug,
+    width: 1,
+    height: 1,
+    layerCount: 1,
+    cells: [{ ...createTerrainPieceCell(1), tiles: [tile(0)], semanticFlags: [tag] }],
+    sockets: {
+      north: [sockets.north],
+      east: [sockets.east],
+      south: [sockets.south],
+      west: [sockets.west]
+    },
+    allowRotations: false,
+    allowReflections: false,
+    weight: 1,
+    biomeTags: [],
+    siteTags: [],
+    semanticFlags: [],
+    mutationFamily: ""
+  });
+}
+
+function set(slug: string, pieceSlugs: string[], pieceWeights: Record<string, number> = {}): TerrainPieceSet {
+  return { slug, pieceSlugs, pieceWeights, biomeTags: [], siteTags: [] };
+}
+
+function bindings(): Record<string, TerrainTileBinding> {
+  return Object.fromEntries([0, 1, 2, 3].map((localId) => [terrainTileKey("TERRAIN", localId), { slug: `TILE_${localId}`, tags: [] }]));
+}
+
+describe("Simple-Tiled socket WFC", () => {
+  it("derives adjacency from exact Wang socket equality", () => {
+    const ground = piece("GROUND", 0, "GROUND");
+    const water = piece("WATER", 1, "WATER");
+    const library = compileTerrainPieceLibrary([ground, water], set("TERRAIN", [ground.slug, water.slug]), []);
+    const groundState = library.states.find((state) => state.pieceSlug === "GROUND")!;
+    expect(library.adjacency.east[groundState.id].map((id) => library.states[id].pieceSlug)).toEqual(["GROUND"]);
+    expect(inspectTerrainPieceCompatibility(library, "WATER").directions.north.compatiblePieces).toEqual(["WATER"]);
+  });
+
+  it("compiles mixed-size modules into forced internal cell states", () => {
+    const wide = terrainPieceSchema.parse({
+      slug: "WIDE_GROUND",
+      width: 2,
+      height: 1,
+      layerCount: 1,
+      cells: [0, 1].map((localId) => ({ ...createTerrainPieceCell(1), blocking: localId === 0, tiles: [tile(localId)] })),
+      sockets: { north: ["GROUND", "GROUND"], east: ["GROUND"], south: ["GROUND", "GROUND"], west: ["GROUND"] },
+      allowRotations: true,
+      allowReflections: false,
+      weight: 1,
+      biomeTags: [],
+      siteTags: [],
+      semanticFlags: [],
+      mutationFamily: ""
+    });
+    const library = compileTerrainPieceLibrary([wide], set("TERRAIN", [wide.slug]), []);
+    expect(library.variants.map((variant) => [variant.width, variant.height])).toEqual([
+      [2, 1],
+      [1, 2],
+      [2, 1],
+      [1, 2]
+    ]);
+    expect(library.states.some((state) => state.edges.east.startsWith("@INTERNAL_"))).toBe(true);
+    expect(library.variants.every((variant) => variant.cells.filter((cell) => cell.blocking).length === 1)).toBe(true);
+  });
+
+  it("uses collection-specific piece weights independently of piece defaults and orientation count", () => {
+    const common = piece("COMMON", 0, "GROUND", { weight: 0.5 });
+    const rare = piece("RARE", 1, "GROUND", { weight: 0.5 });
+    common.allowRotations = true;
+    const library = compileTerrainPieceLibrary([common, rare], set("WEIGHTED", [common.slug, rare.slug], { COMMON: 0.8, RARE: 0.2 }), []);
+    const commonStates = library.states.filter((state) => state.pieceSlug === common.slug);
+    const rareStates = library.states.filter((state) => state.pieceSlug === rare.slug);
+    expect(commonStates).toHaveLength(4);
+    expect(commonStates.every((state) => state.weight === 0.2)).toBe(true);
+    expect(rareStates).toHaveLength(1);
+    expect(rareStates[0].weight).toBe(0.2);
+  });
+
+  it("excludes zero-weight pieces from random generation", () => {
+    const enabled = piece("ENABLED", 0, "GROUND");
+    const disabled = piece("DISABLED", 1, "GROUND");
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: [enabled, disabled],
+        pieceSets: [set("WEIGHTED", [enabled.slug, disabled.slug], { ENABLED: 1, DISABLED: 0 })],
+        adjacencyOverrides: [],
+        tileBindings: bindings()
+      },
+      {
+        slug: "WEIGHTED_SITE",
+        width: 3,
+        height: 3,
+        pieceSet: "WEIGHTED",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells: createTerrainTemplateCells(3, 3),
+        anchors: [],
+        stamps: [],
+        zones: []
+      },
+      1
+    );
+    expect(new Set(candidate.cellMetadata.map((cell) => cell.piece))).toEqual(new Set(["ENABLED"]));
+  });
+
+  it("generates logical cells whose first render layer is intentionally unpainted", () => {
+    const water = piece("WATER", 0, "WATER", { semanticFlags: ["WATER"] });
+    water.cells[0].tiles = [null];
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: [water],
+        pieceSets: [set("WATER_SET", [water.slug], { WATER: 1 })],
+        adjacencyOverrides: [],
+        tileBindings: {}
+      },
+      {
+        slug: "WATER_SITE",
+        width: 3,
+        height: 3,
+        pieceSet: "WATER_SET",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells: createTerrainTemplateCells(3, 3),
+        anchors: [],
+        stamps: [],
+        zones: []
+      },
+      4
+    );
+    expect(candidate.cells.every((stack) => stack[0] === null)).toBe(true);
+    expect(candidate.cellMetadata.every((metadata) => metadata.tags.includes("WATER"))).toBe(true);
+  });
+
+  it("applies deny and allow-only exceptions after socket matching", () => {
+    const a = piece("A", 0, "GROUND");
+    const b = piece("B", 1, "GROUND");
+    const library = compileTerrainPieceLibrary([a, b], set("TERRAIN", ["A", "B"]), [
+      { slug: "DENY_A_B", sourcePiece: "A", direction: "east", targetPiece: "B", mode: "DENY" },
+      { slug: "ONLY_A", sourcePiece: "B", direction: "west", targetPiece: "A", mode: "ALLOW_ONLY" }
+    ]);
+    const aState = library.states.find((state) => state.pieceSlug === "A")!;
+    const bState = library.states.find((state) => state.pieceSlug === "B")!;
+    expect(library.adjacency.east[aState.id].map((id) => library.states[id].pieceSlug)).toEqual(["A"]);
+    expect(library.adjacency.west[bState.id].map((id) => library.states[id].pieceSlug)).toEqual(["A"]);
+  });
+
+  it("generates deterministically and preserves frozen approval", () => {
+    const ground = piece("GROUND", 0, "GROUND", { semanticFlags: ["WALKABLE"] });
+    const alternate = piece("ALT", 1, "GROUND", { weight: 0.2, semanticFlags: ["WALKABLE"] });
+    const template: TerrainSiteTemplate = {
+      slug: "SITE",
+      width: 5,
+      height: 5,
+      pieceSet: "TERRAIN_SET",
+      firstSeed: 1,
+      candidateCount: 2,
+      cells: createTerrainTemplateCells(5, 5),
+      anchors: [],
+      stamps: [],
+      zones: []
+    };
+    const workspace = {
+      pieces: [ground, alternate],
+      pieceSets: [set("TERRAIN_SET", [ground.slug, alternate.slug])],
+      adjacencyOverrides: [],
+      tileBindings: bindings()
+    };
+    const first = generateTerrainCandidate(workspace, template, 42);
+    const second = generateTerrainCandidate(workspace, template, 42);
+    expect(first).toEqual(second);
+    expect(generateTerrainCandidateBatch(workspace, template, 1).map((result) => result.seed)).toEqual([1, 2]);
+    const frozen = freezeTerrainCandidate(first, "APPROVED", "MAP");
+    first.cells[0][0] = tile(3);
+    expect(frozen.cells[0][0]).not.toEqual(tile(3));
+    expect(frozen.cellOverrides).toEqual([]);
+    expect(frozen).not.toHaveProperty("seed");
+  });
+
+  it("backtracks through mixed-size choices and completes a 20×20 map", () => {
+    const ground = piece("GROUND", 0, "GROUND");
+    const block = terrainPieceSchema.parse({
+      slug: "GROUND_BLOCK",
+      width: 2,
+      height: 2,
+      layerCount: 1,
+      cells: Array.from({ length: 4 }, () => ({ ...createTerrainPieceCell(1), tiles: [tile(1)] })),
+      sockets: {
+        north: ["GROUND", "GROUND"],
+        east: ["GROUND", "GROUND"],
+        south: ["GROUND", "GROUND"],
+        west: ["GROUND", "GROUND"]
+      },
+      allowRotations: false,
+      allowReflections: false,
+      weight: 1,
+      biomeTags: [],
+      siteTags: [],
+      semanticFlags: [],
+      mutationFamily: ""
+    });
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: [ground, block],
+        pieceSets: [set("LARGE_SET", [ground.slug, block.slug])],
+        adjacencyOverrides: [],
+        tileBindings: bindings()
+      },
+      {
+        slug: "LARGE_SITE",
+        width: 20,
+        height: 20,
+        pieceSet: "LARGE_SET",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells: createTerrainTemplateCells(20, 20),
+        anchors: [],
+        stamps: [],
+        zones: []
+      },
+      17
+    );
+    expect(candidate.complete).toBe(true);
+    expect(candidate.cells).toHaveLength(400);
+    expect(candidate.cellMetadata).not.toContainEqual(expect.objectContaining({ piece: "UNRESOLVED" }));
+  });
+
+  it("returns and freezes the best safe partial map when the grammar is globally contradictory", () => {
+    const variants = [
+      directedPiece("P00_0", "P00", { north: "O", east: "H0", south: "V0", west: "O" }),
+      directedPiece("P00_1", "P00", { north: "O", east: "H1", south: "V1", west: "O" }),
+      directedPiece("P10_0", "P10", { north: "O", east: "O", south: "N0", west: "H0" }),
+      directedPiece("P10_1", "P10", { north: "O", east: "O", south: "N1", west: "H1" }),
+      directedPiece("P01_0", "P01", { north: "V0", east: "E0", south: "O", west: "O" }),
+      directedPiece("P01_1", "P01", { north: "V1", east: "E1", south: "O", west: "O" }),
+      directedPiece("P11_0", "P11", { north: "N0", east: "O", south: "O", west: "E1" }),
+      directedPiece("P11_1", "P11", { north: "N1", east: "O", south: "O", west: "E0" }),
+      directedPiece("FILLER", "FILLER", { north: "O", east: "O", south: "O", west: "O" })
+    ];
+    const cells = createTerrainTemplateCells(3, 3).map((cell) => ({ ...cell, requiredTags: ["FILLER"] }));
+    cells[0].requiredTags = ["P00"];
+    cells[1].requiredTags = ["P10"];
+    cells[3].requiredTags = ["P01"];
+    cells[4].requiredTags = ["P11"];
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: variants,
+        pieceSets: [
+          set(
+            "CONTRADICTORY",
+            variants.map((entry) => entry.slug)
+          )
+        ],
+        adjacencyOverrides: [],
+        tileBindings: bindings()
+      },
+      {
+        slug: "PARTIAL_SITE",
+        width: 3,
+        height: 3,
+        pieceSet: "CONTRADICTORY",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells,
+        anchors: [],
+        stamps: [],
+        zones: []
+      },
+      1
+    );
+    expect(candidate.complete).toBe(false);
+    expect(candidate.issues[0].code).toBe("PARTIAL_WFC");
+    expect(candidate.cellMetadata.filter((metadata) => metadata.piece === "UNRESOLVED")).toHaveLength(4);
+    const frozen = freezeTerrainCandidate(candidate, "PARTIAL", "MAP");
+    expect(frozen.cellMetadata.filter((metadata) => metadata.tags.includes("UNRESOLVED"))).toHaveLength(4);
+    expect(frozen.cellMetadata.filter((metadata) => metadata.piece === "UNRESOLVED").every((metadata) => metadata.blocking)).toBe(true);
+  });
+
+  it("uses resolved cell tags and anchor sockets as macro constraints", () => {
+    const plain = piece("PLAIN", 0, "GROUND");
+    const tagged = piece("TAGGED", 1, "GROUND");
+    tagged.cells[0].semanticFlags = ["ENTRANCE_GROUND"];
+    tagged.sockets.west = ["ENTRANCE"];
+    const cells = createTerrainTemplateCells(3, 3);
+    cells[3] = { ...cells[3], requiredTags: ["ENTRANCE_GROUND"] };
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: [plain, tagged],
+        pieceSets: [set("TERRAIN_SET", [plain.slug, tagged.slug])],
+        adjacencyOverrides: [],
+        tileBindings: bindings()
+      },
+      {
+        slug: "ANCHORED_SITE",
+        width: 3,
+        height: 3,
+        pieceSet: "TERRAIN_SET",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells,
+        anchors: [{ slug: "ENTRY", kind: "ENTRANCE", x: 0, y: 1, direction: "west", socket: "ENTRANCE" }],
+        stamps: [],
+        zones: []
+      },
+      9
+    );
+    expect(candidate.cellMetadata[3].piece).toBe("TAGGED");
+    expect(candidate.anchors[0].socket).toBe("ENTRANCE");
+  });
+
+  it("rejects unreachable required anchors", () => {
+    const blocked = piece("BLOCKED", 0, "GROUND");
+    blocked.cells[0].blocking = true;
+    const candidate = generateTerrainCandidate(
+      { pieces: [blocked], pieceSets: [set("TERRAIN_SET", [blocked.slug])], adjacencyOverrides: [], tileBindings: bindings() },
+      {
+        slug: "BLOCKED_SITE",
+        width: 3,
+        height: 3,
+        pieceSet: "TERRAIN_SET",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells: createTerrainTemplateCells(3, 3),
+        anchors: [{ slug: "ENTRY", kind: "ENTRANCE", x: 0, y: 0, direction: "west", socket: "GROUND" }],
+        stamps: [],
+        zones: []
+      },
+      1
+    );
+    expect(candidate.issues.map((issue) => issue.code)).toContain("BLOCKED_ANCHOR");
+  });
+
+  it("preserves a mixed-size piece collision mask in generated cell metadata", () => {
+    const masked = terrainPieceSchema.parse({
+      slug: "MASKED_BLOCKER",
+      width: 2,
+      height: 2,
+      layerCount: 1,
+      cells: [true, true, false, true].map((blocking, localId) => ({
+        ...createTerrainPieceCell(1),
+        blocking,
+        tiles: [tile(localId)]
+      })),
+      sockets: { north: ["GROUND", "GROUND"], east: ["GROUND", "GROUND"], south: ["GROUND", "GROUND"], west: ["GROUND", "GROUND"] },
+      allowRotations: false,
+      allowReflections: false,
+      weight: 1,
+      biomeTags: [],
+      siteTags: [],
+      semanticFlags: [],
+      mutationFamily: ""
+    });
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: [masked],
+        pieceSets: [set("TERRAIN_SET", [masked.slug])],
+        adjacencyOverrides: [],
+        tileBindings: bindings()
+      },
+      {
+        slug: "MASKED_SITE",
+        width: 4,
+        height: 4,
+        pieceSet: "TERRAIN_SET",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells: createTerrainTemplateCells(4, 4),
+        anchors: [],
+        stamps: [],
+        zones: []
+      },
+      1
+    );
+    expect(candidate.cellMetadata.filter((cell) => cell.blocking)).toHaveLength(12);
+    expect(candidate.cellMetadata.filter((cell) => !cell.blocking)).toHaveLength(4);
+  });
+
+  it("preserves granular collision masks in generated cell metadata", () => {
+    const granular = piece("GRANULAR", 0, "GROUND");
+    granular.cells[0].collision = { resolution: 2, cells: [true, false, false, false] };
+    const candidate = generateTerrainCandidate(
+      {
+        pieces: [granular],
+        pieceSets: [set("TERRAIN_SET", [granular.slug])],
+        adjacencyOverrides: [],
+        tileBindings: bindings()
+      },
+      {
+        slug: "GRANULAR_SITE",
+        width: 3,
+        height: 3,
+        pieceSet: "TERRAIN_SET",
+        firstSeed: 1,
+        candidateCount: 1,
+        cells: createTerrainTemplateCells(3, 3),
+        anchors: [],
+        stamps: [],
+        zones: []
+      },
+      1
+    );
+    expect(candidate.cellMetadata.every((cell) => cell.blocking === false)).toBe(true);
+    expect(candidate.cellMetadata.every((cell) => cell.collision?.cells.join("") === "truefalsefalsefalse")).toBe(true);
+  });
+});

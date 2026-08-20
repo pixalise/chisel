@@ -1,10 +1,9 @@
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import ImagePreview from "@/components/image-preview";
 import useAppStore from "@/stores/app-store";
-import { type FC, useState } from "react";
-import { type Asset } from "../../../../../shared/types";
+import { type FC } from "react";
+import { AssetCategoryEnum, type Asset } from "../../../../../shared/types";
 import { cn } from "@/lib/utils";
 
 export interface AssetPreviewProps {
@@ -17,41 +16,21 @@ interface PreviewFactProps {
   value: string;
 }
 
-const previewablePathPattern = /\.(?:avif|bmp|gif|gppt|jpe?g|png|tiff?|webp)$/i;
-type GpptPreview = "albedoHeight" | "normalRoughness";
-
-const gpptPreviewLabels: Record<GpptPreview, string> = {
-  albedoHeight: "Albedo + Height",
-  normalRoughness: "Normal + Roughness"
-};
+const previewablePathPattern = /\.(?:avif|bmp|gif|jpe?g|png|tiff?|webp)$/i;
 
 export const AssetPreview: FC<AssetPreviewProps> = (props) => {
   const { asset, className } = props;
-  const [gpptPreview, setGpptPreview] = useState<GpptPreview>("albedoHeight");
   const project = useAppStore((state) => state._project);
   const canPreview = previewablePathPattern.test(asset.relativePath);
-  const isGppt = /\.gppt$/i.test(asset.relativePath);
+  const canPlayAudio = asset.category === AssetCategoryEnum.audio;
   const previewPath = asset.relativePath.startsWith("/") || !project ? asset.relativePath : `${project.path}/${asset.relativePath}`;
 
   return (
     <div className={cn("min-w-0 space-y-4", className)}>
-      {isGppt && (
-        <div className="flex min-w-0 flex-wrap gap-2">
-          {(Object.keys(gpptPreviewLabels) as GpptPreview[]).map((preview) => (
-            <Button
-              key={preview}
-              onClick={() => setGpptPreview(preview)}
-              size="sm"
-              type="button"
-              variant={gpptPreview === preview ? "secondary" : "outline"}
-            >
-              {gpptPreviewLabels[preview]}
-            </Button>
-          ))}
-        </div>
-      )}
       <div className="grid min-h-60 ">
-        {canPreview ? <ImagePreview path={previewPath} preview={isGppt ? gpptPreview : undefined} /> : <p>No preview</p>}
+        {canPreview && <ImagePreview path={previewPath} />}
+        {canPlayAudio && <audio className="w-full self-center" controls preload="metadata" src={window.electron.toAssetUrl(previewPath)} />}
+        {!canPreview && !canPlayAudio && <p>No preview</p>}
       </div>
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <PreviewFact label="id" value={asset.id} />
@@ -63,6 +42,7 @@ export const AssetPreview: FC<AssetPreviewProps> = (props) => {
         </div>
         <PreviewFact label="size" value={asset.formattedBytes} />
         <PreviewFact label="dimensions" value={asset.width > 0 ? `${asset.width}x${asset.height}` : "-"} />
+        {asset.category === AssetCategoryEnum.tileset && <PreviewFact label="tile size" value={`${asset.tileSize}px`} />}
       </dl>
       <Separator />
       <code className="block truncate text-xs text-muted-foreground">{asset.relativePath}</code>

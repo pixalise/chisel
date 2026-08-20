@@ -19,7 +19,7 @@ const TooltipEditor: FC<TooltipEditorProps> = (props) => {
   const { assets } = props;
   const { document, setDocument } = useLocalizationContext();
   const { toast } = useToast();
-  const uiIconAssets = assets.filter((asset) => asset.category === AssetCategoryEnum.uiIcon);
+  const uiIconAssets = assets.filter((asset) => asset.category === AssetCategoryEnum.ui);
 
   function updateTooltip(index: number, tooltip: LocalizationTooltip): void {
     setDocument({

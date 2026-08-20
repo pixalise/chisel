@@ -11,8 +11,9 @@ import { DataTablesScreen } from "@/screens/main-stack/data-tables-screen/data-t
 import { ImageConversionScreen } from "@/screens/main-stack/image-conversion-screen/image-conversion-screen";
 import LocalizationScreen from "@/screens/main-stack/localization-screen/localization-screen";
 import { SettingsScreen } from "@/screens/main-stack/settings-screen";
-import { TexturePackingScreen } from "@/screens/main-stack/texture-packing-screen/texture-packing-screen";
 import TodoScreen from "@/screens/main-stack/todo-screen/todo-screen";
+import { TerrainGeneratorScreen } from "@/screens/main-stack/terrain-generator-screen/terrain-generator-screen";
+import { TerrainAnnotationsScreen } from "@/screens/main-stack/terrain-annotations-screen/terrain-annotations-screen";
 
 const MainStack: FC = () => {
   const { pathname } = useLocation();
@@ -33,8 +34,9 @@ const MainStack: FC = () => {
               <Route element={<AssetLibraryScreen />} path={RouteEnum.assets} />
               <Route element={<DataTablesScreen />} path={RouteEnum.database} />
               <Route element={<LocalizationScreen />} path={RouteEnum.localization} />
+              <Route element={<TerrainGeneratorScreen />} path={RouteEnum.terrainGenerator} />
+              <Route element={<TerrainAnnotationsScreen />} path={RouteEnum.terrainAnnotations} />
               <Route element={<ImageConversionScreen />} path={RouteEnum.imageConversion} />
-              <Route element={<TexturePackingScreen />} path={RouteEnum.texturePacking} />
               <Route element={<SettingsScreen />} path={RouteEnum.settings} />
               <Route element={<TodoScreen />} path={RouteEnum.todos} />
               <Route element={<Navigate replace to={RouteEnum.assets} />} path="*" />

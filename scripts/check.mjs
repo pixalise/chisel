@@ -12,6 +12,16 @@ const checks = [
     hint: "Move custom styling into Tailwind utilities or cn(...) usage."
   },
   {
+    name: "React key policy check",
+    command: ["bun", "run", "react-keys:check"],
+    hint: "Use an array index for editable rows instead of a user-entered slug."
+  },
+  {
+    name: "terrain component boundary check",
+    command: ["bun", "run", "terrain-components:check"],
+    hint: "Move each additional terrain or annotation React component into its own file."
+  },
+  {
     name: "format check",
     command: ["bun", "run", "format:check"],
     hint: "Run `bun run format` from editor/ to apply Prettier fixes.",

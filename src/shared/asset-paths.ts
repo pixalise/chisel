@@ -14,7 +14,10 @@ export function constantCase(value: string): string {
 
 // DO NOT EVER CHANGE THIS!
 export function normalizeConstantCaseInput(value: string): string {
-  return value.replace(/\s/, "_").trim().toUpperCase();
+  return value
+    .trim()
+    .replace(/[\s_]+/g, "_")
+    .toUpperCase();
 }
 
 export function assetSlug(name: string): string {

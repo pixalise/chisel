@@ -1,5 +1,5 @@
 import { snakeCase } from "lodash";
-import { godotAssetExportFilePath, godotAssetExportFolderPath } from "./asset-paths";
+import { godotAssetExportFilePath } from "./asset-paths";
 import {
   localizationIconSlugsForKey,
   localizationKeyConstant,
@@ -19,6 +19,7 @@ export const GODOT_ASSETS_MODULE_PATH = `${GAME_DATA_EXPORT_ROOT}/assets.gd`;
 const INPUT_BINDINGS_TABLE_ID = "input_bindings";
 const GODOT_LOCALIZATION_MODULE_PATH = `${GAME_DATA_EXPORT_ROOT}/localization.gd`;
 const GODOT_TRANSLATIONS_MODULE_PATH = `${GAME_DATA_EXPORT_ROOT}/translations.gd`;
+const INVALID_ENUM_MEMBER = "INVALID";
 
 interface GodotTableExport {
   className: string;
@@ -46,11 +47,6 @@ interface GodotGeneratedFileManifestEntry {
   bytes: number;
   hash: string;
   path: string;
-}
-
-export interface GodotPackedTextureExportPaths {
-  albedoHeight: string;
-  normalRoughness: string;
 }
 
 function pascalCase(value: string): string {
@@ -90,7 +86,7 @@ function columnConstantNames(columns: DataColumnDefinition[]): Map<string, strin
 
 function assetConstantNames(assets: Asset[]): Map<string, string> {
   const nextSuffixByBase = new Map<string, number>();
-  const usedNames = new Set<string>();
+  const usedNames = new Set<string>([INVALID_ENUM_MEMBER]);
   const namesByAssetId = new Map<string, string>();
 
   for (const asset of assets) {
@@ -111,8 +107,50 @@ function assetConstantNames(assets: Asset[]): Map<string, string> {
   return namesByAssetId;
 }
 
+function rowConstantNames(table: AnyDataTable): Map<string, string> {
+  const nextSuffixByBase = new Map<string, number>();
+  const usedNames = new Set<string>([INVALID_ENUM_MEMBER]);
+  const namesBySlug = new Map<string, string>();
+
+  for (const row of table.rows) {
+    const baseName = constantCase(row.slug);
+    let suffix = nextSuffixByBase.get(baseName) ?? 1;
+    let name = suffix === 1 ? baseName : `${baseName}_${suffix}`;
+
+    while (usedNames.has(name)) {
+      suffix += 1;
+      name = `${baseName}_${suffix}`;
+    }
+
+    nextSuffixByBase.set(baseName, suffix + 1);
+    usedNames.add(name);
+    namesBySlug.set(row.slug, name);
+  }
+
+  return namesBySlug;
+}
+
 function localizationConstantNames(localization?: LocalizationDocument): Map<string, string> {
-  return new Map((localization?.keys ?? []).map((key) => [key.path, localizationKeyConstant(key.path)]));
+  const nextSuffixByBase = new Map<string, number>();
+  const usedNames = new Set<string>([INVALID_ENUM_MEMBER]);
+  const namesByPath = new Map<string, string>();
+
+  for (const key of localization?.keys ?? []) {
+    const baseName = localizationKeyConstant(key.path);
+    let suffix = nextSuffixByBase.get(baseName) ?? 1;
+    let name = suffix === 1 ? baseName : `${baseName}_${suffix}`;
+
+    while (usedNames.has(name)) {
+      suffix += 1;
+      name = `${baseName}_${suffix}`;
+    }
+
+    nextSuffixByBase.set(baseName, suffix + 1);
+    usedNames.add(name);
+    namesByPath.set(key.path, name);
+  }
+
+  return namesByPath;
 }
 
 function gdString(value: string): string {
@@ -173,24 +211,8 @@ function gdDictionary(record: Record<string, unknown>, depth: number): string {
   return `{\n${lines.join(",\n")}\n${indent}}`;
 }
 
-export function isPackedTerrainTextureAsset(asset: Asset): boolean {
-  return asset.category === AssetCategoryEnum.terrainTexture && asset.extension.toLowerCase() === "gppt";
-}
-
 export function godotAssetExportPath(asset: Asset): string {
-  if (isPackedTerrainTextureAsset(asset)) {
-    return godotAssetExportFolderPath(GAME_DATA_EXPORT_ROOT, asset.category, asset.name);
-  }
-
   return godotAssetExportFilePath(GAME_DATA_EXPORT_ROOT, asset.category, asset.name, asset.extension);
-}
-
-export function godotPackedTextureExportPaths(asset: Asset): GodotPackedTextureExportPaths {
-  const folder = godotAssetExportFolderPath(GAME_DATA_EXPORT_ROOT, asset.category, asset.name);
-  return {
-    albedoHeight: `${folder}/albedo_height.png`,
-    normalRoughness: `${folder}/normal_roughness.png`
-  };
 }
 
 function columnValue(row: DataTableRow, column: DataColumnDefinition): unknown {
@@ -199,10 +221,11 @@ function columnValue(row: DataTableRow, column: DataColumnDefinition): unknown {
 }
 
 function enumBody(table: AnyDataTable): string {
-  if (table.rows.length === 0) {
-    return "{}";
-  }
-  const lines = table.rows.map((row, index) => `\t${constantCase(row.slug)} = ${index}`);
+  const namesBySlug = rowConstantNames(table);
+  const lines = [
+    `\t${INVALID_ENUM_MEMBER} = -1`,
+    ...table.rows.map((row, index) => `\t${namesBySlug.get(row.slug) ?? constantCase(row.slug)} = ${index}`)
+  ];
   return `{\n${lines.join(",\n")}\n}`;
 }
 
@@ -225,27 +248,40 @@ function stringNameArray(values: string[]): string {
 }
 
 function gdColumnValue(value: unknown, column: DataColumnDefinition, context: GodotValueContext): string {
-  if (column.type === ColumnType.ref && typeof value === "string" && column.refTableId) {
+  if (column.type === ColumnType.ref && column.refTableId) {
     const targetTable = context.tablesById.get(column.refTableId);
     if (targetTable) {
-      return `${tableClassName(targetTable)}.Id.${constantCase(value)}`;
+      const targetName = typeof value === "string" ? rowConstantNames(targetTable).get(value) : undefined;
+      return `${tableClassName(targetTable)}.Id.${targetName ?? INVALID_ENUM_MEMBER}`;
     }
+    return "0";
   }
-  if (column.type === ColumnType.assetRef && typeof value === "string") {
-    const assetName = context.assetNamesById.get(value);
-    if (assetName) {
-      return `ChiselAssets.Id.${assetName}`;
+  if (column.type === ColumnType.arrayRef && column.refTableId) {
+    const targetTable = context.tablesById.get(column.refTableId);
+    if (!targetTable || !Array.isArray(value)) {
+      return "[]";
     }
+    const names = rowConstantNames(targetTable);
+    return `[${value
+      .map((entry) => {
+        const targetName = typeof entry === "string" ? names.get(entry) : undefined;
+        return `${tableClassName(targetTable)}.Id.${targetName ?? INVALID_ENUM_MEMBER}`;
+      })
+      .join(", ")}]`;
+  }
+  if (column.type === ColumnType.assetRef) {
+    const assetName = typeof value === "string" ? context.assetNamesById.get(value) : undefined;
+    return `ChiselAssets.Id.${assetName ?? INVALID_ENUM_MEMBER}`;
   }
   if (column.type === ColumnType.translationRef) {
     if (typeof value !== "string" || value === "") {
-      return "-1";
+      return `ChiselLocalization.Id.${INVALID_ENUM_MEMBER}`;
     }
     const localizationName = context.localizationNamesByPath.get(value);
     if (localizationName) {
       return `ChiselLocalization.Id.${localizationName}`;
     }
-    return "-1";
+    return `ChiselLocalization.Id.${INVALID_ENUM_MEMBER}`;
   }
   return gdValue(value);
 }
@@ -284,7 +320,7 @@ function renderTable(table: AnyDataTable, context: GodotValueContext): GodotTabl
   const className = tableClassName(table);
   return {
     className,
-    content: `# Generated by Chisel. Do not edit.\nclass_name ${className}\nextends RefCounted\n\nenum Id ${enumBody(table)}\n\nconst TABLE_ID := ${gdString(table.id)}\nconst TABLE_NAME := ${gdString(table.name)}\nconst TABLE_KIND := ${gdString(table.kind)}\nconst SLUGS := ${slugsArray(table)}${columnArrays(table, context)}\n`,
+    content: `# Generated by Chisel. Do not edit.\nclass_name ${className}\nextends RefCounted\n\nenum Id ${enumBody(table)}\n\nconst TABLE_ID := ${gdString(table.id)}\nconst TABLE_NAME := ${gdString(table.name)}\nconst TABLE_KIND := ${gdString(table.kind)}\nconst COUNT := ${table.rows.length}\nconst SLUGS := ${slugsArray(table)}${columnArrays(table, context)}\n`,
     path: tablePath(table),
     table
   };
@@ -310,11 +346,11 @@ function renderManifest(
 }
 
 function assetEnumBody(assets: Asset[]): string {
-  if (assets.length === 0) {
-    return "{}";
-  }
   const namesByAssetId = assetConstantNames(assets);
-  const lines = assets.map((asset, index) => `\t${namesByAssetId.get(asset.id) ?? constantCase(asset.name)} = ${index}`);
+  const lines = [
+    `\t${INVALID_ENUM_MEMBER} = -1`,
+    ...assets.map((asset, index) => `\t${namesByAssetId.get(asset.id) ?? constantCase(asset.name)} = ${index}`)
+  ];
   return `{\n${lines.join(",\n")}\n}`;
 }
 
@@ -335,12 +371,6 @@ function assetExportRecord(asset: Asset): Record<string, unknown> {
     path: `res://${exportPath}`,
     width: asset.width
   };
-
-  if (isPackedTerrainTextureAsset(asset)) {
-    const packedPaths = godotPackedTextureExportPaths(asset);
-    record.albedo_height = `res://${packedPaths.albedoHeight}`;
-    record.normal_roughness = `res://${packedPaths.normalRoughness}`;
-  }
 
   return record;
 }
@@ -655,10 +685,12 @@ function renderTranslationsFacade(localization: LocalizationDocument): GodotExpo
 }
 
 function localizationEnumBody(localization: LocalizationDocument): string {
-  if (localization.keys.length === 0) {
-    return "{}";
-  }
-  return `{\n${localization.keys.map((key, index) => `\t${localizationKeyConstant(key.path)} = ${index}`).join(",\n")}\n}`;
+  const namesByPath = localizationConstantNames(localization);
+  const lines = [
+    `\t${INVALID_ENUM_MEMBER} = -1`,
+    ...localization.keys.map((key, index) => `\t${namesByPath.get(key.path) ?? localizationKeyConstant(key.path)} = ${index}`)
+  ];
+  return `{\n${lines.join(",\n")}\n}`;
 }
 
 function localizationValuesByLocale(localization: LocalizationDocument): Record<string, string[]> {
@@ -690,12 +722,12 @@ function localizationTooltipsDictionary(localization: LocalizationDocument, asse
     return "{}";
   }
   const keyIndexByPath = new Map(localization.keys.map((key, index) => [key.path, index]));
-  const uiIconAssetsById = new Map(assets.filter((asset) => asset.category === AssetCategoryEnum.uiIcon).map((asset) => [asset.id, asset]));
+  const uiAssetsById = new Map(assets.filter((asset) => asset.category === AssetCategoryEnum.ui).map((asset) => [asset.id, asset]));
   const lines = localization.tooltips.map((tooltip) => {
     const fields: string[] = [];
     const titleIndex = keyIndexByPath.get(tooltip.titleKey);
     const descriptionIndex = keyIndexByPath.get(tooltip.descriptionKey);
-    const iconAsset = tooltip.iconAssetId ? uiIconAssetsById.get(tooltip.iconAssetId) : undefined;
+    const iconAsset = tooltip.iconAssetId ? uiAssetsById.get(tooltip.iconAssetId) : undefined;
     if (typeof titleIndex === "number") {
       fields.push(`\t\t"title_id": Id.${localizationKeyConstant(tooltip.titleKey)}`);
     } else {
@@ -716,7 +748,7 @@ function localizationTooltipsDictionary(localization: LocalizationDocument, asse
 }
 
 function localizationIconsDictionary(assets: Asset[]): string {
-  const iconAssets = assets.filter((asset) => asset.category === AssetCategoryEnum.uiIcon);
+  const iconAssets = assets.filter((asset) => asset.category === AssetCategoryEnum.ui);
   if (iconAssets.length === 0) {
     return "{}";
   }

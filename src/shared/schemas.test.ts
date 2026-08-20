@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { describe, expect, it } from "vitest";
-import { assetSchema, createOrUpdateAssetSchema, dataTableRowSchema, rowSlugSchema } from "./schemas";
-import { AssetCategoryEnum } from "./types";
+import { assetSchema, createOrUpdateAssetSchema, dataTableRowSchema, rowSlugSchema, typedDataColumnValueSchema } from "./schemas";
+import { AssetCategoryEnum, ColumnType } from "./types";
 
 describe("row slugs", () => {
   it("accepts constant case slugs", () => {
@@ -31,15 +31,26 @@ describe("row slugs", () => {
   });
 });
 
+describe("array references", () => {
+  it("accepts arrays of row slugs and rejects scalar values", () => {
+    expect(
+      typedDataColumnValueSchema.parse({ columnId: nanoid(), type: ColumnType.arrayRef, value: ["FOREST_OPEN", "FOREST_RUINS"] })
+    ).toMatchObject({ type: ColumnType.arrayRef, value: ["FOREST_OPEN", "FOREST_RUINS"] });
+    expect(typedDataColumnValueSchema.safeParse({ columnId: nanoid(), type: ColumnType.arrayRef, value: "FOREST_OPEN" }).success).toBe(
+      false
+    );
+  });
+});
+
 describe("asset slugs", () => {
   it("uses the asset slug as the asset id", () => {
     const asset = assetSchema.parse({
       category: AssetCategoryEnum.terrainTexture,
-      extension: "gppt",
+      extension: "tga",
       height: 1024,
       id: nanoid(),
       name: "forest_soil_1",
-      relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL_1.gppt",
+      relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL_1.tga",
       sizeBytes: 1024,
       width: 1024
     });
@@ -67,6 +78,42 @@ describe("asset slugs", () => {
         name: "icon_home",
         sizeBytes: 1,
         width: 1
+      }).success
+    ).toBe(false);
+  });
+
+  it("requires native tilesets to be divisible PNG grids", () => {
+    expect(
+      createOrUpdateAssetSchema.safeParse({
+        category: AssetCategoryEnum.tileset,
+        extension: "png",
+        height: 384,
+        name: "FOREST_TILES",
+        sizeBytes: 1024,
+        tileSize: 64,
+        width: 1024
+      }).success
+    ).toBe(true);
+    expect(
+      createOrUpdateAssetSchema.safeParse({
+        category: AssetCategoryEnum.tileset,
+        extension: "png",
+        height: 385,
+        name: "BROKEN_GRID",
+        sizeBytes: 1024,
+        tileSize: 64,
+        width: 1024
+      }).success
+    ).toBe(false);
+    expect(
+      createOrUpdateAssetSchema.safeParse({
+        category: AssetCategoryEnum.tileset,
+        extension: "webp",
+        height: 384,
+        name: "WRONG_FORMAT",
+        sizeBytes: 1024,
+        tileSize: 64,
+        width: 1024
       }).success
     ).toBe(false);
   });
@@ -99,5 +146,35 @@ describe("asset slugs", () => {
     });
 
     expect(asset.category).toBe(AssetCategoryEnum.mesh);
+  });
+
+  it("keeps supported sound files in the audio asset category", () => {
+    const asset = assetSchema.parse({
+      category: AssetCategoryEnum.other,
+      extension: "wav",
+      height: 0,
+      id: "BLADE_SWING",
+      name: "BLADE_SWING",
+      relativePath: ".chisel/assets/AUDIO/BLADE_SWING.wav",
+      sizeBytes: 1024,
+      width: 0
+    });
+
+    expect(asset.category).toBe(AssetCategoryEnum.audio);
+  });
+
+  it("classifies GLSL files as managed shaders", () => {
+    const asset = assetSchema.parse({
+      category: AssetCategoryEnum.other,
+      extension: "glsl",
+      height: 0,
+      id: "UI_MATERIAL",
+      name: "UI_MATERIAL",
+      relativePath: ".chisel/assets/SHADER/UI_MATERIAL.glsl",
+      sizeBytes: 1024,
+      width: 0
+    });
+
+    expect(asset.category).toBe(AssetCategoryEnum.shader);
   });
 });

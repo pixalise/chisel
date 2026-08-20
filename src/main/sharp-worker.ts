@@ -3,9 +3,7 @@ import sharp from "sharp";
 type SharpWorkerRequest =
   | { id: number; type: "metadata"; filePath: string }
   | { id: number; type: "preview"; inputPath: string }
-  | { id: number; type: "convertToPng"; inputPath: string; outputPath: string }
-  | { id: number; type: "loadRgba"; filePath: string }
-  | { id: number; type: "encodeRgbaPng"; data: string; width: number; height: number };
+  | { id: number; type: "convertToPng"; inputPath: string; outputPath: string };
 
 type SharpWorkerResponse = { id: number; ok: true; value: unknown } | { id: number; ok: false; error: string };
 
@@ -25,21 +23,6 @@ async function handleRequest(request: SharpWorkerRequest): Promise<unknown> {
     case "convertToPng":
       await sharp(request.inputPath).png().toFile(request.outputPath);
       return null;
-    case "loadRgba": {
-      const { data, info } = await sharp(request.filePath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-      if (!info.width || !info.height) {
-        throw new Error(`Could not read image dimensions for ${request.filePath}`);
-      }
-      return { data: data.toString("base64"), width: info.width, height: info.height };
-    }
-    case "encodeRgbaPng": {
-      const buffer = await sharp(Buffer.from(request.data, "base64"), {
-        raw: { width: request.width, height: request.height, channels: 4 }
-      })
-        .png()
-        .toBuffer();
-      return buffer.toString("base64");
-    }
   }
 }
 

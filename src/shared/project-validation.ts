@@ -42,12 +42,13 @@ export function validateProjectContent(
 
   for (const table of tables) {
     for (const column of table.columns) {
-      if (column.type === ColumnType.ref) {
+      if (column.type === ColumnType.ref || column.type === ColumnType.arrayRef) {
+        const isArrayReference = column.type === ColumnType.arrayRef;
         if (!column.refTableId) {
           issues.push({
             severity: ProjectValidationSeverity.error,
             path: `${table.id}.${column.name}`,
-            message: `Reference column "${column.name}" must declare a target table`
+            message: `${isArrayReference ? "Array reference" : "Reference"} column "${column.name}" must declare a target table`
           });
           continue;
         }
@@ -56,7 +57,7 @@ export function validateProjectContent(
           issues.push({
             severity: ProjectValidationSeverity.error,
             path: `${table.id}.${column.name}`,
-            message: `Reference column "${column.name}" points at missing table "${column.refTableId}"`
+            message: `${isArrayReference ? "Array reference" : "Reference"} column "${column.name}" points at missing table "${column.refTableId}"`
           });
           continue;
         }
@@ -66,7 +67,32 @@ export function validateProjectContent(
           if (isEmptyReferenceValue(value)) {
             continue;
           }
-          if (typeof value !== "string" || !targetSlugs.has(value)) {
+          if (isArrayReference) {
+            if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+              issues.push({
+                severity: ProjectValidationSeverity.error,
+                path: `${table.id}.${row.slug}.${column.name}`,
+                message: `Array reference must be an array of row slugs`
+              });
+              continue;
+            }
+            if (new Set(value).size !== value.length) {
+              issues.push({
+                severity: ProjectValidationSeverity.error,
+                path: `${table.id}.${row.slug}.${column.name}`,
+                message: `Array reference contains duplicate rows`
+              });
+            }
+            for (const entry of value) {
+              if (!targetSlugs.has(entry)) {
+                issues.push({
+                  severity: ProjectValidationSeverity.error,
+                  path: `${table.id}.${row.slug}.${column.name}`,
+                  message: `Reference "${entry}" does not exist in "${targetTable.name}"`
+                });
+              }
+            }
+          } else if (typeof value !== "string" || !targetSlugs.has(value)) {
             issues.push({
               severity: ProjectValidationSeverity.error,
               path: `${table.id}.${row.slug}.${column.name}`,
@@ -143,7 +169,7 @@ export function findTableReferences(tables: AnyDataTable[], targetTableId: strin
 
   for (const table of tables) {
     for (const column of table.columns) {
-      if (column.type !== ColumnType.ref || column.refTableId !== targetTableId) {
+      if ((column.type !== ColumnType.ref && column.type !== ColumnType.arrayRef) || column.refTableId !== targetTableId) {
         continue;
       }
       if (!targetRowSlugs) {
@@ -157,14 +183,18 @@ export function findTableReferences(tables: AnyDataTable[], targetTableId: strin
       }
       for (const row of table.rows) {
         const value = columnValue(row, column);
-        if (typeof value === "string" && targetRowSlugs.has(value)) {
+        const referencedSlugs = Array.isArray(value) ? value : [value];
+        for (const referencedSlug of referencedSlugs) {
+          if (typeof referencedSlug !== "string" || !targetRowSlugs.has(referencedSlug)) {
+            continue;
+          }
           hits.push({
             column,
             columnName: column.name,
             sourceRowSlug: row.slug,
             sourceTableId: table.id,
             sourceTableName: table.name,
-            targetRowSlug: value
+            targetRowSlug: referencedSlug
           });
         }
       }
@@ -205,5 +235,5 @@ function columnValue(row: DataTableRow, column: DataColumnDefinition): unknown {
 }
 
 function isEmptyReferenceValue(value: unknown): boolean {
-  return value === null || typeof value === "undefined" || value === "";
+  return value === null || typeof value === "undefined" || value === "" || (Array.isArray(value) && value.length === 0);
 }

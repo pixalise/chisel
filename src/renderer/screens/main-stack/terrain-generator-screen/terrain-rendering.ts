@@ -1,0 +1,89 @@
+import type {
+  TerrainCollisionMask,
+  TerrainResolvedCellMetadata,
+  TerrainTileRef,
+  TerrainTilesetView,
+  TerrainTileStack
+} from "../../../../shared/terrain-authoring";
+import { terrainOrientationMatrix } from "../../../../shared/terrain-wfc";
+
+export function drawTerrainTile(
+  context: CanvasRenderingContext2D,
+  tile: TerrainTileRef,
+  tilesets: TerrainTilesetView[],
+  images: Map<string, HTMLImageElement>,
+  destinationX: number,
+  destinationY: number,
+  destinationSize: number
+): void {
+  const tileset = tilesets.find((entry) => entry.id === tile.tilesetId);
+  const image = images.get(tile.tilesetId);
+  if (!tileset || !image?.complete || image.naturalWidth === 0 || image.naturalHeight === 0) return;
+  const sourceX = (tile.localId % tileset.columns) * tileset.tileSize;
+  const sourceY = Math.floor(tile.localId / tileset.columns) * tileset.tileSize;
+  const matrix = terrainOrientationMatrix(tile.orientation);
+  context.save();
+  context.translate(destinationX + destinationSize / 2, destinationY + destinationSize / 2);
+  context.transform(matrix[0], matrix[2], matrix[1], matrix[3], 0, 0);
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    tileset.tileSize,
+    tileset.tileSize,
+    -destinationSize / 2,
+    -destinationSize / 2,
+    destinationSize,
+    destinationSize
+  );
+  context.restore();
+}
+
+export function drawTerrainCell(
+  context: CanvasRenderingContext2D,
+  cell: TerrainTileStack,
+  tilesets: TerrainTilesetView[],
+  images: Map<string, HTMLImageElement>,
+  destinationX: number,
+  destinationY: number,
+  destinationSize: number
+): void {
+  for (const tile of cell) {
+    if (tile) drawTerrainTile(context, tile, tilesets, images, destinationX, destinationY, destinationSize);
+  }
+}
+
+export function drawTerrainCollision(
+  context: CanvasRenderingContext2D,
+  collision: Pick<TerrainResolvedCellMetadata, "blocking" | "collision">,
+  destinationX: number,
+  destinationY: number,
+  destinationSize: number,
+  alpha = 0.4
+): void {
+  context.fillStyle = `rgba(225, 29, 72, ${alpha})`;
+  if (!collision.collision) {
+    if (collision.blocking) context.fillRect(destinationX, destinationY, destinationSize, destinationSize);
+    return;
+  }
+  drawCollisionMask(context, collision.collision, destinationX, destinationY, destinationSize);
+}
+
+function drawCollisionMask(
+  context: CanvasRenderingContext2D,
+  mask: TerrainCollisionMask,
+  destinationX: number,
+  destinationY: number,
+  destinationSize: number
+): void {
+  const subcellSize = destinationSize / mask.resolution;
+  mask.cells.forEach((blocking, index) => {
+    if (!blocking) return;
+    context.fillRect(
+      destinationX + (index % mask.resolution) * subcellSize,
+      destinationY + Math.floor(index / mask.resolution) * subcellSize,
+      subcellSize,
+      subcellSize
+    );
+  });
+}
