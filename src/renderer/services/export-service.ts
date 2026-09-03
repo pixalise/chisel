@@ -11,6 +11,13 @@ import {
   LOVE2D_GAME_DATA_EXPORT_ROOT,
   LOVE2D_MANIFEST_PATH
 } from "../../shared/love2d-export";
+import {
+  createMonoGameExportBundle,
+  monoGameAssetExportPath,
+  MONOGAME_ASSET_EXPORT_ROOT,
+  MONOGAME_GAME_DATA_EXPORT_ROOT,
+  MONOGAME_MANIFEST_PATH
+} from "../../shared/monogame-export";
 import { createTealExportBundle, TEAL_GAME_DATA_EXPORT_ROOT, TEAL_MANIFEST_PATH } from "../../shared/teal-export";
 import { LocalizationProblemSeverity, validateLocalizationDocument } from "../../shared/localization";
 import { ProjectValidationSeverity, validateProjectContent } from "../../shared/project-validation";
@@ -24,6 +31,7 @@ export enum ExportTarget {
   godot = "godot",
   haxeFlixel = "haxeFlixel",
   love2d = "love2d",
+  monoGame = "monoGame",
   teal = "teal"
 }
 
@@ -72,6 +80,9 @@ class ExportService {
     }
     if (target === ExportTarget.love2d) {
       return this.exportLove2d(committedProject, tables, commit.tables, assets, commit.localization, exportedAt);
+    }
+    if (target === ExportTarget.monoGame) {
+      return this.exportMonoGame(committedProject, tables, assets, commit.localization, exportedAt);
     }
     if (target === ExportTarget.teal) {
       return this.exportTeal(committedProject, tables, assets, commit.localization, exportedAt);
@@ -154,6 +165,29 @@ class ExportService {
     };
   }
 
+  private async exportMonoGame(
+    project: Project,
+    tables: Parameters<typeof createMonoGameExportBundle>[1],
+    assets: Asset[],
+    localization: Parameters<typeof createMonoGameExportBundle>[4],
+    exportedAt: string
+  ): Promise<ExportProjectResult> {
+    const bundle = createMonoGameExportBundle(project, tables, exportedAt, assets, localization);
+    await Promise.all([
+      fileService.deleteProjectDirectory(project, MONOGAME_GAME_DATA_EXPORT_ROOT),
+      fileService.deleteProjectDirectory(project, MONOGAME_ASSET_EXPORT_ROOT)
+    ]);
+    const assetCounts = await Promise.all(assets.map((asset) => this.exportMonoGameAsset(project, asset)));
+    await Promise.all(bundle.files.map((file) => fileService.writeProjectTextFile(project, file.path, file.content)));
+    return {
+      exportedAt,
+      fileCount: bundle.files.length + assetCounts.reduce((total, count) => total + count, 0),
+      manifestPath: MONOGAME_MANIFEST_PATH,
+      outputPath: `${project.path}/${MONOGAME_GAME_DATA_EXPORT_ROOT}`,
+      target: ExportTarget.monoGame
+    };
+  }
+
   private assetSourcePath(project: Project, asset: Asset): string {
     return asset.relativePath.startsWith("/") ? asset.relativePath : `${project.path}/${asset.relativePath}`;
   }
@@ -170,6 +204,11 @@ class ExportService {
 
   private async exportLove2dAsset(project: Project, asset: Asset): Promise<number> {
     await fileService.copyProjectFile(project, this.assetSourcePath(project, asset), love2dAssetExportPath(asset));
+    return 1;
+  }
+
+  private async exportMonoGameAsset(project: Project, asset: Asset): Promise<number> {
+    await fileService.copyProjectFile(project, this.assetSourcePath(project, asset), monoGameAssetExportPath(asset));
     return 1;
   }
 }

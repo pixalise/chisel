@@ -12,6 +12,7 @@ const exportTargetLabels: Record<ExportTarget, string> = {
   [ExportTarget.godot]: "Godot",
   [ExportTarget.haxeFlixel]: "HaxeFlixel",
   [ExportTarget.love2d]: "LÖVE",
+  [ExportTarget.monoGame]: "MonoGame",
   [ExportTarget.teal]: "Teal"
 };
 
@@ -134,6 +135,7 @@ export const SettingsScreen: FC = () => {
             <SettingsRow label="Godot" value="game_data/manifest.gd" />
             <SettingsRow label="HaxeFlixel" value="source/gamedata/ChiselManifest.hx" />
             <SettingsRow label="LÖVE" value="gamedata/manifest.lua" />
+            <SettingsRow label="MonoGame" value="GameData/Generated/ChiselManifest.g.cs" />
             <SettingsRow label="Teal" value="gamedata/manifest.tl" />
             {lastExport && <SettingsRow label="Last target" value={exportTargetLabels[lastExport.target]} />}
             {lastExport && <SettingsRow label="Last export" value={lastExport.exportedAt} />}
@@ -159,6 +161,14 @@ export const SettingsScreen: FC = () => {
                 variant="secondary"
               >
                 {isExportProjectLoading ? "Exporting..." : "Export LÖVE"}
+              </Button>
+              <Button
+                disabled={isExportProjectLoading}
+                onClick={() => onExportProject(ExportTarget.monoGame)}
+                type="button"
+                variant="secondary"
+              >
+                {isExportProjectLoading ? "Exporting..." : "Export MonoGame"}
               </Button>
               <Button
                 disabled={isExportProjectLoading}

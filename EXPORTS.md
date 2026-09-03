@@ -4,12 +4,35 @@ Chisel exports only the latest committed source state. Every target runs table, 
 
 ## Targets
 
-| Target     | Manifest                            | Generated root                        |
-| ---------- | ----------------------------------- | ------------------------------------- |
-| Godot      | `game_data/manifest.gd`             | `game_data`                           |
-| HaxeFlixel | `source/gamedata/ChiselManifest.hx` | `source/gamedata` and `assets/chisel` |
-| LÖVE       | `gamedata/manifest.lua`             | `gamedata`                            |
-| Teal       | `gamedata/manifest.tl`              | `gamedata`                            |
+| Target     | Manifest                                 | Generated root                            |
+| ---------- | ---------------------------------------- | ----------------------------------------- |
+| Godot      | `game_data/manifest.gd`                  | `game_data`                               |
+| HaxeFlixel | `source/gamedata/ChiselManifest.hx`      | `source/gamedata` and `assets/chisel`     |
+| LÖVE       | `gamedata/manifest.lua`                  | `gamedata`                                |
+| MonoGame   | `GameData/Generated/ChiselManifest.g.cs` | `GameData/Generated` and `Content/Chisel` |
+| Teal       | `gamedata/manifest.tl`                   | `gamedata`                                |
+
+## MonoGame Export Contract
+
+The MonoGame target writes ordinary C# below `GameData/Generated`, so SDK-style game projects compile it automatically. Generated table classes use enum-indexed structure-of-arrays data in the `Chisel.Generated` namespace. Chisel references become typed enum IDs; vectors and colors use MonoGame framework types. Asset source files are copied to `Content/Chisel`, and `ChiselAssets.Path(id)` returns the path relative to the game's `Content` directory. The asset catalog deliberately does not assume that every source format has passed through MGCB.
+
+When the `input_bindings` system table exists, Chisel also generates `ChiselInput.g.cs`. Own one `ChiselInput` instance and call `Update()` once near the start of every MonoGame `Game.Update` before querying it:
+
+```csharp
+private readonly ChiselInput _input = new ChiselInput();
+
+protected override void Update(GameTime gameTime)
+{
+    _input.Update();
+    if (_input.IsActionJustPressed(ChiselInputBindingsId.CONFIRM))
+    {
+        // React once to the action edge.
+    }
+    base.Update(gameTime);
+}
+```
+
+The adapter exposes `ActionName`, `GetActionStrength`, `IsActionPressed`, `IsActionJustPressed`, and `IsActionJustReleased`. Keyboard modifiers map to both left and right variants. Mouse buttons and vertical wheel actions are supported; wheel actions are one-frame pulses calculated from MonoGame's cumulative scroll value. Calling an action query before `Update()` or passing an invalid enum ID fails immediately.
 
 ## Teal Export Contract
 
