@@ -216,11 +216,14 @@ function csharpColumnValue(value: unknown, column: DataColumnDefinition, context
   return csharpValue(value);
 }
 
-function renderEnum(name: string, entries: Array<{ name: string; value: number }>): string {
-  const members = [{ name: INVALID_ENUM_MEMBER, value: -1 }, ...entries]
-    .map((entry) => `        ${entry.name} = ${entry.value}`)
-    .join(",\n");
-  return `    public enum ${name}\n    {\n${members}\n    }`;
+function renderEnum(name: string, entries: Array<{ name: string; value: number; identity: string }>): string {
+  const members = [
+    `        ${INVALID_ENUM_MEMBER} = -1`,
+    ...entries.map(
+      (entry) => `        [System.Runtime.Serialization.EnumMember(Value = ${csharpString(entry.identity)})]\n        ${entry.name} = ${entry.value}`
+    )
+  ].join(",\n");
+  return `    [System.Runtime.Serialization.DataContract]\n    public enum ${name}\n    {\n${members}\n    }`;
 }
 
 function renderTable(table: AnyDataTable, context: MonoGameValueContext): MonoGameExportFile {
@@ -230,7 +233,7 @@ function renderTable(table: AnyDataTable, context: MonoGameValueContext): MonoGa
   const columnNames = uniqueNames(table.columns.map((column) => ({ id: column.id, value: column.name })));
   const idType = renderEnum(
     idTypeName,
-    table.rows.map((row, index) => ({ name: names.get(row.slug) ?? constantCase(row.slug), value: index }))
+    table.rows.map((row, index) => ({ name: names.get(row.slug) ?? constantCase(row.slug), value: index, identity: row.slug }))
   );
   const columns = table.columns
     .map((column) => {
@@ -276,7 +279,7 @@ function renderAssets(assets: Asset[]): MonoGameExportFile {
   const names = uniqueNames(assets.map((asset) => ({ id: asset.id, value: asset.name })));
   const idType = renderEnum(
     "ChiselAssetId",
-    assets.map((asset, index) => ({ name: names.get(asset.id) ?? constantCase(asset.name), value: index }))
+    assets.map((asset, index) => ({ name: names.get(asset.id) ?? constantCase(asset.name), value: index, identity: asset.id }))
   );
   const ids = assets.map((asset) => csharpString(asset.id)).join(", ");
   const paths = assets.map((asset) => csharpString(monoGameAssetExportPath(asset).replace(/^Content\//, ""))).join(", ");
@@ -328,7 +331,7 @@ function renderLocalization(localization: LocalizationDocument): MonoGameExportF
   const names = uniqueNames(localization.keys.map((key) => ({ id: key.path, value: key.path })));
   const idType = renderEnum(
     "ChiselLocalizationId",
-    localization.keys.map((key, index) => ({ name: names.get(key.path) ?? constantCase(key.path), value: index }))
+    localization.keys.map((key, index) => ({ name: names.get(key.path) ?? constantCase(key.path), value: index, identity: key.path }))
   );
   const locales = localization.locales.map(csharpString).join(", ");
   const keys = localization.keys.map((key) => csharpString(key.path)).join(", ");
