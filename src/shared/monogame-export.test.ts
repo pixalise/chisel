@@ -45,8 +45,10 @@ describe("MonoGame export", () => {
     const bundle = createMonoGameExportBundle(project, [table], "2026-01-01T00:00:00.000Z", [], emptyLocalizationDocument);
     const file = bundle.files.find((entry) => entry.path === "GameData/Generated/ChiselEnemies.g.cs");
 
-    expect(file?.content).toContain("public enum ChiselEnemiesId");
-    expect(file?.content).toContain("ZOMBIE_BASIC = 0");
+    expect(file?.content).toContain("public static class ChiselEnemiesIds");
+    expect(file?.content).toContain("public const int Invalid = -1;");
+    expect(file?.content).toContain("public const int ZOMBIE_BASIC = 0;");
+    expect(file?.content).not.toContain("public enum ChiselEnemiesId");
     expect(file?.content).toContain("public static readonly int[] MaxHealth = new int[] { 100 };");
     expect(file?.content).toContain("public static readonly float[] MoveSpeed = new float[] { 1.5f };");
     expect(file?.content).toContain("new Vector2(2.0f, 3.5f)");
@@ -54,7 +56,7 @@ describe("MonoGame export", () => {
     expect(file?.content).toContain('public static readonly string[] Metadata = new string[] { "{\\"elite\\":true}" };');
   });
 
-  it("exports typed references, asset paths, localization, input, and a manifest", () => {
+  it("exports integer table references, asset paths, localization, input, and a manifest", () => {
     const asset = assetSchema.parse({
       category: AssetCategoryEnum.image,
       extension: "png",
@@ -69,6 +71,7 @@ describe("MonoGame export", () => {
       ...emptyLocalizationDocument,
       keys: [{ path: "UNITS.NAME", values: { en: "Unit" }, placeholders: [] }]
     });
+    const classColumnId = nanoid();
     const classesColumnId = nanoid();
     const assetColumnId = nanoid();
     const translationColumnId = nanoid();
@@ -84,6 +87,15 @@ describe("MonoGame export", () => {
     });
     const unitTable = dataTableSchema.parse({
       columns: [
+        {
+          defaultValue: "",
+          id: classColumnId,
+          name: "class",
+          refTableId: classTable.id,
+          required: true,
+          type: ColumnType.ref,
+          unique: false
+        },
         {
           defaultValue: [],
           id: classesColumnId,
@@ -114,6 +126,7 @@ describe("MonoGame export", () => {
           id: nanoid(),
           slug: "SCOUT",
           values: [
+            { columnId: classColumnId, type: ColumnType.ref, value: "SCOUT" },
             { columnId: classesColumnId, type: ColumnType.arrayRef, value: ["SCOUT"] },
             { columnId: assetColumnId, type: ColumnType.assetRef, value: asset.id },
             { columnId: translationColumnId, type: ColumnType.translationRef, value: "UNITS.NAME" }
@@ -129,7 +142,8 @@ describe("MonoGame export", () => {
     const assetsFile = bundle.files.find((entry) => entry.path.endsWith("ChiselAssets.g.cs"));
     const localizationFile = bundle.files.find((entry) => entry.path.endsWith("ChiselLocalization.g.cs"));
 
-    expect(tableFile?.content).toContain("new ChiselClassesId[] { ChiselClassesId.SCOUT }");
+    expect(tableFile?.content).toContain("public static readonly int[] Class = new int[] { ChiselClassesIds.SCOUT };");
+    expect(tableFile?.content).toContain("new int[] { ChiselClassesIds.SCOUT }");
     expect(tableFile?.content).toContain("ChiselAssetId.UNIT_ICON");
     expect(tableFile?.content).toContain("ChiselLocalizationId.UNITS_NAME");
     expect(monoGameAssetExportPath(asset)).toBe("Content/Chisel/image/unit_icon.png");

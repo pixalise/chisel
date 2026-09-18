@@ -14,7 +14,7 @@ Chisel exports only the latest committed source state. Every target runs table, 
 
 ## MonoGame Export Contract
 
-The MonoGame target writes ordinary C# below `GameData/Generated`, so SDK-style game projects compile it automatically. Generated table classes use enum-indexed structure-of-arrays data in the `Chisel.Generated` namespace. Chisel references become typed enum IDs; vectors and colors use MonoGame framework types. Asset source files are copied to `Content/Chisel`, and `ChiselAssets.Path(id)` returns the path relative to the game's `Content` directory. The asset catalog deliberately does not assume that every source format has passed through MGCB.
+The MonoGame target writes ordinary C# below `GameData/Generated`, so SDK-style game projects compile it automatically. Generated table classes use integer-indexed structure-of-arrays data in the `Chisel.Generated` namespace. Each table also exports a static `<Table>Ids` class of named integer constants, so `ChiselEnemies.MaxHealth[ChiselEnemiesIds.ZOMBIE_BASIC]` needs no cast or game-side adapter. Row and table references are integers; asset and localization references retain their dedicated generated enum types. Vectors and colors use MonoGame framework types. Asset source files are copied to `Content/Chisel`, and `ChiselAssets.Path(id)` returns the path relative to the game's `Content` directory. The asset catalog deliberately does not assume that every source format has passed through MGCB.
 
 When the `input_bindings` system table exists, Chisel also generates `ChiselInput.g.cs`. Own one `ChiselInput` instance and call `Update()` once near the start of every MonoGame `Game.Update` before querying it:
 
@@ -24,7 +24,7 @@ private readonly ChiselInput _input = new ChiselInput();
 protected override void Update(GameTime gameTime)
 {
     _input.Update();
-    if (_input.IsActionJustPressed(ChiselInputBindingsId.CONFIRM))
+    if (_input.IsActionJustPressed(ChiselInputBindingsIds.CONFIRM))
     {
         // React once to the action edge.
     }
@@ -32,7 +32,7 @@ protected override void Update(GameTime gameTime)
 }
 ```
 
-The adapter exposes `ActionName`, `GetActionStrength`, `IsActionPressed`, `IsActionJustPressed`, and `IsActionJustReleased`. Keyboard modifiers map to both left and right variants. Mouse buttons and vertical wheel actions are supported; wheel actions are one-frame pulses calculated from MonoGame's cumulative scroll value. Calling an action query before `Update()` or passing an invalid enum ID fails immediately.
+The adapter exposes `ActionName`, `GetActionStrength`, `IsActionPressed`, `IsActionJustPressed`, and `IsActionJustReleased`. Keyboard modifiers map to both left and right variants. Mouse buttons and vertical wheel actions are supported; wheel actions are one-frame pulses calculated from MonoGame's cumulative scroll value. Calling an action query before `Update()` or passing an invalid action ID fails immediately.
 
 ## Teal Export Contract
 

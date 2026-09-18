@@ -58,16 +58,6 @@ const mouseNamesByBinding: Readonly<Record<string, string>> = {
   MOUSE_BUTTON_WHEEL_UP: "WheelUp"
 };
 
-function pascalCase(value: string): string {
-  const words = value.match(/[A-Za-z0-9]+/g) ?? [];
-  const result = words.map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`).join("");
-  return /^[A-Z]/.test(result) ? result : `Data${result || "Table"}`;
-}
-
-function tableClassName(table: AnyDataTable): string {
-  return `Chisel${pascalCase(table.name || table.id)}`;
-}
-
 function csharpString(value: string): string {
   return JSON.stringify(value)
     .replace(/\u2028/g, "\\u2028")
@@ -132,7 +122,6 @@ export function renderMonoGameInputExport(tables: AnyDataTable[], sourceRoot: st
     return [];
   }
 
-  const actionType = `${tableClassName(inputTable)}Id`;
   const actions = inputTable.rows.map((row) => csharpString(row.slug.toLowerCase())).join(", ");
   const bindings = inputArrays(inputTable);
 
@@ -190,45 +179,44 @@ namespace Chisel.Generated
             _currentMouse = mouse;
         }
 
-        public string ActionName(${actionType} action)
+        public string ActionName(int action)
         {
             return ActionNames[ActionIndex(action)];
         }
 
-        public float GetActionStrength(${actionType} action)
+        public float GetActionStrength(int action)
         {
             return IsActionPressed(action) ? 1.0f : 0.0f;
         }
 
-        public bool IsActionPressed(${actionType} action)
+        public bool IsActionPressed(int action)
         {
             EnsureUpdated();
             int index = ActionIndex(action);
             return HasPressedKey(KeyBindings[index]) || HasPressedMouseBinding(MouseBindings[index]);
         }
 
-        public bool IsActionJustPressed(${actionType} action)
+        public bool IsActionJustPressed(int action)
         {
             EnsureUpdated();
             int index = ActionIndex(action);
             return HasJustPressedKey(KeyBindings[index]) || HasJustPressedMouseBinding(MouseBindings[index]);
         }
 
-        public bool IsActionJustReleased(${actionType} action)
+        public bool IsActionJustReleased(int action)
         {
             EnsureUpdated();
             int index = ActionIndex(action);
             return HasJustReleasedKey(KeyBindings[index]) || HasJustReleasedMouseBinding(MouseBindings[index]);
         }
 
-        private static int ActionIndex(${actionType} action)
+        private static int ActionIndex(int action)
         {
-            int index = (int)action;
-            if (index < 0 || index >= ActionNames.Length)
+            if (action < 0 || action >= ActionNames.Length)
             {
                 throw new ArgumentOutOfRangeException(nameof(action), action, "Invalid Chisel input action.");
             }
-            return index;
+            return action;
         }
 
         private void EnsureUpdated()

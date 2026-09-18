@@ -95,14 +95,12 @@ function tableClassName(table: AnyDataTable): string {
   return `Chisel${pascalCase(table.name || table.id)}`;
 }
 
-function csharpType(column: DataColumnDefinition, context: MonoGameValueContext): string {
+function csharpType(column: DataColumnDefinition): string {
   if (column.type === ColumnType.ref && column.refTableId) {
-    const target = context.tablesById.get(column.refTableId);
-    return target ? `${tableClassName(target)}Id` : "int";
+    return "int";
   }
   if (column.type === ColumnType.arrayRef && column.refTableId) {
-    const target = context.tablesById.get(column.refTableId);
-    return target ? `${tableClassName(target)}Id[]` : "int[]";
+    return "int[]";
   }
   if (column.type === ColumnType.assetRef) {
     return "ChiselAssetId";
@@ -165,7 +163,7 @@ function csharpColumnValue(value: unknown, column: DataColumnDefinition, context
   if (column.type === ColumnType.ref && column.refTableId) {
     const target = context.tablesById.get(column.refTableId);
     const name = typeof value === "string" && target ? rowNames(target).get(value) : undefined;
-    return `${tableClassName(target ?? ({ name: "Unknown" } as AnyDataTable))}Id.${name ?? INVALID_ENUM_MEMBER}`;
+    return target ? `${tableClassName(target)}Ids.${name ?? INVALID_ENUM_MEMBER}` : "-1";
   }
   if (column.type === ColumnType.arrayRef && column.refTableId) {
     const target = context.tablesById.get(column.refTableId);
@@ -173,9 +171,9 @@ function csharpColumnValue(value: unknown, column: DataColumnDefinition, context
       return "Array.Empty<int>()";
     }
     const names = rowNames(target);
-    const typeName = `${tableClassName(target)}Id`;
-    return `new ${typeName}[] { ${value
-      .map((entry) => `${typeName}.${typeof entry === "string" ? (names.get(entry) ?? INVALID_ENUM_MEMBER) : INVALID_ENUM_MEMBER}`)
+    const idsName = `${tableClassName(target)}Ids`;
+    return `new int[] { ${value
+      .map((entry) => `${idsName}.${typeof entry === "string" ? (names.get(entry) ?? INVALID_ENUM_MEMBER) : INVALID_ENUM_MEMBER}`)
       .join(", ")} }`;
   }
   if (column.type === ColumnType.assetRef) {
@@ -220,26 +218,35 @@ function renderEnum(name: string, entries: Array<{ name: string; value: number; 
   const members = [
     `        ${INVALID_ENUM_MEMBER} = -1`,
     ...entries.map(
-      (entry) => `        [System.Runtime.Serialization.EnumMember(Value = ${csharpString(entry.identity)})]\n        ${entry.name} = ${entry.value}`
+      (entry) =>
+        `        [System.Runtime.Serialization.EnumMember(Value = ${csharpString(entry.identity)})]\n        ${entry.name} = ${entry.value}`
     )
   ].join(",\n");
   return `    [System.Runtime.Serialization.DataContract]\n    public enum ${name}\n    {\n${members}\n    }`;
 }
 
+function renderIntConstants(name: string, entries: Array<{ name: string; value: number }>): string {
+  const members = [
+    `        public const int ${INVALID_ENUM_MEMBER} = -1;`,
+    ...entries.map((entry) => `        public const int ${entry.name} = ${entry.value};`)
+  ].join("\n");
+  return `    public static class ${name}\n    {\n${members}\n    }`;
+}
+
 function renderTable(table: AnyDataTable, context: MonoGameValueContext): MonoGameExportFile {
   const className = tableClassName(table);
-  const idTypeName = `${className}Id`;
+  const idsClassName = `${className}Ids`;
   const names = rowNames(table);
   const columnNames = uniqueNames(table.columns.map((column) => ({ id: column.id, value: column.name })));
-  const idType = renderEnum(
-    idTypeName,
-    table.rows.map((row, index) => ({ name: names.get(row.slug) ?? constantCase(row.slug), value: index, identity: row.slug }))
+  const idsClass = renderIntConstants(
+    idsClassName,
+    table.rows.map((row, index) => ({ name: names.get(row.slug) ?? constantCase(row.slug), value: index }))
   );
   const columns = table.columns
     .map((column) => {
       const values = table.rows.map((row) => csharpColumnValue(columnValue(row, column), column, context)).join(", ");
       const columnName = pascalCase(columnNames.get(column.id) ?? column.name);
-      return `        public static readonly ${csharpType(column, context)}[] ${columnName} = new ${csharpType(column, context)}[] { ${values} };`;
+      return `        public static readonly ${csharpType(column)}[] ${columnName} = new ${csharpType(column)}[] { ${values} };`;
     })
     .join("\n");
   const slugs = table.rows.map((row) => csharpString(row.slug)).join(", ");
@@ -253,7 +260,7 @@ using Microsoft.Xna.Framework;
 
 namespace Chisel.Generated
 {
-${idType}
+${idsClass}
 
     public static class ${className}
     {

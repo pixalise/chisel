@@ -7,13 +7,13 @@ repos:
     hooks:
       - id: chisel-prettier
         name: Chisel Prettier
-        entry: bunx prettier --write --ignore-unknown
+        entry: bun run prettier --write --ignore-unknown
         language: system
         files: \.(css|html|js|jsx|json|jsonc|md|mjs|mts|ts|tsx|yaml|yml)$
 
-      - id: chisel-eslint
-        name: Chisel ESLint
-        entry: bun run lint
+      - id: chisel-check
+        name: Chisel checks
+        entry: bun run check
         language: system
         pass_filenames: false
-        files: \.(js|jsx|mjs|mts|ts|tsx)$
+        files: \.(css|html|js|jsx|json|jsonc|md|mjs|mts|ts|tsx|yaml|yml)$

@@ -41,7 +41,8 @@ describe("MonoGame input export", () => {
 
     expect(file.path).toBe("GameData/Generated/ChiselInput.g.cs");
     expect(file.content).toContain("namespace Chisel.Generated");
-    expect(file.content).toContain("ChiselInputBindingsId action");
+    expect(file.content).toContain("IsActionPressed(int action)");
+    expect(file.content).toContain("int ActionIndex(int action)");
     expect(file.content).toContain("new Keys[] { Keys.Space, Keys.Enter }");
     expect(file.content).toContain("Keys.LeftShift, Keys.RightShift, Keys.A");
     expect(file.content).toContain("new ChiselMouseBinding[] { ChiselMouseBinding.Left }");
