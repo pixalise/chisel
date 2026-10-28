@@ -1,51 +1,93 @@
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { spawnSync } from "node:child_process";
-import { nanoid } from "nanoid";
-import { createRobloxExportBundle } from "../src/shared/roblox-export.ts";
-import { emptyLocalizationDocument, localizationDocumentSchema } from "../src/shared/localization.ts";
-import { assetSchema, dataTableSchema } from "../src/shared/schemas.ts";
-import { AssetCategoryEnum, ColumnType, InputKeyEnum } from "../src/shared/types.ts";
-import { INPUT_BINDINGS_TABLE } from "../src/renderer/constants/system-tables.ts";
+import fs from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
+import { spawnSync } from "node:child_process"
+import { nanoid } from "nanoid"
+import { createRobloxExportBundle } from "../src/shared/roblox-export.ts"
+import {
+  emptyLocalizationDocument,
+  localizationDocumentSchema,
+} from "../src/shared/localization.ts"
+import { assetSchema, dataTableSchema } from "../src/shared/schemas.ts"
+import { AssetCategoryEnum } from "../src/enums/asset-category-enum.ts"
+import { ColumnType } from "../src/enums/column-type.ts"
+import { InputKeyEnum } from "../src/enums/input-key-enum.ts"
+import { INPUT_BINDINGS_TABLE } from "../src/constants/system-tables.ts"
 
-const executable = process.argv[2] ?? "luau";
-const sibling = (name) => (executable.includes(path.sep) ? path.join(path.dirname(executable), name) : name);
-const directory = await fs.mkdtemp(path.join(os.tmpdir(), "chisel-roblox-runtime-"));
-const project = { id: nanoid(), name: "Roblox Runtime Test", path: directory };
+const executable = process.argv[2] ?? "luau"
+const sibling = (name) =>
+  executable.includes(path.sep) ? path.join(path.dirname(executable), name) : name
+const directory = await fs.mkdtemp(path.join(os.tmpdir(), "chisel-roblox-runtime-"))
+const project = { id: nanoid(), name: "Roblox Runtime Test", path: directory }
 const asset = assetSchema.parse({
   id: "ICON",
   name: "ICON",
-  category: AssetCategoryEnum.ui,
+  category: AssetCategoryEnum.UI,
   extension: "png",
   relativePath: ".chisel/assets/UI/ICON.png",
   width: 1,
   height: 1,
   sizeBytes: 1,
-  robloxAssetId: "123456789012345678"
-});
+  robloxAssetId: "123456789012345678",
+})
 const localization = localizationDocumentSchema.parse({
   ...emptyLocalizationDocument,
   locales: ["en", "sl_SI"],
   styles: [{ slug: "STRONG", bold: true, color: "#ff8000" }],
-  tooltips: [{ slug: "HELP", titleKey: "UI.HELLO", descriptionKey: "UI.HELLO", iconAssetId: "ICON" }],
+  tooltips: [
+    { slug: "HELP", titleKey: "UI.HELLO", descriptionKey: "UI.HELLO", iconAssetId: "ICON" },
+  ],
   keys: [
     {
       path: "UI.HELLO",
       values: {
         en: "Hello <style:STRONG>{string:name}</style> {int:count}",
-        sl_SI: "Zdravo <style:STRONG>{string:name}</style> {int:count}"
-      }
+        sl_SI: "Zdravo <style:STRONG>{string:name}</style> {int:count}",
+      },
     },
-    { path: "UI.ICON", values: { en: "<tooltip:HELP>Info</tooltip><icon:ICON/>", sl_SI: "<tooltip:HELP>Info</tooltip><icon:ICON/>" } }
-  ]
-});
+    {
+      path: "UI.ICON",
+      values: {
+        en: "<tooltip:HELP>Info</tooltip><icon:ICON/>",
+        sl_SI: "<tooltip:HELP>Info</tooltip><icon:ICON/>",
+      },
+    },
+  ],
+})
 const columns = [
-  { id: nanoid(), name: "health", type: ColumnType.integer, defaultValue: 25, required: true, unique: false },
-  { id: nanoid(), name: "position", type: ColumnType.vector3, defaultValue: [1, 2, 3], required: true, unique: false },
-  { id: nanoid(), name: "color", type: ColumnType.color, defaultValue: "#ff8000", required: true, unique: false },
-  { id: nanoid(), name: "metadata", type: ColumnType.json, defaultValue: { nested: [1, "hello"] }, required: true, unique: false }
-];
+  {
+    id: nanoid(),
+    name: "health",
+    type: ColumnType.INTEGER,
+    defaultValue: 25,
+    required: true,
+    unique: false,
+  },
+  {
+    id: nanoid(),
+    name: "position",
+    type: ColumnType.VECTOR_3,
+    defaultValue: [1, 2, 3],
+    required: true,
+    unique: false,
+  },
+  {
+    id: nanoid(),
+    name: "color",
+    type: ColumnType.COLOR,
+    defaultValue: "#ff8000",
+    required: true,
+    unique: false,
+  },
+  {
+    id: nanoid(),
+    name: "metadata",
+    type: ColumnType.JSON,
+    defaultValue: { nested: [1, "hello"] },
+    required: true,
+    unique: false,
+  },
+]
 const units = dataTableSchema.parse({
   id: "units",
   name: "Units",
@@ -57,10 +99,14 @@ const units = dataTableSchema.parse({
     {
       id: nanoid(),
       slug: "SCOUT",
-      values: columns.map((column) => ({ columnId: column.id, type: column.type, value: column.defaultValue }))
-    }
-  ]
-});
+      values: columns.map((column) => ({
+        columnId: column.id,
+        type: column.type,
+        value: column.defaultValue,
+      })),
+    },
+  ],
+})
 const input = {
   ...INPUT_BINDINGS_TABLE,
   rows: [
@@ -70,62 +116,88 @@ const input = {
       values: [
         {
           columnId: INPUT_BINDINGS_TABLE.columns[1].id,
-          type: ColumnType.enumArray,
-          value: [InputKeyEnum.KeyEnter, InputKeyEnum.MouseButtonLeft]
-        }
-      ]
+          type: ColumnType.ENUM_ARRAY,
+          value: [InputKeyEnum.KEY_ENTER, InputKeyEnum.MOUSE_BUTTON_LEFT],
+        },
+      ],
     },
     {
       id: nanoid(),
       slug: "SCROLL",
-      values: [{ columnId: INPUT_BINDINGS_TABLE.columns[1].id, type: ColumnType.enumArray, value: [InputKeyEnum.MouseButtonWheelUp] }]
-    }
-  ]
-};
+      values: [
+        {
+          columnId: INPUT_BINDINGS_TABLE.columns[1].id,
+          type: ColumnType.ENUM_ARRAY,
+          value: [InputKeyEnum.MOUSE_BUTTON_WHEEL_UP],
+        },
+      ],
+    },
+  ],
+}
 const bundles = [
   ["full", createRobloxExportBundle(project, [units, input], "2026-10-28", [asset], localization)],
-  ["empty", createRobloxExportBundle(project, [], "2026-10-28", [], emptyLocalizationDocument)]
-];
+  ["empty", createRobloxExportBundle(project, [], "2026-10-28", [], emptyLocalizationDocument)],
+]
 
 function run(command, args) {
-  const result = spawnSync(command, args, { encoding: "utf8" });
-  if (result.error) throw new Error(`Install the Luau CLI tools or pass the path to luau. ${result.error.message}`);
-  if (result.status !== 0) throw new Error(`${command} failed:\n${result.stdout}\n${result.stderr}`);
-  if (result.stdout.trim()) console.log(result.stdout.trim());
+  const result = spawnSync(command, args, { encoding: "utf8" })
+  if (result.error) {
+    throw new Error(`Install the Luau CLI tools or pass the path to luau. ${result.error.message}`)
+  }
+  if (result.status !== 0) {
+    throw new Error(`${command} failed:\n${result.stdout}\n${result.stderr}`)
+  }
+  if (result.stdout.trim()) {
+    console.log(result.stdout.trim())
+  }
 }
 
 try {
-  const files = [];
-  const analysisFiles = [];
-  const factories = [];
+  const files = []
+  const analysisFiles = []
+  const factories = []
   for (const [prefix, bundle] of bundles) {
-    const children = { tables: {} };
+    const children = { tables: {} }
     for (const file of bundle.files) {
-      const name = file.path.replace(/^ChiselData\//, "").replace(/\.luau$/, "");
-      if (name.startsWith("tables/")) children.tables[name.slice(7)] = `${prefix}/${name}`;
-      else children[name] = `${prefix}/${name}`;
-      const filePath = path.join(directory, prefix, file.path);
-      await fs.mkdir(path.dirname(filePath), { recursive: true });
-      await fs.writeFile(filePath, file.content);
-      files.push(filePath);
-      if (["localization", "assets"].includes(name)) analysisFiles.push(filePath);
+      const name = file.path.replace(/^ChiselData\//, "").replace(/\.luau$/, "")
+      if (name.startsWith("tables/")) {
+        children.tables[name.slice(7)] = `${prefix}/${name}`
+      } else {
+        children[name] = `${prefix}/${name}`
+      }
+      const filePath = path.join(directory, prefix, file.path)
+      await fs.mkdir(path.dirname(filePath), { recursive: true })
+      await fs.writeFile(filePath, file.content)
+      files.push(filePath)
+      if (["localization", "assets"].includes(name)) {
+        analysisFiles.push(filePath)
+      }
     }
     for (const file of bundle.files) {
-      const name = file.path.replace(/^ChiselData\//, "").replace(/\.luau$/, "");
+      const name = file.path.replace(/^ChiselData\//, "").replace(/\.luau$/, "")
       const tables = Object.entries(children.tables)
-        .map(([key, value]) => `[${JSON.stringify(key)}] = ${JSON.stringify(value)}`)
-        .join(", ");
+        .map((entry) => {
+          const [key, value] = entry
+          return `[${JSON.stringify(key)}] = ${JSON.stringify(value)}`
+        })
+        .join(", ")
       const siblings = Object.entries(children)
-        .filter(([key]) => key !== "tables")
-        .map(([key, value]) => `[${JSON.stringify(key)}] = ${JSON.stringify(value)}`)
-        .join(", ");
+        .filter((entry) => {
+          const [key] = entry
+          return key !== "tables"
+        })
+        .map((entry) => {
+          const [key, value] = entry
+          return `[${JSON.stringify(key)}] = ${JSON.stringify(value)}`
+        })
+        .join(", ")
       factories.push(
         `factories[${JSON.stringify(`${prefix}/${name}`)}] = function()\nlocal script = { Parent = { tables = { ${tables} }, ${siblings} } }\nlocal require = loadModule\n${file.content}\nend`
-      );
+      )
     }
   }
-  run(sibling("luau-compile"), ["--null", ...files]);
-  run(sibling("luau-analyze"), analysisFiles);
+  run(sibling("luau-compile"), ["--null", ...files])
+  run(sibling("luau-analyze"), analysisFiles)
   const harness = `--!nocheck
 -- Minimal Roblox API doubles exercise generated modules in the actual Luau VM.
 local Vector3 = { new = function(x, y, z) return table.freeze({ X = x, Y = y, Z = z }) end }
@@ -223,11 +295,13 @@ local empty = loadModule("empty/manifest")
 assert(empty.ASSETS.COUNT == 0 and empty.INPUT == nil)
 assert(not pcall(function() empty.LOCALIZATION.text(1) end))
 print("Roblox Luau runtime checks passed: tables, assets, localization, client input, empty bundles.")
-`;
-  const harnessPath = path.join(directory, "runtime-check.luau");
-  await fs.writeFile(harnessPath, harness);
-  run(executable, [harnessPath]);
-  console.log(`Compiled ${files.length} generated modules and typechecked standalone asset/localization modules.`);
+`
+  const harnessPath = path.join(directory, "runtime-check.luau")
+  await fs.writeFile(harnessPath, harness)
+  run(executable, [harnessPath])
+  console.log(
+    `Compiled ${files.length} generated modules and typechecked standalone asset/localization modules.`
+  )
 } finally {
-  await fs.rm(directory, { recursive: true, force: true });
+  await fs.rm(directory, { recursive: true, force: true })
 }

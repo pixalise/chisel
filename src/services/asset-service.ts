@@ -1,0 +1,109 @@
+import fileService from "@/services/file-service"
+import tableService from "@/services/table-service"
+import { assetSlug, chiselAssetRelativePath } from "@/shared/asset-paths"
+import { findAssetReferences } from "@/shared/project-validation"
+import {
+  addAssetSchema,
+  assetCategoryForExtension,
+  assetSchema,
+  type AddAsset,
+  type Asset,
+  type Project,
+} from "@/shared/schemas"
+import appStore from "@/stores/app-store"
+class AssetService {
+  private static schemaVersion: number = 1
+  public async getAllAssets(
+    project: Project = appStore.getState().computed.project
+  ): Promise<Asset[]> {
+    return (await fileService.tryReadAssetsJson(project.path))?.assets ?? []
+  }
+  public async copyAssetFile(sourcePath: string, asset: Asset): Promise<void> {
+    await fileService.copyProjectFile(
+      appStore.getState().computed.project,
+      sourcePath,
+      asset.relativePath
+    )
+  }
+  public async addAsset(input: AddAsset): Promise<Asset> {
+    const assets = await this.getAllAssets()
+    const parsed = addAssetSchema.parse(input)
+    const name = assetSlug(parsed.name)
+    const category = assetCategoryForExtension(parsed.extension, parsed.category)
+    const relativePath = chiselAssetRelativePath(category, name, parsed.extension)
+    const existing = assets.find(
+      (entry) => entry.id === name || entry.relativePath === relativePath
+    )
+    if (existing) {
+      throw new Error(`Asset slug ${name} already exists`)
+    }
+    const asset = assetSchema.parse({ ...parsed, category, id: name, name, relativePath })
+    await fileService.writeAssetsJson(appStore.getState().computed.project, {
+      schemaVersion: AssetService.schemaVersion,
+      assets: [...assets, asset],
+    })
+    return asset
+  }
+  public async replaceAssetSource(assetId: string, sourcePath: string): Promise<Asset> {
+    return window.electron.replaceAssetSource({
+      projectPath: appStore.getState().computed.project.path,
+      assetId,
+      sourcePath,
+    })
+  }
+  public async updateAsset(assetId: string, asset: Asset): Promise<void> {
+    const assets = await this.getAllAssets()
+    const existing = assets.find((entry) => entry.id === assetId)
+    if (!existing) {
+      throw new Error(`Asset ${assetId} does not exist`)
+    }
+    const slug = assetSlug(asset.name)
+    const relativePath = chiselAssetRelativePath(asset.category, slug, asset.extension)
+    const conflict = assets.find(
+      (entry) => entry.id !== assetId && (entry.id === slug || entry.relativePath === relativePath)
+    )
+    if (conflict) {
+      throw new Error(`Asset slug ${slug} already exists`)
+    }
+    const parsed = assetSchema.parse({ ...asset, id: slug, name: slug, relativePath })
+    const project = appStore.getState().computed.project
+    if (existing.relativePath !== parsed.relativePath) {
+      await fileService.copyProjectFile(
+        project,
+        `${project.path}/${existing.relativePath}`,
+        parsed.relativePath
+      )
+      await fileService.deleteProjectFile(project, existing.relativePath)
+    }
+    await fileService.writeAssetsJson(project, {
+      schemaVersion: AssetService.schemaVersion,
+      assets: [...assets.filter((entry) => entry.id !== assetId), parsed],
+    })
+    if (assetId !== parsed.id) {
+      await window.electron.replaceAssetReferences(project.path, { [assetId]: parsed.id })
+    }
+  }
+  public async removeAsset(assetId: string): Promise<void> {
+    const assets = await this.getAllAssets()
+    const asset = assets.find((entry) => entry.id === assetId)
+    if (!asset) {
+      throw new Error(`Asset ${assetId} does not exist`)
+    }
+    const tables = await tableService.listAllTables()
+    const references = findAssetReferences(tables, assetId)
+    if (references.length > 0) {
+      const reference = references[0]!
+      throw new Error(
+        `Asset ${assetId} is referenced by ${reference.sourceTableName}.${reference.sourceRowSlug}.${reference.columnName}`
+      )
+    }
+    const project = appStore.getState().computed.project
+    await fileService.deleteProjectFile(project, asset.relativePath)
+    await fileService.writeAssetsJson(project, {
+      schemaVersion: AssetService.schemaVersion,
+      assets: assets.filter((asset) => asset.id !== assetId),
+    })
+  }
+}
+const assetService = new AssetService()
+export default assetService

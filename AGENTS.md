@@ -1,5 +1,7 @@
 # Chisel Editor Instructions
 
+Read [agent.md](./agent.md) before changing frontend code. Its supplied React frontend review policy is mandatory and supersedes conflicting legacy conventions. Chisel is an Electron desktop application with a DOM-based React frontend; web rules apply to its renderer, while Electron main/preload and shared runtime-generation code keep their platform ownership.
+
 - Do not add custom CSS class selectors to `src/renderer/styles.css`; it may only contain Tailwind directives, design tokens, and base element rules.
 - Style editor UI with Tailwind utility classes and compose variants with `cn(...)`.
 - Do not add semantic/BEM-style renderer class names such as `.screen-card` or `.editor__row`; create React components or Tailwind utility constants instead.

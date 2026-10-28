@@ -11,6 +11,18 @@ bun run dev
 
 Run `bun run check` for policy checks, formatting, lint, tests, and TypeScript. Run `bun run build` for the production renderer and Electron code.
 
+Read [AGENTS.md](./AGENTS.md) and the supplied [frontend policy](./agent.md) before changing code. `bun run unused:check` verifies that application entries, tests, and registered native workers connect the retained source and production dependencies.
+
+## Source layout
+
+- `src/pages`: routed React web pages.
+- `src/components`, `src/hooks`, `src/services`, `src/stores`, `src/utils`, and `src/enums`: application owners shared across pages.
+- `src/shared`: canonical content schemas, validation, and Roblox runtime generation used by both Electron and the frontend.
+- `src/main` and `src/preload`: native filesystem, asset, worker, and IPC integration.
+- `src/renderer`: browser entry point, global styles, and Electron window declarations.
+
+The TypeScript and Vite `@/` aliases both resolve to `src/`. Stored project IDs, enum values, and Roblox runtime contracts remain independent of this source layout.
+
 With the [Luau CLI tools](https://github.com/luau-lang/luau/releases) installed together, run `bun run test:roblox` (or `bun run test:roblox /path/to/luau`) to compile generated modules, typecheck standalone modules, and execute runtime checks with Roblox API doubles.
 
 ## Roblox workflow

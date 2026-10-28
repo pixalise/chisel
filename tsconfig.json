@@ -17,8 +17,9 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/renderer/*"]
+      "@/*": ["src/*"]
     }
   },
-  "include": ["src/renderer", "src/shared"]
+  "include": ["src"],
+  "exclude": ["src/main", "src/preload"]
 }

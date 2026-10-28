@@ -1,0 +1,296 @@
+import { ColumnType } from "@/enums/column-type"
+import type { CreateOrUpdateTable } from "@/shared/schemas"
+export type DataColumnDefaultValue = CreateOrUpdateTable["columns"][number]["defaultValue"]
+export const columnTypeOptions = Object.values(ColumnType).map((type) => ({
+  label: type,
+  value: type,
+}))
+export const vectorComponentLabels = ["x", "y", "z", "w"]
+export function vectorLengthForColumnType(type: ColumnType): number {
+  if (type === ColumnType.VECTOR_2) {
+    return 2
+  }
+  if (type === ColumnType.VECTOR_3) {
+    return 3
+  }
+  if (type === ColumnType.VECTOR_4) {
+    return 4
+  }
+  return 0
+}
+export function isVectorColumnType(type: ColumnType): boolean {
+  return vectorLengthForColumnType(type) > 0
+}
+export function createDefaultValueForColumnType(
+  type: ColumnType,
+  enumValues: string[] = [],
+  minValue?: unknown,
+  requiredValue: unknown = true
+): DataColumnDefaultValue {
+  const min = typeof minValue === "number" && Number.isFinite(minValue) ? minValue : 0
+  const isRequired = requiredValue !== false
+  if (type === ColumnType.INTEGER) {
+    return Math.trunc(min)
+  }
+  if (type === ColumnType.DECIMAL || type === ColumnType.RANGE) {
+    return min
+  }
+  if (type === ColumnType.BOOLEAN) {
+    return false
+  }
+  if (type === ColumnType.COLOR) {
+    return "#000000"
+  }
+  if (isVectorColumnType(type)) {
+    return Array.from({ length: vectorLengthForColumnType(type) }, () => min)
+  }
+  if (type === ColumnType.ENUM) {
+    return isRequired ? (enumValues[0] ?? "") : ""
+  }
+  if (type === ColumnType.ENUM_ARRAY || type === ColumnType.ARRAY_REF) {
+    return []
+  }
+  if (type === ColumnType.JSON) {
+    return {}
+  }
+  return ""
+}
+export function isDefaultValueValidForColumnType(
+  type: ColumnType,
+  value: unknown,
+  enumValues: string[],
+  requiredValue: unknown = true
+): boolean {
+  if (value === null || typeof value === "undefined") {
+    return false
+  }
+  if (type === ColumnType.INTEGER) {
+    return Number.isInteger(value)
+  }
+  if (type === ColumnType.DECIMAL || type === ColumnType.RANGE) {
+    return typeof value === "number" && Number.isFinite(value)
+  }
+  if (type === ColumnType.BOOLEAN) {
+    return typeof value === "boolean"
+  }
+  if (type === ColumnType.COLOR) {
+    return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value)
+  }
+  if (type === ColumnType.ENUM) {
+    if (requiredValue === false && value === "") {
+      return true
+    }
+    return typeof value === "string" && (enumValues.length === 0 || enumValues.includes(value))
+  }
+  if (type === ColumnType.ENUM_ARRAY || type === ColumnType.ARRAY_REF) {
+    return (
+      Array.isArray(value) &&
+      value.every(
+        (entry) =>
+          typeof entry === "string" &&
+          (type === ColumnType.ARRAY_REF || enumValues.length === 0 || enumValues.includes(entry))
+      )
+    )
+  }
+  if (isVectorColumnType(type)) {
+    return (
+      Array.isArray(value) &&
+      value.length === vectorLengthForColumnType(type) &&
+      value.every((entry) => typeof entry === "number" && Number.isFinite(entry))
+    )
+  }
+  return true
+}
+export function defaultValueText(
+  columnType: ColumnType,
+  enumValues: string[],
+  minValue: unknown,
+  value: unknown
+): string {
+  if (value === null || typeof value === "undefined") {
+    return String(createDefaultValueForColumnType(columnType, enumValues, minValue))
+  }
+  if (typeof value === "string") {
+    return value
+  }
+  return JSON.stringify(value)
+}
+export function parseDefaultValue(
+  columnType: ColumnType,
+  enumValues: string[],
+  minValue: unknown,
+  value: string
+): unknown {
+  if (!value.trim() && columnType !== ColumnType.STRING && columnType !== ColumnType.TEXT) {
+    return createDefaultValueForColumnType(columnType, enumValues, minValue)
+  }
+  if (columnType === ColumnType.INTEGER) {
+    const parsed = Number.parseInt(value, 10)
+    return Number.isFinite(parsed)
+      ? parsed
+      : createDefaultValueForColumnType(columnType, enumValues, minValue)
+  }
+  if (columnType === ColumnType.DECIMAL || columnType === ColumnType.RANGE) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed)
+      ? parsed
+      : createDefaultValueForColumnType(columnType, enumValues, minValue)
+  }
+  if (columnType === ColumnType.BOOLEAN) {
+    return value.toLowerCase() === "true"
+  }
+  if (isVectorColumnType(columnType)) {
+    const vectorLength = vectorLengthForColumnType(columnType)
+    try {
+      const parsed = JSON.parse(value) as unknown
+      if (Array.isArray(parsed)) {
+        const vector = parsed.slice(0, vectorLength).map((entry) => Number(entry))
+        if (vector.length === vectorLength && vector.every(Number.isFinite)) {
+          return vector
+        }
+      }
+    } catch {
+      const vector = value
+        .split(",")
+        .map((entry) => Number(entry.trim()))
+        .filter(Number.isFinite)
+        .slice(0, vectorLength)
+      if (vector.length === vectorLength) {
+        return vector
+      }
+    }
+    return createDefaultValueForColumnType(columnType, enumValues, minValue)
+  }
+  if (columnType === ColumnType.ENUM_ARRAY || columnType === ColumnType.ARRAY_REF) {
+    if (!value.trim()) {
+      return []
+    }
+    try {
+      const parsed = JSON.parse(value) as unknown
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map(String)
+          .filter(
+            (entry) =>
+              columnType === ColumnType.ARRAY_REF ||
+              enumValues.length === 0 ||
+              enumValues.includes(entry)
+          )
+      }
+    } catch {
+      return value
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(
+          (entry) =>
+            entry &&
+            (columnType === ColumnType.ARRAY_REF ||
+              enumValues.length === 0 ||
+              enumValues.includes(entry))
+        )
+    }
+    return []
+  }
+  if (columnType === ColumnType.JSON) {
+    if (!value.trim()) {
+      return {}
+    }
+    try {
+      return JSON.parse(value)
+    } catch {
+      return value
+    }
+  }
+  return value
+}
+export function colorDefaultValue(value: unknown): string {
+  if (typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value)) {
+    return value
+  }
+  return "#000000"
+}
+export function numericBound(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+  return undefined
+}
+export function numericDefaultText(value: unknown): string {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value)
+  }
+  return ""
+}
+export function parseNumericDefault(
+  columnType: ColumnType,
+  enumValues: string[],
+  minValue: unknown,
+  value: string,
+  integer = false
+): number | undefined {
+  if (!value) {
+    return createDefaultValueForColumnType(columnType, enumValues, minValue) as number
+  }
+  const parsed = integer ? Number.parseInt(value, 10) : Number(value)
+  if (Number.isFinite(parsed)) {
+    return parsed
+  }
+  return createDefaultValueForColumnType(columnType, enumValues, minValue) as number
+}
+export function rangeDefaultNumber(value: unknown, minValue: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+  const min = numericBound(minValue)
+  if (typeof min === "number") {
+    return min
+  }
+  return 0
+}
+export function rangeMax(maxValue: unknown): number {
+  const max = numericBound(maxValue)
+  if (typeof max === "number") {
+    return max
+  }
+  return 1
+}
+export function rangeMin(minValue: unknown): number {
+  const min = numericBound(minValue)
+  if (typeof min === "number") {
+    return min
+  }
+  return 0
+}
+export function rangeStep(stepValue: unknown): number {
+  const step = numericBound(stepValue)
+  if (typeof step === "number" && step > 0) {
+    return step
+  }
+  return 0.01
+}
+export function vectorDefaultValues(
+  columnType: ColumnType,
+  enumValues: string[],
+  minValue: unknown,
+  value: unknown
+): number[] {
+  const vectorLength = vectorLengthForColumnType(columnType)
+  const fallback = createDefaultValueForColumnType(columnType, enumValues, minValue)
+  const fallbackValues = Array.isArray(fallback)
+    ? fallback.map(Number)
+    : Array.from({ length: vectorLength }, () => 0)
+  if (!Array.isArray(value)) {
+    return fallbackValues
+  }
+  const values = value.slice(0, vectorLength).map(Number)
+  if (values.length !== vectorLength || values.some((entry) => !Number.isFinite(entry))) {
+    return fallbackValues
+  }
+  return values
+}
+export function updateVectorDefaultValue(values: number[], index: number, value: string): number[] {
+  const nextValues = [...values]
+  const parsed = Number(value)
+  nextValues[index] = Number.isFinite(parsed) ? parsed : (values[index] ?? 0)
+  return nextValues
+}

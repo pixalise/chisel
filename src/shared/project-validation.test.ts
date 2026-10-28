@@ -1,13 +1,18 @@
-import { nanoid } from "nanoid";
-import { describe, expect, it } from "vitest";
-import { assetSchema, dataTableSchema } from "./schemas";
-import { findAssetReferences, findTableReferences, ProjectValidationSeverity, validateProjectContent } from "./project-validation";
-import { localizationDocumentSchema } from "./localization";
-import { AssetCategoryEnum, ColumnType } from "./types";
-
+import { nanoid } from "nanoid"
+import { describe, expect, it } from "vitest"
+import { AssetCategoryEnum } from "../enums/asset-category-enum"
+import { ColumnType } from "../enums/column-type"
+import { ProjectValidationSeverity } from "../enums/project-validation-severity"
+import { localizationDocumentSchema } from "./localization"
+import {
+  findAssetReferences,
+  findTableReferences,
+  validateProjectContent,
+} from "./project-validation"
+import { assetSchema, dataTableSchema } from "./schemas"
 describe("project content validation", () => {
   it("reports missing reference targets and missing referenced rows", () => {
-    const factionColumnId = nanoid();
+    const factionColumnId = nanoid()
     const factions = dataTableSchema.parse({
       columns: [],
       description: "Factions",
@@ -16,8 +21,8 @@ describe("project content validation", () => {
       lastChangeAt: "2026-01-01T00:00:00.000Z",
       name: "Factions",
       rows: [{ id: nanoid(), slug: "IRON_LEGION", values: [] }],
-      version: 1
-    });
+      version: 1,
+    })
     const units = dataTableSchema.parse({
       columns: [
         {
@@ -26,9 +31,9 @@ describe("project content validation", () => {
           name: "faction",
           refTableId: "factions",
           required: true,
-          type: ColumnType.ref,
-          unique: false
-        }
+          type: ColumnType.REF,
+          unique: false,
+        },
       ],
       description: "Units",
       id: "units",
@@ -39,25 +44,24 @@ describe("project content validation", () => {
         {
           id: nanoid(),
           slug: "RIFLEMAN",
-          values: [{ columnId: factionColumnId, type: ColumnType.ref, value: "MISSING_FACTION" }]
-        }
+          values: [{ columnId: factionColumnId, type: ColumnType.REF, value: "MISSING_FACTION" }],
+        },
       ],
-      version: 1
-    });
-
-    const issues = validateProjectContent([factions, units], []);
-
+      version: 1,
+    })
+    const issues = validateProjectContent([factions, units], [])
     expect(issues).toContainEqual(
       expect.objectContaining({
-        severity: ProjectValidationSeverity.error,
-        message: 'Reference "MISSING_FACTION" does not exist in "Factions"'
+        severity: ProjectValidationSeverity.ERROR,
+        message: 'Reference "MISSING_FACTION" does not exist in "Factions"',
       })
-    );
-    expect(findTableReferences([factions, units], "factions", new Set(["MISSING_FACTION"]))).toHaveLength(1);
-  });
-
+    )
+    expect(
+      findTableReferences([factions, units], "factions", new Set(["MISSING_FACTION"]))
+    ).toHaveLength(1)
+  })
   it("validates every array reference and finds references to individual target rows", () => {
-    const mapsColumnId = nanoid();
+    const mapsColumnId = nanoid()
     const approvedMaps = dataTableSchema.parse({
       columns: [],
       description: "Approved maps",
@@ -67,10 +71,10 @@ describe("project content validation", () => {
       name: "Approved Terrain Assets",
       rows: [
         { id: nanoid(), slug: "FOREST_OPEN", values: [] },
-        { id: nanoid(), slug: "FOREST_RUINS", values: [] }
+        { id: nanoid(), slug: "FOREST_RUINS", values: [] },
       ],
-      version: 1
-    });
+      version: 1,
+    })
     const pools = dataTableSchema.parse({
       columns: [
         {
@@ -79,9 +83,9 @@ describe("project content validation", () => {
           name: "approved_maps",
           refTableId: approvedMaps.id,
           required: true,
-          type: ColumnType.arrayRef,
-          unique: false
-        }
+          type: ColumnType.ARRAY_REF,
+          unique: false,
+        },
       ],
       description: "Map pools",
       id: "map_pools",
@@ -95,47 +99,50 @@ describe("project content validation", () => {
           values: [
             {
               columnId: mapsColumnId,
-              type: ColumnType.arrayRef,
-              value: ["FOREST_OPEN", "MISSING_MAP", "FOREST_OPEN"]
-            }
-          ]
-        }
+              type: ColumnType.ARRAY_REF,
+              value: ["FOREST_OPEN", "MISSING_MAP", "FOREST_OPEN"],
+            },
+          ],
+        },
       ],
-      version: 1
-    });
-
-    const issues = validateProjectContent([approvedMaps, pools], []);
-
+      version: 1,
+    })
+    const issues = validateProjectContent([approvedMaps, pools], [])
     expect(issues).toContainEqual(
-      expect.objectContaining({ message: 'Reference "MISSING_MAP" does not exist in "Approved Terrain Assets"' })
-    );
-    expect(issues).toContainEqual(expect.objectContaining({ message: "Array reference contains duplicate rows" }));
-    expect(findTableReferences([approvedMaps, pools], approvedMaps.id, new Set(["FOREST_OPEN"]))).toHaveLength(2);
-  });
-
+      expect.objectContaining({
+        message: 'Reference "MISSING_MAP" does not exist in "Approved Terrain Assets"',
+      })
+    )
+    expect(issues).toContainEqual(
+      expect.objectContaining({ message: "Array reference contains duplicate rows" })
+    )
+    expect(
+      findTableReferences([approvedMaps, pools], approvedMaps.id, new Set(["FOREST_OPEN"]))
+    ).toHaveLength(2)
+  })
   it("reports asset reference misses and category mismatches", () => {
-    const portraitColumnId = nanoid();
+    const portraitColumnId = nanoid()
     const terrainAsset = assetSchema.parse({
-      category: AssetCategoryEnum.terrainTexture,
+      category: AssetCategoryEnum.TERRAIN_TEXTURE,
       extension: "tga",
       height: 1024,
       id: "FOREST_SOIL",
       name: "FOREST_SOIL",
       relativePath: ".chisel/assets/TERRAIN_TEXTURE/FOREST_SOIL.tga",
       sizeBytes: 1024,
-      width: 1024
-    });
+      width: 1024,
+    })
     const table = dataTableSchema.parse({
       columns: [
         {
-          assetCategory: AssetCategoryEnum.image,
+          assetCategory: AssetCategoryEnum.IMAGE,
           defaultValue: "",
           id: portraitColumnId,
           name: "portrait",
           required: true,
-          type: ColumnType.assetRef,
-          unique: false
-        }
+          type: ColumnType.ASSET_REF,
+          unique: false,
+        },
       ],
       description: "Units",
       id: "units",
@@ -146,36 +153,37 @@ describe("project content validation", () => {
         {
           id: nanoid(),
           slug: "RIFLEMAN",
-          values: [{ columnId: portraitColumnId, type: ColumnType.assetRef, value: "FOREST_SOIL" }]
+          values: [
+            { columnId: portraitColumnId, type: ColumnType.ASSET_REF, value: "FOREST_SOIL" },
+          ],
         },
         {
           id: nanoid(),
           slug: "ENGINEER",
-          values: [{ columnId: portraitColumnId, type: ColumnType.assetRef, value: "MISSING_ASSET" }]
-        }
+          values: [
+            { columnId: portraitColumnId, type: ColumnType.ASSET_REF, value: "MISSING_ASSET" },
+          ],
+        },
       ],
-      version: 1
-    });
-
-    const issues = validateProjectContent([table], [terrainAsset]);
-
+      version: 1,
+    })
+    const issues = validateProjectContent([table], [terrainAsset])
     expect(issues).toContainEqual(
       expect.objectContaining({
-        severity: ProjectValidationSeverity.error,
-        message: 'Asset "FOREST_SOIL" is TERRAIN_TEXTURE, expected IMAGE'
+        severity: ProjectValidationSeverity.ERROR,
+        message: 'Asset "FOREST_SOIL" is TERRAIN_TEXTURE, expected IMAGE',
       })
-    );
+    )
     expect(issues).toContainEqual(
       expect.objectContaining({
-        severity: ProjectValidationSeverity.error,
-        message: 'Asset "MISSING_ASSET" does not exist'
+        severity: ProjectValidationSeverity.ERROR,
+        message: 'Asset "MISSING_ASSET" does not exist',
       })
-    );
-    expect(findAssetReferences([table], "FOREST_SOIL")).toHaveLength(1);
-  });
-
+    )
+    expect(findAssetReferences([table], "FOREST_SOIL")).toHaveLength(1)
+  })
   it("reports missing translation references", () => {
-    const descriptionColumnId = nanoid();
+    const descriptionColumnId = nanoid()
     const localization = localizationDocumentSchema.parse({
       schemaVersion: 2,
       defaultLocale: "en",
@@ -184,11 +192,11 @@ describe("project content validation", () => {
         {
           path: "UNIT.RIFLEMAN.NAME",
           values: {
-            en: "Rifleman"
-          }
-        }
-      ]
-    });
+            en: "Rifleman",
+          },
+        },
+      ],
+    })
     const table = dataTableSchema.parse({
       columns: [
         {
@@ -196,9 +204,9 @@ describe("project content validation", () => {
           id: descriptionColumnId,
           name: "description",
           required: true,
-          type: ColumnType.translationRef,
-          unique: false
-        }
+          type: ColumnType.TRANSLATION_REF,
+          unique: false,
+        },
       ],
       description: "Units",
       id: "units",
@@ -209,19 +217,23 @@ describe("project content validation", () => {
         {
           id: nanoid(),
           slug: "RIFLEMAN",
-          values: [{ columnId: descriptionColumnId, type: ColumnType.translationRef, value: "UNIT.RIFLEMAN.DESCRIPTION" }]
-        }
+          values: [
+            {
+              columnId: descriptionColumnId,
+              type: ColumnType.TRANSLATION_REF,
+              value: "UNIT.RIFLEMAN.DESCRIPTION",
+            },
+          ],
+        },
       ],
-      version: 1
-    });
-
-    const issues = validateProjectContent([table], [], localization);
-
+      version: 1,
+    })
+    const issues = validateProjectContent([table], [], localization)
     expect(issues).toContainEqual(
       expect.objectContaining({
-        severity: ProjectValidationSeverity.error,
-        message: 'Translation key "UNIT.RIFLEMAN.DESCRIPTION" does not exist'
+        severity: ProjectValidationSeverity.ERROR,
+        message: 'Translation key "UNIT.RIFLEMAN.DESCRIPTION" does not exist',
       })
-    );
-  });
-});
+    )
+  })
+})

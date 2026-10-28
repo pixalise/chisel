@@ -1,47 +1,83 @@
-import { type LocalizationDocument, localizationKeyConstant, localizationPlaceholdersForKey } from "./localization";
-import { LUAU_HEADER, luauValue, type LuauExportFile } from "./luau-serialization";
-import type { Asset } from "./schemas";
-
+import {
+  localizationKeyConstant,
+  localizationPlaceholdersForKey,
+  type LocalizationDocument,
+} from "./localization"
+import { LUAU_HEADER, luauValue, type LuauExportFile } from "./luau-serialization"
+import type { Asset } from "./schemas"
 function tokens(text: string): Record<string, unknown>[] {
-  const result: Record<string, unknown>[] = [];
+  const result: Record<string, unknown>[] = []
   const pattern =
-    /\{(int|float|string):([a-z][a-z0-9_]*)\}|<style:([A-Z0-9_]+)>|<\/style>|<tooltip:([A-Z0-9_]+)>|<\/tooltip>|<icon:([A-Z0-9_]+)\s*\/>|<br\s*\/>/g;
-  let offset = 0;
+    /\{(int|float|string):([a-z][a-z0-9_]*)\}|<style:([A-Z0-9_]+)>|<\/style>|<tooltip:([A-Z0-9_]+)>|<\/tooltip>|<icon:([A-Z0-9_]+)\s*\/>|<br\s*\/>/g
+  let offset = 0
   for (const match of text.matchAll(pattern)) {
-    if (match.index > offset) result.push({ kind: "text", text: text.slice(offset, match.index) });
-    if (match[1]) result.push({ kind: "placeholder", type: match[1], name: match[2] });
-    else if (match[3]) result.push({ kind: "styleStart", slug: match[3] });
-    else if (match[4]) result.push({ kind: "tooltipStart", slug: match[4] });
-    else if (match[5]) result.push({ kind: "icon", slug: match[5] });
-    else if (match[0] === "</style>") result.push({ kind: "styleEnd" });
-    else if (match[0] === "</tooltip>") result.push({ kind: "tooltipEnd" });
-    else result.push({ kind: "text", text: "\n" });
-    offset = match.index + match[0].length;
+    if (match.index > offset) {
+      result.push({ kind: "text", text: text.slice(offset, match.index) })
+    }
+    if (match[1]) {
+      result.push({ kind: "placeholder", type: match[1], name: match[2] })
+    } else {
+      if (match[3]) {
+        result.push({ kind: "styleStart", slug: match[3] })
+      } else {
+        if (match[4]) {
+          result.push({ kind: "tooltipStart", slug: match[4] })
+        } else {
+          if (match[5]) {
+            result.push({ kind: "icon", slug: match[5] })
+          } else {
+            if (match[0] === "</style>") {
+              result.push({ kind: "styleEnd" })
+            } else {
+              if (match[0] === "</tooltip>") {
+                result.push({ kind: "tooltipEnd" })
+              } else {
+                result.push({ kind: "text", text: "\n" })
+              }
+            }
+          }
+        }
+      }
+    }
+    offset = match.index + match[0].length
   }
-  if (offset < text.length) result.push({ kind: "text", text: text.slice(offset) });
-  return result;
+  if (offset < text.length) {
+    result.push({ kind: "text", text: text.slice(offset) })
+  }
+  return result
 }
-
-export function renderRobloxLocalization(document: LocalizationDocument, assets: Asset[], root: string): LuauExportFile {
-  const ids = Object.fromEntries(document.keys.map((key, index) => [localizationKeyConstant(key.path), index + 1]));
+export function renderRobloxLocalization(
+  document: LocalizationDocument,
+  assets: Asset[],
+  root: string
+): LuauExportFile {
+  const ids = Object.fromEntries(
+    document.keys.map((key, index) => [localizationKeyConstant(key.path), index + 1])
+  )
   const translations = Object.fromEntries(
-    document.locales.map((locale) => [locale, document.keys.map((key) => tokens(key.values[locale]))])
-  );
+    document.locales.map((locale) => [
+      locale,
+      document.keys.map((key) => tokens(key.values[locale])),
+    ])
+  )
   const iconAssets = Object.fromEntries(
-    assets.map((asset, index) => [asset.id, { id: index + 1, contentId: `rbxassetid://${asset.robloxAssetId}` }])
-  );
-  const styles = Object.fromEntries(document.styles.map((style) => [style.slug, style]));
-  const keyIds = new Map(document.keys.map((key, index) => [key.path, index + 1]));
+    assets.map((asset, index) => [
+      asset.id,
+      { id: index + 1, contentId: `rbxassetid://${asset.robloxAssetId}` },
+    ])
+  )
+  const styles = Object.fromEntries(document.styles.map((style) => [style.slug, style]))
+  const keyIds = new Map(document.keys.map((key, index) => [key.path, index + 1]))
   const tooltips = Object.fromEntries(
     document.tooltips.map((tooltip) => [
       tooltip.slug,
       {
         titleId: keyIds.get(tooltip.titleKey),
         descriptionId: keyIds.get(tooltip.descriptionKey),
-        icon: tooltip.iconAssetId ? iconAssets[tooltip.iconAssetId] : false
-      }
+        icon: tooltip.iconAssetId ? iconAssets[tooltip.iconAssetId] : false,
+      },
     ])
-  );
+  )
   return {
     path: `${root}/localization.luau`,
     content: `${LUAU_HEADER}
@@ -141,6 +177,6 @@ function localization.richText(id: number, locale: string?, parameters: { [strin
 end
 
 return table.freeze(localization)
-`
-  };
+`,
+  }
 }

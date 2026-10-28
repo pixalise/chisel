@@ -1,7 +1,7 @@
-import type { AnyDataTable } from "./schemas";
-import { ColumnType, InputKeyEnum } from "./types";
-import { LUAU_HEADER, luauValue, type LuauExportFile } from "./luau-serialization";
-
+import { ColumnType } from "../enums/column-type"
+import { InputKeyEnum } from "../enums/input-key-enum"
+import { LUAU_HEADER, luauValue, type LuauExportFile } from "./luau-serialization"
+import type { AnyDataTable } from "./schemas"
 const names: Record<string, string[]> = {
   KEY_0: ["Zero"],
   KEY_1: ["One"],
@@ -33,29 +33,42 @@ const names: Record<string, string[]> = {
   MOUSE_BUTTON_RIGHT: ["MouseButton2"],
   MOUSE_BUTTON_MIDDLE: ["MouseButton3"],
   MOUSE_BUTTON_WHEEL_UP: ["WheelUp"],
-  MOUSE_BUTTON_WHEEL_DOWN: ["WheelDown"]
-};
-
-export function robloxInputNames(binding: string): string[] {
-  if (!Object.values(InputKeyEnum).includes(binding as InputKeyEnum)) throw new Error(`Unknown Roblox input binding: ${binding}`);
-  const simple = /^KEY_([A-Z]|F[0-9]+)$/.exec(binding);
-  if (simple) return [simple[1]];
-  const result = names[binding];
-  if (!result) throw new Error(`Unsupported Roblox input binding: ${binding}`);
-  return result;
+  MOUSE_BUTTON_WHEEL_DOWN: ["WheelDown"],
 }
-
+export function robloxInputNames(binding: string): string[] {
+  if (!Object.values(InputKeyEnum).includes(binding as InputKeyEnum)) {
+    throw new Error(`Unknown Roblox input binding: ${binding}`)
+  }
+  const simple = /^KEY_([A-Z]|F[0-9]+)$/.exec(binding)
+  if (simple) {
+    return [simple[1]]
+  }
+  const result = names[binding]
+  if (!result) {
+    throw new Error(`Unsupported Roblox input binding: ${binding}`)
+  }
+  return result
+}
 export function renderRobloxInput(tables: AnyDataTable[], root: string): LuauExportFile[] {
-  const table = tables.find((entry) => entry.id === "input_bindings");
-  if (!table) return [];
-  const column = table.columns.find((entry) => entry.name === "bindings");
-  if (!column || column.type !== ColumnType.enumArray) throw new Error("Roblox input requires an enumArray bindings column.");
+  const table = tables.find((entry) => entry.id === "input_bindings")
+  if (!table) {
+    return []
+  }
+  const column = table.columns.find((entry) => entry.name === "bindings")
+  if (!column || column.type !== ColumnType.ENUM_ARRAY) {
+    throw new Error("Roblox input requires an enumArray bindings column.")
+  }
   const bindings = table.rows.map((row) => {
-    const values = row.values.find((entry) => entry.columnId === column.id)?.value ?? column.defaultValue;
-    if (!Array.isArray(values) || values.some((entry) => typeof entry !== "string")) throw new Error(`Invalid bindings for ${row.slug}`);
-    if (values.length === 0) throw new Error(`Input action ${row.slug} must have at least one binding.`);
-    return values.flatMap((value) => robloxInputNames(value as string));
-  });
+    const values =
+      row.values.find((entry) => entry.columnId === column.id)?.value ?? column.defaultValue
+    if (!Array.isArray(values) || values.some((entry) => typeof entry !== "string")) {
+      throw new Error(`Invalid bindings for ${row.slug}`)
+    }
+    if (values.length === 0) {
+      throw new Error(`Input action ${row.slug} must have at least one binding.`)
+    }
+    return values.flatMap((value) => robloxInputNames(value as string))
+  })
   return [
     {
       path: `${root}/input.luau`,
@@ -152,7 +165,7 @@ function input.new()
 end
 
 return table.freeze(input)
-`
-    }
-  ];
+`,
+    },
+  ]
 }

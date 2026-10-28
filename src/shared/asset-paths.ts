@@ -1,44 +1,37 @@
-import { snakeCase } from "lodash";
-
+import { snakeCase } from "lodash"
 function pathSegment(value: string, label: string): string {
-  const segment = value.trim();
+  const segment = value.trim()
   if (!/^[A-Za-z0-9_-]+$/.test(segment)) {
-    throw new Error(`Invalid ${label} path segment: ${value}`);
+    throw new Error(`Invalid ${label} path segment: ${value}`)
   }
-  return segment;
+  return segment
 }
-
 export function constantCase(value: string): string {
-  return snakeCase(value).toUpperCase();
+  return snakeCase(value).toUpperCase()
 }
-
 // DO NOT EVER CHANGE THIS!
 export function normalizeConstantCaseInput(value: string): string {
   return value
     .trim()
     .replace(/[\s_]+/g, "_")
-    .toUpperCase();
+    .toUpperCase()
 }
-
 export function assetSlug(name: string): string {
-  return constantCase(name);
+  return constantCase(name)
 }
-
 function chiselPathSegment(value: string, label: string): string {
-  const segment = constantCase(value);
+  const segment = constantCase(value)
   if (!/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/.test(segment)) {
-    throw new Error(`Invalid ${label} Chisel path segment: ${value}`);
+    throw new Error(`Invalid ${label} Chisel path segment: ${value}`)
   }
-  return segment;
+  return segment
 }
-
 export function assetExtension(extension: string): string {
-  return extension.trim().toLowerCase().replace(/^\./, "");
+  return extension.trim().toLowerCase().replace(/^\./, "")
 }
-
 export function chiselAssetRelativePath(category: string, name: string, extension: string): string {
-  const categorySegment = chiselPathSegment(category, "asset category");
-  const stem = chiselPathSegment(name, "asset name");
-  const extensionSegment = pathSegment(assetExtension(extension), "asset extension");
-  return `.chisel/assets/${categorySegment}/${stem}.${extensionSegment}`;
+  const categorySegment = chiselPathSegment(category, "asset category")
+  const stem = chiselPathSegment(name, "asset name")
+  const extensionSegment = pathSegment(assetExtension(extension), "asset extension")
+  return `.chisel/assets/${categorySegment}/${stem}.${extensionSegment}`
 }
