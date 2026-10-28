@@ -1,12 +1,12 @@
 import z from "zod"
 import { emptyLocalizationDocument, localizationDocumentSchema } from "./localization"
-import { anyDataTableSchema, assetsJsonSchema, projectFileSchema } from "./schemas"
+import { dataTableSchema, assetsJsonSchema, projectFileSchema } from "./schemas"
 export const committedSourceSnapshotSchema = z
   .object({
     id: z.nanoid(),
     committedAt: z.string(),
     project: projectFileSchema,
-    tables: z.array(anyDataTableSchema),
+    tables: z.array(dataTableSchema),
     assets: assetsJsonSchema,
     localization: localizationDocumentSchema.default(emptyLocalizationDocument),
   })

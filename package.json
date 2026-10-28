@@ -17,6 +17,7 @@
     "filenames:check": "bun scripts/check-file-names.mjs",
     "test": "vitest run src",
     "test:roblox": "bun scripts/check-roblox-runtime.mjs",
+    "test:roblox-ts": "bun scripts/check-roblox-typescript.mjs",
     "check": "bun scripts/check.mjs"
   },
   "dependencies": {

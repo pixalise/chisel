@@ -1,6 +1,6 @@
 # Chisel for Roblox
 
-Chisel is an Electron desktop workspace for authoring Roblox game data. It manages typed tables, assets with published Roblox IDs, localization, keyboard/mouse input definitions, and project tasks. Roblox Luau is the sole export target.
+Chisel is an Electron desktop workspace for authoring Roblox game data. It manages typed tables, assets with published Roblox IDs, localization, and project tasks. Roblox is the sole runtime target; exports include native Luau modules and generated roblox-ts declarations. Define gameplay controls in your Roblox client code using Roblox input APIs.
 
 ## Development
 
@@ -28,10 +28,22 @@ With the [Luau CLI tools](https://github.com/luau-lang/luau/releases) installed 
 ## Roblox workflow
 
 1. Create or open a project pointing at your Roblox source workspace.
-2. Author tables, localization, and input actions. Import source assets and enter their published Roblox asset IDs in the asset editor.
-3. In Settings, **Commit Draft**, then **Export Roblox Luau**.
-4. Map the generated `ChiselData` folder into your Rojo project's `ReplicatedStorage`, or recreate its folder/ModuleScript hierarchy in Studio.
+2. Author tables and localization. Import source assets and enter their published Roblox asset IDs in the asset editor.
+3. In Settings, **Commit Draft**, then **Export Roblox Data**.
+4. Map the generated `ChiselData` folder to `ReplicatedStorage.GameData` in your Rojo project, or recreate its ModuleScript hierarchy in Studio.
+5. In a conventional roblox-ts project, import `../../ChiselData/manifest` from `src/server/main.server.ts`. Generated declarations provide autocomplete and readonly types; no handwritten require cast is needed. See [EXPORTS.md](EXPORTS.md) for the ID-indexing contract.
 
 See [EXPORTS.md](./EXPORTS.md) for the output layout, Rojo mapping, asset IDs, runtime APIs, and validation rules.
 
 Project formats are current-only. Schema changes rewrite checked-in project data directly; Chisel does not carry runtime upgrades or compatibility branches.
+
+The TypeScript interop check uses an installed roblox-ts project's compiler and
+Roblox types, Rojo from that project's tool environment, and Lune to execute the
+compiled consumer with simulated Roblox service/module lookup:
+
+```bash
+bun run test:roblox-ts /path/to/roblox-ts-project /path/to/lune
+```
+
+It checks direct imports, 1-based definition IDs, ordinary 0-based nested TS
+sequences, native values, immutability, and asset/localization dot calls.

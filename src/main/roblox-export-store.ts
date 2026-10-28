@@ -18,7 +18,7 @@ export async function writeRobloxExport(input: unknown): Promise<void> {
   }
   const paths = new Set<string>()
   for (const file of request.files) {
-    if (!/^ChiselData\/(?:[a-z_]+|tables\/[A-Za-z0-9_-]+)\.luau$/.test(file.path)) {
+    if (!/^ChiselData\/(?:[a-z_]+|tables\/[A-Za-z0-9_-]+)\.(?:luau|d\.ts)$/.test(file.path)) {
       throw new Error(`Invalid Roblox export path: ${file.path}`)
     }
     const normalized = file.path.toLowerCase()
@@ -29,6 +29,22 @@ export async function writeRobloxExport(input: unknown): Promise<void> {
   }
   if (!paths.has(ROBLOX_MANIFEST_PATH.toLowerCase())) {
     throw new Error("Roblox export is missing its manifest.")
+  }
+  if (!paths.has(`${ROBLOX_EXPORT_ROOT}/types.d.ts`.toLowerCase())) {
+    throw new Error("Roblox export is missing its shared TypeScript declarations.")
+  }
+  const exactPaths = new Set(request.files.map((file) => file.path))
+  for (const file of request.files) {
+    if (file.path === `${ROBLOX_EXPORT_ROOT}/types.d.ts`) {
+      continue
+    }
+    let counterpart = file.path.replace(/\.d\.ts$/, ".luau")
+    if (file.path.endsWith(".luau")) {
+      counterpart = file.path.replace(/\.luau$/, ".d.ts")
+    }
+    if (!exactPaths.has(counterpart)) {
+      throw new Error(`Roblox export is missing the matching module or declaration: ${counterpart}`)
+    }
   }
   activeExports.add(projectPath)
   const destination = path.join(projectPath, ROBLOX_EXPORT_ROOT)

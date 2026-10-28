@@ -7,10 +7,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import type { AnyDataTable, DataTableSchema } from "@/shared/schemas"
+import type { DataTableSchema } from "@/shared/schemas"
 import { EllipsisVertical } from "lucide-react"
 import type { FC } from "react"
-export type TableTabEntry = AnyDataTable
+export type TableTabEntry = DataTableSchema
 export interface TableTabProps {
   active: boolean
   table: TableTabEntry
@@ -23,15 +23,9 @@ export function tableTabKey(table: TableTabEntry): string {
 function rowCount(table: TableTabEntry): number {
   return table.rows.length
 }
-function isSystemTable(table: TableTabEntry): boolean {
-  return table.isSystemTable
-}
-function isUserTable(table: TableTabEntry): table is DataTableSchema {
-  return !table.isSystemTable
-}
 const TableTab: FC<TableTabProps> = (props) => {
   const { active, table, onRequestDeleteTable, onSelectTable } = props
-  const canDelete = active && !isSystemTable(table) && onRequestDeleteTable
+  const canDelete = active && onRequestDeleteTable
   return (
     <div
       className={cn(
@@ -43,7 +37,7 @@ const TableTab: FC<TableTabProps> = (props) => {
       <div className="flex flex-row items-center space-x-2">
         <p className={cn("text-xs", active && "font-bold text-primary-foreground")}>{table.name}</p>
         <Badge variant="secondary">{rowCount(table)}</Badge>
-        {active && isUserTable(table) && (
+        {active && (
           <EditTableDialogButton table={table}>
             {(open) => (
               <DropdownMenu>

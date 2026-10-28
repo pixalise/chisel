@@ -75,28 +75,6 @@ class FileService {
   public async deleteUserTableJson(project: Project, tableId: string): Promise<void> {
     await window.electron.deleteFile(this.fullPath(project.path, this.userTableJsonPath(tableId)))
   }
-  public async writeSystemTableDataJson(
-    project: Project,
-    tableId: string,
-    value: DataTableJson
-  ): Promise<void> {
-    await this.writeJsonFile(
-      this.fullPath(project.path, this.systemTableDataJsonPath(tableId)),
-      dataTableJsonSchema.parse(value)
-    )
-  }
-  public async tryReadSystemTableDataJson(
-    path: string,
-    tableId: string
-  ): Promise<Nullish<DataTableJson>> {
-    const data = await this.tryReadJsonFile<DataTableJson>(
-      this.fullPath(path, this.systemTableDataJsonPath(tableId))
-    )
-    if (isNil(data)) {
-      return undefined
-    }
-    return dataTableJsonSchema.parse(data)
-  }
   public async tryReadTablesJson(path: string): Promise<Nullish<TablesJson>> {
     return this.tryReadJsonFile<TablesJson>(this.fullPath(path, FilePathEnum.TABLES_JSON))
   }
@@ -187,9 +165,6 @@ class FileService {
   }
   private userTableSchemaBackupJsonPath(tableId: string, timestamp: string): string {
     return `tables/user/backups/${this.tablePathSegment(tableId)}/${this.tableJsonFileName(timestamp)}`
-  }
-  private systemTableDataJsonPath(tableId: string): string {
-    return `tables/system/${this.tableJsonFileName(tableId)}`
   }
   private tablePathSegment(tableId: string): string {
     const normalizedTableId = tableId.endsWith(".json") ? tableId.slice(0, -5) : tableId

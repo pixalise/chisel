@@ -1,9 +1,7 @@
 import { nanoid } from "nanoid"
 import { describe, expect, it } from "vitest"
-import { INPUT_BINDINGS_TABLE } from "../constants/system-tables"
 import { AssetCategoryEnum } from "../enums/asset-category-enum"
 import { ColumnType } from "../enums/column-type"
-import { InputKeyEnum } from "../enums/input-key-enum"
 import {
   emptyLocalizationDocument,
   localizationDocumentSchema,
@@ -11,11 +9,10 @@ import {
 } from "./localization"
 import { luauString, luauValue } from "./luau-serialization"
 import { createRobloxExportBundle } from "./roblox-export"
-import { robloxInputNames } from "./roblox-input-export"
 import {
   assetSchema,
   dataTableSchema,
-  type AnyDataTable,
+  type DataTableSchema,
   type DataColumnDefinition,
 } from "./schemas"
 const project = { id: nanoid(), name: "Roblox Test", path: "/tmp/roblox-test" }
@@ -48,7 +45,7 @@ function column(
 function table(
   columns: DataColumnDefinition[],
   values = columns.map((entry) => entry.defaultValue)
-): AnyDataTable {
+): DataTableSchema {
   return dataTableSchema.parse({
     id: "units",
     name: "Units",
@@ -69,7 +66,7 @@ function table(
     ],
   })
 }
-function bundle(tables: AnyDataTable[] = []) {
+function bundle(tables: DataTableSchema[] = []) {
   return createRobloxExportBundle(project, tables, "2026-10-28T00:00:00Z", [asset], localization)
 }
 describe("Roblox Luau export", () => {
@@ -99,9 +96,9 @@ describe("Roblox Luau export", () => {
     expect(module).toContain('["WEIGHTS"] = table.freeze({ table.freeze({ 1, 2, 3, 4 }) })')
     expect(module).toContain('["ACTIVE"] = table.freeze({ false })')
     expect(
-      output.files.every(
-        (file) => file.path.endsWith(".luau") && file.content.startsWith("--!strict")
-      )
+      output.files
+        .filter((file) => file.path.endsWith(".luau"))
+        .every((file) => file.content.startsWith("--!strict"))
     ).toBe(true)
   })
   it("resolves row, array, asset, and localization references to dense IDs", () => {
@@ -250,34 +247,24 @@ describe("Roblox Luau export", () => {
       })
     )
   })
-  it("maps every authored input binding and rejects unknown bindings", () => {
-    for (const binding of Object.values(InputKeyEnum)) {
-      expect(robloxInputNames(binding).length).toBeGreaterThan(0)
-    }
-    expect(robloxInputNames(InputKeyEnum.KEY_SHIFT)).toEqual(["LeftShift", "RightShift"])
-    expect(() => robloxInputNames("NOT_A_KEY")).toThrow()
-    const input: AnyDataTable = {
-      ...INPUT_BINDINGS_TABLE,
-      rows: [
-        {
-          id: nanoid(),
-          slug: "CONFIRM",
-          values: [
-            {
-              columnId: INPUT_BINDINGS_TABLE.columns[1].id,
-              type: ColumnType.ENUM_ARRAY,
-              value: [InputKeyEnum.KEY_ENTER],
-            },
-          ],
-        },
-      ],
-    }
-    const output = bundle([input])
-    expect(output.files.find((file) => file.path.endsWith("/input.luau"))!.content).toContain(
-      '"Return", "KeypadEnter"'
-    )
-    expect(output.files.find((file) => file.path.endsWith("/manifest.luau"))!.content).toContain(
-      "INPUT = require(script.Parent.input)"
-    )
+  it("exports authored tables without adding an input runtime", () => {
+    const definitions = table([column("bindings", ColumnType.ENUM_ARRAY, ["CONFIRM"])])
+    definitions.id = "input_bindings"
+    const output = bundle([definitions])
+    expect(output.files.map((file) => file.path).sort()).toEqual([
+      "ChiselData/assets.d.ts",
+      "ChiselData/assets.luau",
+      "ChiselData/localization.d.ts",
+      "ChiselData/localization.luau",
+      "ChiselData/manifest.d.ts",
+      "ChiselData/manifest.luau",
+      "ChiselData/tables/input_bindings.d.ts",
+      "ChiselData/tables/input_bindings.luau",
+      "ChiselData/types.d.ts",
+    ])
+    const manifest = output.files.find((file) => file.path.endsWith("/manifest.luau"))
+    expect(manifest?.content).toContain('require(script.Parent.tables["input_bindings"])')
+    expect(manifest?.content).not.toContain("INPUT")
+    expect(output.files.some((file) => file.content.includes("UserInputService"))).toBe(false)
   })
 })

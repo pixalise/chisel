@@ -1,7 +1,7 @@
 import { ColumnType } from "../enums/column-type"
 import { ProjectValidationSeverity } from "../enums/project-validation-severity"
 import type { LocalizationDocument } from "./localization"
-import type { AnyDataTable, Asset, DataColumnDefinition, DataTableRow } from "./schemas"
+import type { DataTableSchema, Asset, DataColumnDefinition, DataTableRow } from "./schemas"
 export interface ProjectValidationIssue {
   message: string
   path: string
@@ -23,7 +23,7 @@ export interface AssetReferenceHit {
   sourceTableName: string
 }
 export function validateProjectContent(
-  tables: AnyDataTable[],
+  tables: DataTableSchema[],
   assets: Asset[],
   localization?: LocalizationDocument
 ): ProjectValidationIssue[] {
@@ -156,7 +156,7 @@ export function validateProjectContent(
   return issues
 }
 export function findTableReferences(
-  tables: AnyDataTable[],
+  tables: DataTableSchema[],
   targetTableId: string,
   targetRowSlugs?: Set<string>
 ): TableReferenceHit[] {
@@ -199,7 +199,10 @@ export function findTableReferences(
   }
   return hits
 }
-export function findAssetReferences(tables: AnyDataTable[], assetId: string): AssetReferenceHit[] {
+export function findAssetReferences(
+  tables: DataTableSchema[],
+  assetId: string
+): AssetReferenceHit[] {
   const hits: AssetReferenceHit[] = []
   for (const table of tables) {
     for (const column of table.columns) {

@@ -12,7 +12,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { INPUT_BINDINGS_TABLE_ID } from "@/constants/system-tables"
 import { ColumnType } from "@/enums/column-type"
 import useListTablesQuery from "@/hooks/use-list-tables-query"
 import useSaveTableRowsMutation from "@/hooks/use-save-table-rows-mutation"
@@ -67,12 +66,6 @@ function refRowsFromTable(table: TableTabEntry): RefLookupRow[] {
 }
 function rowsForTable(table: RefLookupTable | undefined): RefLookupRow[] {
   return table?.rows ?? []
-}
-function isSystemTable(table: TableTabEntry): boolean {
-  return "isSystemTable" in table && table.isSystemTable
-}
-function canMutateRows(table: TableTabEntry): boolean {
-  return !isSystemTable(table) || table.id === INPUT_BINDINGS_TABLE_ID
 }
 function nextDefaultSlug(rows: EditorRow[]): string {
   const existingSlugs = new Set(rows.map((row) => row.slug))
@@ -337,12 +330,6 @@ function validateRow(
     ),
   ]
 }
-function tableStoragePath(table: TableTabEntry): string {
-  if (!isSystemTable(table)) {
-    return ".chisel/tables/user/<table_id>.json"
-  }
-  return ".chisel/tables/system/<table_id>.json"
-}
 function columnValueLabel(value: unknown): string {
   if (typeof value === "undefined") {
     return "-"
@@ -462,7 +449,6 @@ const DataTable: FC<DataTableProps> = (props) => {
   const { tables } = useListTablesQuery()
   const { isSaveTableRowsLoading, saveTableRows } = useSaveTableRowsMutation()
   const tableKey = table ? tableTabKey(table) : ""
-  const canMutateTableRows = table ? canMutateRows(table) : false
   const refTables = useMemo<RefLookupTable[]>(() => {
     const lookupTables = tables.map((entry) => ({
       id: entry.id,
@@ -498,7 +484,7 @@ const DataTable: FC<DataTableProps> = (props) => {
     setUnlockedRows(new Set())
   }, [columnSignature, tableKey])
   function persistRows(nextRows: EditorRow[]): void {
-    if (!table || !canMutateTableRows) {
+    if (!table) {
       return
     }
     if (nextRows.some((row) => validateRow(row, columns, nextRows, refTables, table).length > 0)) {
@@ -510,7 +496,7 @@ const DataTable: FC<DataTableProps> = (props) => {
     })
   }
   function addRow(): void {
-    if (!canMutateTableRows) {
+    if (!table) {
       return
     }
     const nextRow = createEditorRow(columns, rows)
@@ -520,7 +506,7 @@ const DataTable: FC<DataTableProps> = (props) => {
     persistRows(nextRows)
   }
   function deleteRow(rowId: string): void {
-    if (!canMutateTableRows) {
+    if (!table) {
       return
     }
     const nextRows = rows.filter((row) => row.id !== rowId)
@@ -533,7 +519,7 @@ const DataTable: FC<DataTableProps> = (props) => {
     persistRows(nextRows)
   }
   function toggleRowLock(rowId: string): void {
-    if (!canMutateTableRows) {
+    if (!table) {
       return
     }
     setUnlockedRows((current) => {
@@ -588,7 +574,6 @@ const DataTable: FC<DataTableProps> = (props) => {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <strong className="block truncate text-sm">{table.name}</strong>
-            {isSystemTable(table) && <Badge variant="outline">Locked schema</Badge>}
           </div>
           <span className="block truncate text-xs text-muted-foreground">{table.description}</span>
         </div>
@@ -618,7 +603,7 @@ const DataTable: FC<DataTableProps> = (props) => {
             </TableHeader>
             <TableBody>
               {rows.map((row) => {
-                const editable = canMutateTableRows && unlockedRows.has(row.id)
+                const editable = unlockedRows.has(row.id)
                 const errors = validateRow(row, columns, rows, refTables, table)
                 return (
                   <TableRow
@@ -633,17 +618,14 @@ const DataTable: FC<DataTableProps> = (props) => {
                       )}
                     </TableCell>
                     <TableCell>
-                      {canMutateTableRows && (
-                        <Button
-                          onClick={() => toggleRowLock(row.id)}
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          {editable ? "Lock" : "Unlock"}
-                        </Button>
-                      )}
-                      {!canMutateTableRows && <Badge variant="outline">Locked</Badge>}
+                      <Button
+                        onClick={() => toggleRowLock(row.id)}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        {editable ? "Lock" : "Unlock"}
+                      </Button>
                     </TableCell>
                     <TableCell className="min-w-44 whitespace-nowrap">
                       {editable ? (
@@ -678,7 +660,7 @@ const DataTable: FC<DataTableProps> = (props) => {
                       </TableCell>
                     ))}
                     <TableCell>
-                      {editable && canMutateTableRows && (
+                      {editable && (
                         <Button
                           onClick={() => deleteRow(row.id)}
                           size="sm"
@@ -692,17 +674,15 @@ const DataTable: FC<DataTableProps> = (props) => {
                   </TableRow>
                 )
               })}
-              {canMutateTableRows && (
-                <TableRow className="cursor-pointer" onClick={addRow}>
-                  <TableCell />
-                  <TableCell>
-                    <Badge variant="secondary">+</Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground" colSpan={columns.length + 2}>
-                    Add row
-                  </TableCell>
-                </TableRow>
-              )}
+              <TableRow className="cursor-pointer" onClick={addRow}>
+                <TableCell />
+                <TableCell>
+                  <Badge variant="secondary">+</Badge>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground" colSpan={columns.length + 2}>
+                  Add row
+                </TableCell>
+              </TableRow>
             </TableBody>
           </Table>
         </TooltipProvider>
@@ -712,7 +692,7 @@ const DataTable: FC<DataTableProps> = (props) => {
           {rows.length} rows / {columns.length} columns
         </span>
         <span className="font-mono">
-          {isSaveTableRowsLoading ? "Saving..." : tableStoragePath(table)}
+          {isSaveTableRowsLoading ? "Saving..." : ".chisel/tables/user/<table_id>.json"}
         </span>
       </div>
     </div>

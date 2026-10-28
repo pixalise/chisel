@@ -1,28 +1,14 @@
-import { SYSTEM_TABLES } from "@/constants/system-tables"
 import fileService from "@/services/file-service"
 import { findTableReferences } from "@/shared/project-validation"
-import type {
-  AnyDataTable,
-  CreateOrUpdateTable,
-  DataTableRow,
-  DataTableSchema,
-  Project,
-  SystemDataTable,
-} from "@/shared/schemas"
-import {
-  createOrUpdateUserTableSchema,
-  dataTableJsonSchema,
-  dataTableSchema,
-  systemDataTableSchema,
-  tablesJsonSchema,
-} from "@/shared/schemas"
+import type { CreateOrUpdateTable, DataTableRow, DataTableSchema, Project } from "@/shared/schemas"
+import { createOrUpdateUserTableSchema, dataTableSchema, tablesJsonSchema } from "@/shared/schemas"
 import appStore from "@/stores/app-store"
 import { nanoid } from "nanoid"
 class TableService {
   private static schemaVersion = 1
   public async addTable(input: CreateOrUpdateTable): Promise<DataTableSchema> {
     const parsedInput = createOrUpdateUserTableSchema.parse(input)
-    const userTables = await this.listUserTables()
+    const userTables = await this.listAllTables()
     const table = dataTableSchema.parse({
       ...parsedInput,
       id: nanoid(),
@@ -35,10 +21,7 @@ class TableService {
     return table
   }
   public async deleteTable(id: string): Promise<void> {
-    if (SYSTEM_TABLES.some((table) => table.id === id)) {
-      throw new Error(`System table ${id} cannot be deleted`)
-    }
-    const userTables = await this.listUserTables()
+    const userTables = await this.listAllTables()
     const existingTable = userTables.find((table) => table.id === id)
     if (!existingTable) {
       throw new Error(`Table ${id} does not exist`)
@@ -57,11 +40,8 @@ class TableService {
     await fileService.deleteUserTableJson(appStore.getState().computed.project, id)
   }
   public async updateTable(id: string, input: CreateOrUpdateTable): Promise<DataTableSchema> {
-    if (SYSTEM_TABLES.some((table) => table.id === id)) {
-      throw new Error(`System table ${id} cannot be edited`)
-    }
     const parsedInput = createOrUpdateUserTableSchema.parse(input)
-    const userTables = await this.listUserTables()
+    const userTables = await this.listAllTables()
     const existingTable = userTables.find((table) => table.id === id)
     if (!existingTable) {
       throw new Error(`Table ${id} does not exist`)
@@ -79,43 +59,19 @@ class TableService {
     await this.writeUserTables(userTables.map((entry) => (entry.id === id ? table : entry)))
     return table
   }
-  public async getById(id: string): Promise<AnyDataTable | undefined> {
+  public async getById(id: string): Promise<DataTableSchema | undefined> {
     const tables = await this.listAllTables()
     return tables.find((table) => table.id === id)
   }
   public async listAllTables(
     project: Project = appStore.getState().computed.project
-  ): Promise<AnyDataTable[]> {
-    const [userTables, systemTables] = await Promise.all([
-      this.listUserTables(project),
-      this.listSystemTables(project),
-    ])
-    return [...userTables, ...systemTables]
+  ): Promise<DataTableSchema[]> {
+    const tablesJson = await fileService.tryReadTablesJson(project.path)
+    const tables = tablesJson?.tables ?? []
+    return tables.map((table) => dataTableSchema.parse(table))
   }
-  public async saveSystemTableRows(id: string, rows: DataTableRow[]): Promise<SystemDataTable> {
-    const definition = SYSTEM_TABLES.find((table) => table.id === id)
-    if (!definition) {
-      throw new Error(`System table ${id} does not exist`)
-    }
-    const currentTable = await this.readSystemTable(definition)
-    await this.assertRemovedRowsAreUnreferenced(id, currentTable.rows, rows)
-    const table = systemDataTableSchema.parse({
-      ...definition,
-      lastChangeAt: new Date().toISOString(),
-      rows,
-      version: currentTable.version + 1,
-    })
-    await fileService.writeSystemTableDataJson(appStore.getState().computed.project, table.id, {
-      schemaVersion: TableService.schemaVersion,
-      table,
-    })
-    return table
-  }
-  public async saveTableRows(id: string, rows: DataTableRow[]): Promise<AnyDataTable> {
-    if (SYSTEM_TABLES.some((table) => table.id === id)) {
-      return this.saveSystemTableRows(id, rows)
-    }
-    const userTables = await this.listUserTables()
+  public async saveTableRows(id: string, rows: DataTableRow[]): Promise<DataTableSchema> {
+    const userTables = await this.listAllTables()
     const existingTable = userTables.find((table) => table.id === id)
     if (!existingTable) {
       throw new Error(`Table ${id} does not exist`)
@@ -128,50 +84,6 @@ class TableService {
       version: existingTable.version + 1,
     })
     await this.writeUserTables(userTables.map((entry) => (entry.id === id ? table : entry)))
-    return table
-  }
-  private async listUserTables(
-    project: Project = appStore.getState().computed.project
-  ): Promise<DataTableSchema[]> {
-    const tablesJson = await fileService.tryReadTablesJson(project.path)
-    const tables = tablesJson?.tables ?? []
-    return tables
-      .filter((table) => !table.isSystemTable)
-      .map((table) => dataTableSchema.parse(table))
-  }
-  private async listSystemTables(project: Project): Promise<SystemDataTable[]> {
-    return Promise.all(SYSTEM_TABLES.map((table) => this.readSystemTable(table, project)))
-  }
-  private async readSystemTable(
-    definition: SystemDataTable,
-    project: Project = appStore.getState().computed.project
-  ): Promise<SystemDataTable> {
-    const tableJson = await fileService.tryReadSystemTableDataJson(project.path, definition.id)
-    if (!tableJson) {
-      return systemDataTableSchema.parse(definition)
-    }
-    const parsedTable = dataTableJsonSchema.parse(tableJson).table
-    if (parsedTable.id !== definition.id) {
-      return systemDataTableSchema.parse(definition)
-    }
-    const table = systemDataTableSchema.parse({
-      ...definition,
-      lastChangeAt: parsedTable.lastChangeAt,
-      rows: parsedTable.rows,
-      version: parsedTable.version,
-    })
-    if (
-      JSON.stringify(parsedTable.columns) !== JSON.stringify(definition.columns) ||
-      parsedTable.name !== definition.name ||
-      parsedTable.description !== definition.description ||
-      !("moduleId" in parsedTable) ||
-      parsedTable.moduleId !== definition.moduleId
-    ) {
-      await fileService.writeSystemTableDataJson(appStore.getState().computed.project, table.id, {
-        schemaVersion: TableService.schemaVersion,
-        table,
-      })
-    }
     return table
   }
   private async writeUserTables(tables: DataTableSchema[]): Promise<void> {

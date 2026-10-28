@@ -11,8 +11,6 @@ import {
 import { assetSchema, dataTableSchema } from "../src/shared/schemas.ts"
 import { AssetCategoryEnum } from "../src/enums/asset-category-enum.ts"
 import { ColumnType } from "../src/enums/column-type.ts"
-import { InputKeyEnum } from "../src/enums/input-key-enum.ts"
-import { INPUT_BINDINGS_TABLE } from "../src/constants/system-tables.ts"
 
 const executable = process.argv[2] ?? "luau"
 const sibling = (name) =>
@@ -107,35 +105,8 @@ const units = dataTableSchema.parse({
     },
   ],
 })
-const input = {
-  ...INPUT_BINDINGS_TABLE,
-  rows: [
-    {
-      id: nanoid(),
-      slug: "CONFIRM",
-      values: [
-        {
-          columnId: INPUT_BINDINGS_TABLE.columns[1].id,
-          type: ColumnType.ENUM_ARRAY,
-          value: [InputKeyEnum.KEY_ENTER, InputKeyEnum.MOUSE_BUTTON_LEFT],
-        },
-      ],
-    },
-    {
-      id: nanoid(),
-      slug: "SCROLL",
-      values: [
-        {
-          columnId: INPUT_BINDINGS_TABLE.columns[1].id,
-          type: ColumnType.ENUM_ARRAY,
-          value: [InputKeyEnum.MOUSE_BUTTON_WHEEL_UP],
-        },
-      ],
-    },
-  ],
-}
 const bundles = [
-  ["full", createRobloxExportBundle(project, [units, input], "2026-10-28", [asset], localization)],
+  ["full", createRobloxExportBundle(project, [units], "2026-10-28", [asset], localization)],
   ["empty", createRobloxExportBundle(project, [], "2026-10-28", [], emptyLocalizationDocument)],
 ]
 
@@ -158,7 +129,7 @@ try {
   const factories = []
   for (const [prefix, bundle] of bundles) {
     const children = { tables: {} }
-    for (const file of bundle.files) {
+    for (const file of bundle.files.filter((entry) => entry.path.endsWith(".luau"))) {
       const name = file.path.replace(/^ChiselData\//, "").replace(/\.luau$/, "")
       if (name.startsWith("tables/")) {
         children.tables[name.slice(7)] = `${prefix}/${name}`
@@ -173,7 +144,7 @@ try {
         analysisFiles.push(filePath)
       }
     }
-    for (const file of bundle.files) {
+    for (const file of bundle.files.filter((entry) => entry.path.endsWith(".luau"))) {
       const name = file.path.replace(/^ChiselData\//, "").replace(/\.luau$/, "")
       const tables = Object.entries(children.tables)
         .map((entry) => {
@@ -202,33 +173,6 @@ try {
 -- Minimal Roblox API doubles exercise generated modules in the actual Luau VM.
 local Vector3 = { new = function(x, y, z) return table.freeze({ X = x, Y = y, Z = z }) end }
 local Color3 = { fromRGB = function(r, g, b) return table.freeze({ R = r / 255, G = g / 255, B = b / 255 }) end }
-local function signal()
-    local callbacks = {}
-    return {
-        Connect = function(_, callback)
-            local connection = { active = true }
-            function connection:Disconnect() self.active = false end
-            table.insert(callbacks, { connection, callback })
-            return connection
-        end,
-        Fire = function(_, ...)
-            for _, entry in callbacks do if entry[1].active then entry[2](...) end end
-        end,
-    }
-end
-local Enum = { UserInputType = {} }
-for _, name in { "Keyboard", "MouseButton1", "MouseWheel" } do Enum.UserInputType[name] = { Name = name } end
-local focused = false
-local client = false
-local service = { InputBegan = signal(), InputEnded = signal(), InputChanged = signal(), WindowFocusReleased = signal(), TextBoxFocused = signal(), GetFocusedTextBox = function() return if focused then {} else nil end }
-local game = { GetService = function(_, name)
-    if name == "RunService" then return { IsClient = function() return client end } end
-    assert(name == "UserInputService")
-    return service
-end }
-local function event(kind, key, delta)
-    return { UserInputType = Enum.UserInputType[kind], KeyCode = { Name = key or "Unknown" }, Position = { Z = delta or 0 } }
-end
 local factories = {}
 local cache = {}
 local function loadModule(name)
@@ -257,44 +201,11 @@ local segments = loc.segments(loc.ID.UI_ICON)
 assert(table.isfrozen(segments) and table.isfrozen(segments[1]))
 assert(segments[1].tooltip.titleId == loc.ID.UI_HELLO)
 assert(segments[4].contentId == "rbxassetid://123456789012345678")
-assert(not pcall(data.INPUT.new)) -- Server require works; client-only controller creation fails.
-client = true
-local controller = data.INPUT.new()
-service.InputBegan:Fire(event("Keyboard", "Return"), false)
-assert(controller.isActionPressed(data.INPUT.ID.CONFIRM))
-assert(controller.isActionJustPressed(data.INPUT.ID.CONFIRM))
-controller.endFrame()
-service.InputBegan:Fire(event("MouseButton1"), false)
-service.InputEnded:Fire(event("Keyboard", "Return"), false)
-assert(controller.isActionPressed(data.INPUT.ID.CONFIRM))
-assert(not controller.isActionJustReleased(data.INPUT.ID.CONFIRM))
-service.InputEnded:Fire(event("MouseButton1"), false)
-assert(controller.isActionJustReleased(data.INPUT.ID.CONFIRM))
-controller.endFrame()
-service.InputBegan:Fire(event("Keyboard", "Return"), true)
-assert(not controller.isActionPressed(data.INPUT.ID.CONFIRM))
-service.InputBegan:Fire(event("Keyboard", "Return"), false)
-service.InputEnded:Fire(event("Keyboard", "Return"), false)
-assert(controller.isActionJustPressed(data.INPUT.ID.CONFIRM) and controller.isActionJustReleased(data.INPUT.ID.CONFIRM))
-controller.endFrame()
-service.InputChanged:Fire(event("MouseWheel", nil, 1), false)
-assert(controller.isActionPressed(data.INPUT.ID.SCROLL))
-controller.endFrame()
-assert(not controller.isActionPressed(data.INPUT.ID.SCROLL) and controller.isActionJustReleased(data.INPUT.ID.SCROLL))
-service.InputBegan:Fire(event("Keyboard", "Return"), false)
-service.WindowFocusReleased:Fire()
-assert(not controller.isActionPressed(data.INPUT.ID.CONFIRM))
-focused = true
-service.InputBegan:Fire(event("Keyboard", "Return"), false)
-assert(not controller.isActionPressed(data.INPUT.ID.CONFIRM))
-focused = false
-controller.destroy()
-service.InputBegan:Fire(event("Keyboard", "Return"), false)
-assert(not pcall(function() controller.isActionPressed(data.INPUT.ID.CONFIRM) end))
+assert(data.INPUT == nil)
 local empty = loadModule("empty/manifest")
 assert(empty.ASSETS.COUNT == 0 and empty.INPUT == nil)
 assert(not pcall(function() empty.LOCALIZATION.text(1) end))
-print("Roblox Luau runtime checks passed: tables, assets, localization, client input, empty bundles.")
+print("Roblox Luau runtime checks passed: tables, assets, localization, empty bundles.")
 `
   const harnessPath = path.join(directory, "runtime-check.luau")
   await fs.writeFile(harnessPath, harness)

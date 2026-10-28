@@ -335,38 +335,21 @@ export const createOrUpdateUserTableSchema = z.object({
   columns: z.array(dataColumnDefinitionSchema),
 })
 export type CreateOrUpdateTable = z.infer<typeof createOrUpdateUserTableSchema>
-export const dataTableSchema = baseDataTableSchema
-  .extend({
-    kind: z.literal("user").default("user"),
-  })
-  .transform((t) => ({
-    ...t,
-    isSystemTable: false,
-  }))
+export const dataTableSchema = baseDataTableSchema.extend({
+  kind: z.literal("user").default("user"),
+})
 export type DataTableSchema = z.infer<typeof dataTableSchema>
-export const systemDataTableSchema = baseDataTableSchema
-  .extend({
-    kind: z.literal("system").default("system"),
-    moduleId: z.string(),
-  })
-  .transform((t) => ({
-    ...t,
-    isSystemTable: true,
-  }))
-export type SystemDataTable = z.infer<typeof systemDataTableSchema>
-export const anyDataTableSchema = z.union([systemDataTableSchema, dataTableSchema])
-export type AnyDataTable = z.infer<typeof anyDataTableSchema>
 export const dataTableJsonSchema = z.object({
   schemaVersion: schemaVersionSchema,
-  table: anyDataTableSchema,
+  table: dataTableSchema,
 })
 export type DataTableJson = z.infer<typeof dataTableJsonSchema>
 export const tablesJsonSchema = z.object({
   schemaVersion: schemaVersionSchema,
-  tables: z.array(anyDataTableSchema),
+  tables: z.array(dataTableSchema),
 })
 export type TablesJson = z.infer<typeof tablesJsonSchema>
-export const validatedDataTableSchema = anyDataTableSchema.superRefine((table, context) => {
+export const validatedDataTableSchema = dataTableSchema.superRefine((table, context) => {
   for (const duplicateColumnId of duplicateValues(table.columns.map((column) => column.id))) {
     context.addIssue({
       code: "custom",

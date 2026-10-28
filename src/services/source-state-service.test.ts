@@ -59,33 +59,12 @@ const mocks = vi.hoisted(() => {
         ],
         version: 1,
       },
-      {
-        columns: [
-          {
-            defaultValue: [],
-            id: "Wu9WsaSKd5d-LGJ8lr0X3",
-            name: "bindings",
-            required: true,
-            type: "enumArray",
-            unique: false,
-          },
-        ],
-        description: "Input bindings",
-        id: "input_bindings",
-        kind: "system",
-        lastChangeAt: "2026-01-01T00:00:00.000Z",
-        moduleId: "input",
-        name: "Input Bindings",
-        rows: [],
-        version: 1,
-      },
     ],
     tryReadSourceStateJson: vi.fn(),
     writeAssetsJson: vi.fn(),
     writeChiselJson: vi.fn(),
     writeLocalizationJson: vi.fn(),
     writeSourceStateJson: vi.fn(),
-    writeSystemTableDataJson: vi.fn(),
     writeTablesJson: vi.fn(),
     writeUserTableJson: vi.fn(),
   }
@@ -107,7 +86,6 @@ vi.mock("@/services/file-service", () => ({
     writeChiselJson: mocks.writeChiselJson,
     writeLocalizationJson: mocks.writeLocalizationJson,
     writeSourceStateJson: mocks.writeSourceStateJson,
-    writeSystemTableDataJson: mocks.writeSystemTableDataJson,
     writeTablesJson: mocks.writeTablesJson,
     writeUserTableJson: mocks.writeUserTableJson,
   },
@@ -137,7 +115,6 @@ describe("source state service", () => {
     mocks.writeChiselJson.mockReset()
     mocks.writeLocalizationJson.mockReset()
     mocks.writeSourceStateJson.mockReset()
-    mocks.writeSystemTableDataJson.mockReset()
     mocks.writeTablesJson.mockReset()
     mocks.writeUserTableJson.mockReset()
     mocks.tryReadSourceStateJson.mockImplementation(async () => mocks.sourceState)
@@ -153,7 +130,7 @@ describe("source state service", () => {
   it("commits draft tables, assets, and localization", async () => {
     const commit = await sourceStateService.commitDraft()
     expect(commit.project).toEqual({ id: mocks.project.id, name: mocks.project.name })
-    expect(commit.tables).toHaveLength(2)
+    expect(commit.tables).toHaveLength(1)
     expect(commit.assets.assets[0]).toMatchObject({
       id: "UNIT_ICON",
       category: AssetCategoryEnum.IMAGE,
@@ -176,11 +153,6 @@ describe("source state service", () => {
     expect(mocks.writeUserTableJson).toHaveBeenCalledWith(
       expect.anything(),
       "units",
-      expect.anything()
-    )
-    expect(mocks.writeSystemTableDataJson).toHaveBeenCalledWith(
-      expect.anything(),
-      "input_bindings",
       expect.anything()
     )
     expect(mocks.writeAssetsJson).toHaveBeenCalledWith(expect.anything(), commit.assets)

@@ -5,21 +5,20 @@ import TableTab, {
   type TableTabEntry,
 } from "@/components/data-table/table-tabs/table-tab"
 import { Button } from "@/components/ui/button"
-import { PlusCircle, Settings, User } from "lucide-react"
+import { PlusCircle, User } from "lucide-react"
 import type { FC } from "react"
 export interface TableTabsProps {
   activeTableKey: string | null
-  systemTables: TableTabEntry[]
-  userTables: TableTabEntry[]
+  tables: TableTabEntry[]
   onRequestDeleteTable?: (table: TableTabEntry) => void
   onSelectTable: (table: TableTabEntry) => void
 }
 const TableTabs: FC<TableTabsProps> = (props) => {
-  const { activeTableKey, systemTables, userTables, onRequestDeleteTable, onSelectTable } = props
+  const { activeTableKey, tables, onRequestDeleteTable, onSelectTable } = props
   return (
     <div className="flex min-h-10 items-stretch overflow-x-auto border-b border-border bg-muted/60">
       <TabGroupLabel icon={<User size={16} />} label="User Tables" />
-      {userTables.map((table) => (
+      {tables.map((table) => (
         <TableTab
           active={tableTabKey(table) === activeTableKey}
           key={tableTabKey(table)}
@@ -38,16 +37,6 @@ const TableTabs: FC<TableTabsProps> = (props) => {
           )}
         </CreateTableDialogButton>
       </div>
-      <TabGroupLabel icon={<Settings size={16} />} label="System Tables" />
-      {systemTables.map((table) => (
-        <TableTab
-          active={tableTabKey(table) === activeTableKey}
-          key={tableTabKey(table)}
-          table={table}
-          onRequestDeleteTable={onRequestDeleteTable}
-          onSelectTable={onSelectTable}
-        />
-      ))}
     </div>
   )
 }

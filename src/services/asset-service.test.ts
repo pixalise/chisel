@@ -1,11 +1,11 @@
 import { AssetCategoryEnum } from "@/enums/asset-category-enum"
 import { ColumnType } from "@/enums/column-type"
-import type { AnyDataTable, Asset } from "@/shared/schemas"
+import type { DataTableSchema, Asset } from "@/shared/schemas"
 import { nanoid } from "nanoid"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 const mocks = vi.hoisted(() => ({
   deleteProjectFile: vi.fn(),
-  tables: [] as AnyDataTable[],
+  tables: [] as DataTableSchema[],
   tryReadAssetsJson: vi.fn(),
   writeAssetsJson: vi.fn(),
 }))
@@ -50,7 +50,6 @@ describe("asset service", () => {
         id: "items",
         name: "Items",
         kind: "user",
-        isSystemTable: false,
         description: "",
         version: 1,
         lastChangeAt: "",

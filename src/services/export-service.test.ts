@@ -37,7 +37,7 @@ describe("Roblox export service", () => {
     expect(result).toMatchObject({
       manifestPath: "ChiselData/manifest.luau",
       outputPath: "/tmp/roblox-project/ChiselData",
-      fileCount: 3,
+      fileCount: 7,
     })
     expect(mocks.writeRobloxExport).toHaveBeenCalledWith({
       projectPath: "/tmp/roblox-project",

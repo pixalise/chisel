@@ -60,21 +60,14 @@ class SourceStateService {
       ...commit.project,
       path: currentProject.path,
     }
-    const userTables = commit.tables.filter((table) => !table.isSystemTable)
-    const systemTables = commit.tables.filter((table) => table.isSystemTable)
     await fileService.writeChiselJson(restoredProject)
     await fileService.writeTablesJson(restoredProject, {
       schemaVersion: 1,
-      tables: userTables,
+      tables: commit.tables,
     })
     await Promise.all(
-      userTables.map((table) =>
+      commit.tables.map((table) =>
         fileService.writeUserTableJson(restoredProject, table.id, { schemaVersion: 1, table })
-      )
-    )
-    await Promise.all(
-      systemTables.map((table) =>
-        fileService.writeSystemTableDataJson(restoredProject, table.id, { schemaVersion: 1, table })
       )
     )
     await fileService.writeAssetsJson(restoredProject, commit.assets)

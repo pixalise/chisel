@@ -89,7 +89,6 @@ export const SettingsPage: FC = () => {
             <SettingsRow label="Localization" value=".chisel/localization.json" />
             <SettingsRow label="Table definitions" value=".chisel/tables.json" />
             <SettingsRow label="User tables" value=".chisel/tables/user/<table_id>.json" />
-            <SettingsRow label="System tables" value=".chisel/tables/system/<table_id>.json" />
             <SettingsRow label="Commits" value=".chisel/commits.json" />
           </Section>
           <Section
@@ -147,9 +146,11 @@ export const SettingsPage: FC = () => {
             copy="Generate data-oriented runtime modules from the latest committed Chisel state."
           >
             <SettingsRow label="Roblox Luau" value="ChiselData/manifest.luau" />
+            <SettingsRow label="TypeScript types" value="ChiselData/manifest.d.ts" />
             <p className="text-xs text-muted-foreground">
               Map ChiselData into ReplicatedStorage with Rojo, or import its ModuleScripts into
-              Studio. Assets require published Roblox IDs.
+              Studio. TypeScript declarations are included for roblox-ts imports. Assets require
+              published Roblox IDs.
             </p>
             {lastExport && <SettingsRow label="Last export" value={lastExport.exportedAt} />}
             {lastExport && <SettingsRow label="Files" value={String(lastExport.fileCount)} />}
@@ -161,7 +162,8 @@ export const SettingsPage: FC = () => {
                 onClick={onExportProject}
                 type="button"
               >
-                {isExportProjectLoading ? "Exporting..." : "Export Roblox Luau"}
+                {!isExportProjectLoading && "Export Roblox Data"}
+                {isExportProjectLoading && "Exporting..."}
               </Button>
             </div>
           </Section>

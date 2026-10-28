@@ -6,14 +6,14 @@ import { constantCase } from "./asset-paths"
 import { validateLocalizationDocument, type LocalizationDocument } from "./localization"
 import { LUAU_HEADER, luauString, luauValue, type LuauExportFile } from "./luau-serialization"
 import { validateProjectContent } from "./project-validation"
-import { renderRobloxInput } from "./roblox-input-export"
 import { renderRobloxLocalization } from "./roblox-localization-export"
+import { renderRobloxTypescript } from "./roblox-typescript-export"
 import {
   assetsJsonSchema,
   projectSchema,
   typedDataColumnValueSchema,
   validatedDataTableSchema,
-  type AnyDataTable,
+  type DataTableSchema,
   type Asset,
   type DataColumnDefinition,
   type DataTableRow,
@@ -36,10 +36,7 @@ function assertUnique(values: string[], description: string): void {
     seen.add(value)
   }
 }
-function validateTable(table: AnyDataTable): void {
-  if (table.isSystemTable && table.id !== "input_bindings") {
-    throw new Error(`Unsupported Roblox system table: ${table.id}`)
-  }
+function validateTable(table: DataTableSchema): void {
   assertUnique(
     table.rows.map((row) => row.id),
     `row ID in ${table.name}`
@@ -184,7 +181,7 @@ function cellValue(value: unknown, column: DataColumnDefinition, refs: Reference
   }
   return luauValue(value)
 }
-function renderTable(table: AnyDataTable, refs: References): LuauExportFile {
+function renderTable(table: DataTableSchema, refs: References): LuauExportFile {
   const fields = [
     `TABLE_ID = ${luauString(table.id)}`,
     `COUNT = ${table.rows.length}`,
@@ -241,7 +238,7 @@ return table.freeze(assets)
 }
 export function createRobloxExportBundle(
   project: Project,
-  tables: AnyDataTable[],
+  tables: DataTableSchema[],
   exportedAt: string,
   assets: Asset[],
   localization: LocalizationDocument
@@ -289,7 +286,6 @@ export function createRobloxExportBundle(
     ...parsedTables.map((table) => renderTable(table, refs)),
     renderAssets(parsedAssets),
     renderRobloxLocalization(localization, parsedAssets, ROBLOX_EXPORT_ROOT),
-    ...renderRobloxInput(parsedTables, ROBLOX_EXPORT_ROOT),
   ]
   const modules = parsedTables.map(
     (table) => `[${luauString(table.id)}] = require(script.Parent.tables[${luauString(table.id)}])`
@@ -304,9 +300,11 @@ return table.freeze({
     TABLES = table.freeze({ ${modules.join(", ")} }),
     ASSETS = require(script.Parent.assets),
     LOCALIZATION = require(script.Parent.localization),
-    INPUT = ${parsedTables.some((table) => table.id === "input_bindings") ? "require(script.Parent.input)" : "nil"},
 })
 `,
   })
+  files.push(
+    ...renderRobloxTypescript(parsedTables, parsedAssets, localization, ROBLOX_EXPORT_ROOT)
+  )
   return { files }
 }

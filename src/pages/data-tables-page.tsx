@@ -2,32 +2,24 @@ import DataTable from "@/components/data-table/data-table"
 import { tableTabKey, type TableTabEntry } from "@/components/data-table/table-tabs/table-tab"
 import TableTabs from "@/components/data-table/table-tabs/table-tabs"
 import { Section } from "@/components/layout/section"
-import { SYSTEM_TABLES } from "@/constants/system-tables"
 import useDeleteTableMutation from "@/hooks/use-delete-table-mutation"
 import useListTablesQuery from "@/hooks/use-list-tables-query"
-import type { AnyDataTable } from "@/shared/schemas"
 import { useEffect, useState, type FC } from "react"
 export const DataTablesPage: FC = () => {
-  const [activeTableKey, setActiveTableKey] = useState<string | null>(SYSTEM_TABLES[0]?.id ?? null)
+  const [activeTableKey, setActiveTableKey] = useState<string | null>(null)
   const { tables } = useListTablesQuery()
   const { deleteTable } = useDeleteTableMutation()
-  const visibleTables: AnyDataTable[] = tables.length > 0 ? tables : SYSTEM_TABLES
-  const systemTables = visibleTables.filter((table) => table.isSystemTable)
-  const userTables = visibleTables.filter((table) => !table.isSystemTable)
-  const activeTable = visibleTables.find((table) => tableTabKey(table) === activeTableKey) ?? null
+  const activeTable = tables.find((table) => tableTabKey(table) === activeTableKey) ?? null
   useEffect(() => {
-    if (activeTableKey && visibleTables.some((table) => tableTabKey(table) === activeTableKey)) {
+    if (activeTableKey && tables.some((table) => tableTabKey(table) === activeTableKey)) {
       return
     }
-    setActiveTableKey(visibleTables[0]?.id ?? null)
-  }, [activeTableKey, visibleTables])
+    setActiveTableKey(tables[0]?.id ?? null)
+  }, [activeTableKey, tables])
   async function onRequestDeleteTable(table: TableTabEntry): Promise<void> {
-    if (table.isSystemTable) {
-      return
-    }
     await deleteTable(table.id)
     if (activeTableKey === table.id) {
-      setActiveTableKey(systemTables[0]?.id ?? null)
+      setActiveTableKey(null)
     }
   }
   return (
@@ -39,8 +31,7 @@ export const DataTablesPage: FC = () => {
         <div className="flex min-h-64 flex-col border border-border bg-card">
           <TableTabs
             activeTableKey={activeTableKey}
-            systemTables={systemTables}
-            userTables={userTables}
+            tables={tables}
             onRequestDeleteTable={onRequestDeleteTable}
             onSelectTable={(table: TableTabEntry) => setActiveTableKey(tableTabKey(table))}
           />
