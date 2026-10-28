@@ -22,6 +22,7 @@ const EditAssetDialogButton: FC<EditAssetDialogButtonProps> = (props) => {
       category: input.category,
       name: input.name,
       note: input.note,
+      robloxAssetId: input.robloxAssetId,
       tileSize: input.tileSize
     });
     setIsOpen(false);
@@ -58,6 +59,7 @@ const EditAssetDialogButton: FC<EditAssetDialogButtonProps> = (props) => {
               height: asset.height,
               name: asset.name,
               note: asset.note ?? "",
+              robloxAssetId: asset.robloxAssetId ?? "",
               sizeBytes: asset.sizeBytes,
               tileSize: asset.tileSize,
               category: asset.category,

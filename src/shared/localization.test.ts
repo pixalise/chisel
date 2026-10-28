@@ -216,7 +216,7 @@ describe("localization schemas", () => {
     ).toBe(false);
   });
 
-  it("reports placeholder, style, tooltip, and generated API problems", () => {
+  it("reports placeholder, style, and tooltip problems", () => {
     const document = localizationDocumentSchema.parse({
       schemaVersion: 2,
       defaultLocale: "en",
@@ -291,12 +291,6 @@ describe("localization schemas", () => {
       expect.objectContaining({
         severity: LocalizationProblemSeverity.error,
         message: "Tooltip AOE_RADIUS references missing tooltip title key TERM.MISSING.TOOLTIP"
-      })
-    );
-    expect(problems).toContainEqual(
-      expect.objectContaining({
-        severity: LocalizationProblemSeverity.error,
-        message: "Localization key UNIT.TOXIN_TRACTOR collides with generated namespace path"
       })
     );
   });

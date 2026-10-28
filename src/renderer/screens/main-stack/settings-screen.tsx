@@ -1,20 +1,13 @@
-import { type FC, type ReactNode, useState } from "react";
+import { type FC, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Section } from "@/components/layout/section";
 import useExportProjectMutation from "@/hooks/use-export-project-mutation";
 import useSourceCommitsQuery from "@/hooks/use-source-commits-query";
 import useSourceStateMutations from "@/hooks/use-source-state-mutations";
 import { useToast } from "@/hooks/use-toast";
-import { ExportTarget, type ExportProjectResult } from "@/services/export-service";
+import { type ExportProjectResult } from "@/services/export-service";
+import { SettingsRow } from "./settings-row";
 import useAppStore from "@/stores/app-store";
-
-const exportTargetLabels: Record<ExportTarget, string> = {
-  [ExportTarget.godot]: "Godot",
-  [ExportTarget.haxeFlixel]: "HaxeFlixel",
-  [ExportTarget.love2d]: "LÖVE",
-  [ExportTarget.monoGame]: "MonoGame",
-  [ExportTarget.teal]: "Teal"
-};
 
 export const SettingsScreen: FC = () => {
   const [exportError, setExportError] = useState<string | null>(null);
@@ -63,14 +56,14 @@ export const SettingsScreen: FC = () => {
     }
   }
 
-  async function onExportProject(target: ExportTarget): Promise<void> {
+  async function onExportProject(): Promise<void> {
     setExportError(null);
 
     try {
-      const result = await exportProject(target);
+      const result = await exportProject();
       setLastExport(result);
       toast({
-        title: `${exportTargetLabels[target]} data exported`,
+        title: "Roblox data exported",
         description: `${result.fileCount} files written to ${result.outputPath}.`
       });
     } catch (error) {
@@ -93,7 +86,8 @@ export const SettingsScreen: FC = () => {
             <SettingsRow label="Assets" value=".chisel/assets.json" />
             <SettingsRow label="Localization" value=".chisel/localization.json" />
             <SettingsRow label="Table definitions" value=".chisel/tables.json" />
-            <SettingsRow label="Table rows" value=".chisel/tables/<table_id>_rows.json" />
+            <SettingsRow label="User tables" value=".chisel/tables/user/<table_id>.json" />
+            <SettingsRow label="System tables" value=".chisel/tables/system/<table_id>.json" />
             <SettingsRow label="Commits" value=".chisel/commits.json" />
           </Section>
           <Section title="Current Project" copy="Exports are generated beside .chisel from the latest committed source state.">
@@ -132,67 +126,22 @@ export const SettingsScreen: FC = () => {
             </div>
           </Section>
           <Section title="Game Data Export" copy="Generate data-oriented runtime modules from the latest committed Chisel state.">
-            <SettingsRow label="Godot" value="game_data/manifest.gd" />
-            <SettingsRow label="HaxeFlixel" value="source/gamedata/ChiselManifest.hx" />
-            <SettingsRow label="LÖVE" value="gamedata/manifest.lua" />
-            <SettingsRow label="MonoGame" value="GameData/Generated/ChiselManifest.g.cs" />
-            <SettingsRow label="Teal" value="gamedata/manifest.tl" />
-            {lastExport && <SettingsRow label="Last target" value={exportTargetLabels[lastExport.target]} />}
+            <SettingsRow label="Roblox Luau" value="ChiselData/manifest.luau" />
+            <p className="text-xs text-muted-foreground">
+              Map ChiselData into ReplicatedStorage with Rojo, or import its ModuleScripts into Studio. Assets require published Roblox IDs.
+            </p>
             {lastExport && <SettingsRow label="Last export" value={lastExport.exportedAt} />}
             {lastExport && <SettingsRow label="Files" value={String(lastExport.fileCount)} />}
             {lastExport && <SettingsRow label="Output folder" value={lastExport.outputPath} />}
             {exportError && <SettingsRow label="Export error" value={exportError} />}
             <div className="flex flex-wrap gap-2 pt-3">
-              <Button disabled={isExportProjectLoading} onClick={() => onExportProject(ExportTarget.godot)} type="button">
-                {isExportProjectLoading ? "Exporting..." : "Export Godot"}
-              </Button>
-              <Button
-                disabled={isExportProjectLoading}
-                onClick={() => onExportProject(ExportTarget.haxeFlixel)}
-                type="button"
-                variant="secondary"
-              >
-                {isExportProjectLoading ? "Exporting..." : "Export HaxeFlixel"}
-              </Button>
-              <Button
-                disabled={isExportProjectLoading}
-                onClick={() => onExportProject(ExportTarget.love2d)}
-                type="button"
-                variant="secondary"
-              >
-                {isExportProjectLoading ? "Exporting..." : "Export LÖVE"}
-              </Button>
-              <Button
-                disabled={isExportProjectLoading}
-                onClick={() => onExportProject(ExportTarget.monoGame)}
-                type="button"
-                variant="secondary"
-              >
-                {isExportProjectLoading ? "Exporting..." : "Export MonoGame"}
-              </Button>
-              <Button
-                disabled={isExportProjectLoading}
-                onClick={() => onExportProject(ExportTarget.teal)}
-                type="button"
-                variant="secondary"
-              >
-                {isExportProjectLoading ? "Exporting..." : "Export Teal"}
+              <Button disabled={isExportProjectLoading || isSourceStateMutating} onClick={onExportProject} type="button">
+                {isExportProjectLoading ? "Exporting..." : "Export Roblox Luau"}
               </Button>
             </div>
           </Section>
         </div>
       </Section>
     </section>
-  );
-};
-
-const SettingsRow: FC<{ children?: ReactNode; label: string; value: string }> = (props) => {
-  const { children, label, value } = props;
-  return (
-    <div className="flex items-center gap-3 border-b border-border py-3 first:border-t">
-      <span className="w-36 shrink-0 font-mono text-xs uppercase text-muted-foreground">{label}</span>
-      <code className="min-w-0 flex-1 truncate text-xs">{value}</code>
-      {children}
-    </div>
   );
 };

@@ -1,7 +1,6 @@
 import z from "zod";
 import { rowSlugSchema, type Asset } from "./schemas";
 import { AssetCategoryEnum } from "./types";
-import { snakeCase } from "lodash";
 
 export enum TranslationPlaceholderType {
   string = "string",
@@ -530,11 +529,6 @@ export function localizationKeyConstant(path: string): string {
   return path.split(".").join("_");
 }
 
-// NOTE: Do not replace or "simplify" this. The generated GDScript API intentionally relies on lodash snakeCase here.
-export function localizationTypedSegments(path: string): string[] {
-  return path.split(".").map((segment) => snakeCase(segment));
-}
-
 export function localizationPlaceholderNames(text: string): Set<string> {
   return new Set(analyzeLocalizationText(text, "").placeholders.map((placeholder) => placeholder.name));
 }
@@ -746,101 +740,21 @@ function parsePlaceholderToken(token: string): LocalizationPlaceholder | undefin
 }
 
 function validateGeneratedTypedPaths(keys: LocalizationKey[]): LocalizationProblem[] {
+  const seen = new Map<string, string>();
   const problems: LocalizationProblem[] = [];
-  const normalizedPaths = new Map<string, string>();
-  const root: GeneratedPathNode = { children: new Map() };
-
   keys.forEach((key, index) => {
-    const segments = localizationTypedSegments(key.path);
-    for (const segment of segments) {
-      if (gdscriptReservedWords.has(segment)) {
-        problems.push({
-          severity: LocalizationProblemSeverity.error,
-          path: `keys.${index}.path`,
-          message: `Localization key ${key.path} generates reserved GDScript name "${segment}"`
-        });
-      }
-    }
-
-    const normalizedPath = segments.join(".");
-    const existingPath = normalizedPaths.get(normalizedPath);
-    if (existingPath) {
+    const constant = localizationKeyConstant(key.path);
+    const existing = seen.get(constant);
+    if (existing)
       problems.push({
         severity: LocalizationProblemSeverity.error,
         path: `keys.${index}.path`,
-        message: `Localization key ${key.path} collides with generated path ${existingPath}`
+        message: `Localization key ${key.path} collides with generated Luau ID ${existing}`
       });
-    }
-    normalizedPaths.set(normalizedPath, key.path);
-
-    let node = root;
-    segments.forEach((segment, segmentIndex) => {
-      if (node.leafPath) {
-        problems.push({
-          severity: LocalizationProblemSeverity.error,
-          path: `keys.${index}.path`,
-          message: `Localization key ${key.path} collides with generated method path ${node.leafPath}`
-        });
-      }
-      let child = node.children.get(segment);
-      if (!child) {
-        child = { children: new Map() };
-        node.children.set(segment, child);
-      }
-      node = child;
-      if (segmentIndex === segments.length - 1) {
-        if (node.children.size > 0) {
-          problems.push({
-            severity: LocalizationProblemSeverity.error,
-            path: `keys.${index}.path`,
-            message: `Localization key ${key.path} collides with generated namespace path`
-          });
-        }
-        node.leafPath = key.path;
-      }
-    });
+    seen.set(constant, key.path);
   });
-
   return problems;
 }
-
-interface GeneratedPathNode {
-  children: Map<string, GeneratedPathNode>;
-  leafPath?: string;
-}
-
-const gdscriptReservedWords = new Set([
-  "as",
-  "assert",
-  "await",
-  "break",
-  "class",
-  "class_name",
-  "const",
-  "continue",
-  "elif",
-  "else",
-  "enum",
-  "extends",
-  "false",
-  "for",
-  "func",
-  "if",
-  "in",
-  "is",
-  "match",
-  "null",
-  "pass",
-  "return",
-  "self",
-  "signal",
-  "static",
-  "super",
-  "true",
-  "var",
-  "void",
-  "while"
-]);
 
 function duplicateValues(values: string[]): string[] {
   const seen = new Set<string>();

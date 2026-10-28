@@ -15,8 +15,8 @@
     "css:check": "bun scripts/check-no-custom-css.mjs",
     "filenames:check": "bun scripts/check-file-names.mjs",
     "react-keys:check": "bun scripts/check-no-slug-react-keys.mjs",
-    "terrain-components:check": "bun scripts/check-terrain-component-files.mjs",
     "test": "vitest run src",
+    "test:roblox": "bun scripts/check-roblox-runtime.mjs",
     "check": "bun scripts/check.mjs"
   },
   "dependencies": {

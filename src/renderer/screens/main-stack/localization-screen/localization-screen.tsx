@@ -137,7 +137,7 @@ const LocalizationScreenContent: FC<LocalizationScreenContentProps> = (props) =>
   return (
     <Section
       title="Localization"
-      copy="Key/value translation matrix with typed placeholders, reusable rich styles, tooltips, and generated Godot exports."
+      copy="Key/value translation matrix with typed placeholders, reusable rich styles, tooltips, and Roblox Luau exports."
       actions={[
         <Button disabled={isLocalizationLoading || isSaveLocalizationLoading || errorCount > 0} key="save" onClick={onSave} type="button">
           {isSaveLocalizationLoading ? "Saving..." : "Save Localization"}

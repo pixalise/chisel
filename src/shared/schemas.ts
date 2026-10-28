@@ -87,6 +87,10 @@ const assetInputFields = {
   width: z.number(),
   height: z.number(),
   tileSize: z.int().positive().optional(),
+  robloxAssetId: z
+    .string()
+    .regex(/^(?:[1-9][0-9]*|)$/, "Use a positive Roblox asset ID (digits only)")
+    .optional(),
   extension: z.string()
 };
 

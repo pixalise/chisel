@@ -8,7 +8,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { INPUT_BINDINGS_TABLE_ID } from "@/constants/system-tables";
-import { EDITABLE_TERRAIN_TABLE_IDS } from "../../../../../shared/terrain-tables";
 import useListTablesQuery from "@/hooks/use-list-tables-query";
 import useSaveTableRowsMutation from "@/hooks/use-save-table-rows-mutation";
 import { cn } from "@/lib/utils";
@@ -73,7 +72,7 @@ function isSystemTable(table: TableTabEntry): boolean {
 }
 
 function canMutateRows(table: TableTabEntry): boolean {
-  return !isSystemTable(table) || table.id === INPUT_BINDINGS_TABLE_ID || EDITABLE_TERRAIN_TABLE_IDS.has(table.id);
+  return !isSystemTable(table) || table.id === INPUT_BINDINGS_TABLE_ID;
 }
 
 function nextDefaultSlug(rows: EditorRow[]): string {

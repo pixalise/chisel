@@ -1,152 +1,118 @@
-# Chisel Runtime Exports
+# Roblox Luau Export
 
-Chisel exports only the latest committed source state. Every target runs table, reference, asset, and localization validation before replacing generated output.
+Roblox is Chisel's only runtime target. Settings → Commit Draft captures authored data; Export Roblox Luau generates the latest committed source state into `ChiselData` beside `.chisel`.
 
-## Targets
+## Output and installation
 
-| Target     | Manifest                                 | Generated root                            |
-| ---------- | ---------------------------------------- | ----------------------------------------- |
-| Godot      | `game_data/manifest.gd`                  | `game_data`                               |
-| HaxeFlixel | `source/gamedata/ChiselManifest.hx`      | `source/gamedata` and `assets/chisel`     |
-| LÖVE       | `gamedata/manifest.lua`                  | `gamedata`                                |
-| MonoGame   | `GameData/Generated/ChiselManifest.g.cs` | `GameData/Generated` and `Content/Chisel` |
-| Teal       | `gamedata/manifest.tl`                   | `gamedata`                                |
+```text
+ChiselData/
+  manifest.luau
+  assets.luau
+  localization.luau
+  input.luau             # When the input_bindings system table exists.
+  tables/
+    <table_id>.luau
+```
 
-## MonoGame Export Contract
+Every `.luau` file is a ModuleScript. Preserve this hierarchy when importing into Studio. For Rojo, add this entry under your existing project's ReplicatedStorage tree, with the path relative to the Rojo project file:
 
-The MonoGame target writes ordinary C# below `GameData/Generated`, so SDK-style game projects compile it automatically. Generated table classes use integer-indexed structure-of-arrays data in the `Chisel.Generated` namespace. Each table also exports a static `<Table>Ids` class of named integer constants, so `ChiselEnemies.MaxHealth[ChiselEnemiesIds.ZOMBIE_BASIC]` needs no cast or game-side adapter. Row and table references are integers; asset and localization references retain their dedicated generated enum types. Vectors and colors use MonoGame framework types. Asset source files are copied to `Content/Chisel`, and `ChiselAssets.Path(id)` returns the path relative to the game's `Content` directory. The asset catalog deliberately does not assume that every source format has passed through MGCB.
-
-When the `input_bindings` system table exists, Chisel also generates `ChiselInput.g.cs`. Own one `ChiselInput` instance and call `Update()` once near the start of every MonoGame `Game.Update` before querying it:
-
-```csharp
-private readonly ChiselInput _input = new ChiselInput();
-
-protected override void Update(GameTime gameTime)
+```json
 {
-    _input.Update();
-    if (_input.IsActionJustPressed(ChiselInputBindingsIds.CONFIRM))
-    {
-        // React once to the action edge.
-    }
-    base.Update(gameTime);
+  "ChiselData": {
+    "$path": "ChiselData"
+  }
 }
 ```
 
-The adapter exposes `ActionName`, `GetActionStrength`, `IsActionPressed`, `IsActionJustPressed`, and `IsActionJustReleased`. Keyboard modifiers map to both left and right variants. Mouse buttons and vertical wheel actions are supported; wheel actions are one-frame pulses calculated from MonoGame's cumulative scroll value. Calling an action query before `Update()` or passing an invalid action ID fails immediately.
+Require the manifest from a Script or LocalScript:
 
-## Teal Export Contract
-
-The Teal target is an optional typed LÖVE-facing contract. It preserves the LÖVE module API and asset layout, but writes `.tl` modules for tables, assets, localization, input, and manifests. A Teal project build compiles those generated modules into Lua together with the consumer's authored Teal source. FARBOUND uses the ordinary LÖVE/Lua target because its authored runtime is YueScript compiled to Lua.
-
-Generated table modules declare a `Data` record with typed structure-of-arrays fields. References remain 1-based integer IDs with `0` reserved for `INVALID`, matching the LÖVE target. Runtime asset paths continue to resolve beneath `gamedata/assets`.
-
-## LÖVE Export Contract
-
-The entire LÖVE export is contained beneath `gamedata`:
-
-```text
-gamedata/
-  manifest.lua
-  asset_manager.lua
-  localization.lua
-  input.lua                 # Present when the input_bindings system table exists.
-  terrain.lua               # Present when current terrain system tables exist.
-
-  tables/
-    <normalized_table_id>.lua
-
-  assets/
-    <category>/
-      <normalized_asset_name>.<extension>
+```luau
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local data = require(ReplicatedStorage.ChiselData.manifest)
+local enemies = data.TABLES.enemies
+local id = enemies.ID.ZOMBIE_BASIC
+print(enemies.MAX_HEALTH[id], enemies.SLUGS[id])
 ```
 
-Re-export deletes and rebuilds the complete `gamedata` directory. It is generated-only and must not contain handwritten game code.
+Use ServerStorage instead when definitions must remain server-only. ReplicatedStorage contents are available to clients. Chisel does not modify your Rojo configuration or publish to Roblox.
 
-### Resolved terrain and cell annotations
+The exporter validates the complete bundle before writing. It stages generated files, swaps the output folder, and restores the previous output if replacement fails. A successful export replaces the whole `ChiselData` directory, removing stale modules. Keep handwritten scripts outside that generated directory.
 
-The LÖVE target projects approved geography and its post-approval cell tags into `gamedata/terrain.lua`. The raw terrain system tables are never emitted as ordinary table modules: sockets, WFC pieces, collections, adjacency rules, templates, generated bases, and sparse override documents remain Chisel authoring data.
+## Tables and stable identity
 
-The terrain module exposes `ASSET_ID`, `ANNOTATION_ID`, `LAYOUT_ID`, `ASSETS`, `ANNOTATIONS`, `LAYOUTS`, `TILESETS`, and the eight `ORIENTATIONS` matrices. Each approved asset contains its final resolved cell array after sparse polish overrides, including render layers, collision, elevation, semantic tags, source-piece traces, anchors, and refreshed connectivity metrics. Whole-tile collision uses `blocking`; partial collision additionally exports a compact `collision` record with its `resolution` and binary row strings. Empty render layers are omitted from a cell's `tiles` array while each retained tile carries its 1-based `layer`.
+Tables use structure-of-arrays data with `TABLE_ID`, `COUNT`, `ID`, `SLUGS`, and one CONSTANT_CASE array per column. Table filenames preserve the authored table ID. Row IDs are 1-based, with `ID.INVALID = 0`. References resolve to numeric row, asset, or translation IDs; array references preserve authored order. Empty optional scalar references become `0`; unresolved references fail export.
 
-Coordinates and tileset `local_id` values remain 0-based. Lua asset IDs, annotation IDs, layout IDs, cell IDs, and layer IDs are 1-based, with `0` reserved for invalid references. Each sparse annotated-cell record contains its 1-based `cell`, 0-based `x` and `y`, and an `annotations` array of numeric IDs. `terrain.annotation(id)`, `terrain.cellId(assetId, x, y)`, `terrain.cell(assetId, x, y)`, and `terrain.tileSource(tile)` provide checked access.
+All exported definition tables, including nested arrays and JSON objects, are frozen. Keep mutable gameplay instances in consumer code. Retain source table IDs and row slugs in saved data; dense numeric IDs can change when authored order changes.
 
-Global annotation definitions export in authored order as dense enum IDs with their stable slugs and inspector colors. Layout export fails if a cell lies outside its approved asset, an annotation is undefined, or more than one annotation layout targets the same approved asset. The generated terrain module refers to managed tilesets by the same numeric IDs used by `gamedata.asset_manager`.
+| Chisel value                      | Luau representation                    |
+| --------------------------------- | -------------------------------------- |
+| String, text, enum                | string                                 |
+| Integer, decimal, range           | number                                 |
+| Boolean                           | boolean                                |
+| Vector2, Vector3                  | Roblox `Vector2`, `Vector3`            |
+| Vector4                           | Frozen array of four numbers           |
+| Color                             | Roblox `Color3`, authored as `#RRGGBB` |
+| Enum array, JSON array/object     | Recursively frozen tables              |
+| Row, asset, translation reference | Numeric ID                             |
 
-Table modules use Lua's native 1-based indexing. Every module exposes `ID.INVALID = 0`, stable row constants starting at `1`, `SLUGS`, and one dense array per column:
+JSON null has no lossless Luau table representation and blocks export, including nested nulls. Use explicit authored values. Column names that normalize to the same constant, names reserved by the generated table API, duplicate IDs, type mismatches, unknown columns, invalid enums, out-of-range values, missing required values, and uniqueness violations block export.
 
-```lua
-local enemies = require("gamedata.tables.enemies")
+## Assets
 
-local enemyId = enemies.ID.ZOMBIE_BASIC
-local health = enemies.MAX_HEALTH[enemyId]
+Import source files for local previews and authoring. Each asset must have an explicitly authored **Roblox asset ID** before export. Enter the positive decimal ID in the asset editor, publish the asset separately through Roblox, and commit the updated metadata.
+
+```luau
+local assets = data.ASSETS
+imageLabel.Image = assets.contentId(assets.CATEGORY.UI.HUMAN_MALE, "UI")
 ```
 
-Table, asset, and translation references are exported as their target's numeric ID. Array references are exported as arrays of those numeric row IDs in authored order. Empty optional references become `0`; unresolved non-empty references block export.
+`assets.ID`, `assets.CATEGORY`, `assets.COUNT`, and `assets.RECORDS` expose immutable catalog metadata. Each record contains its stable `slug`, `category`, and `contentId` (`rbxassetid://...`). `contentId(id, category?)` checks the numeric ID and optional category.
 
-Assets remain inside `gamedata/assets`. Chisel generates a standalone, lazy-loading asset manager with category-scoped stable IDs:
+Chisel does not export filesystem paths, copy raw source files to Roblox, upload assets, or verify cloud permissions. The experience must have permission to use each published asset, and consumers must use the appropriate Roblox property for its type. Asset IDs are stored as decimal strings to preserve precision. Source replacement preserves the authored Roblox ID; update it explicitly when publishing a new Roblox asset.
 
-```lua
-local AssetManager = require("gamedata.asset_manager")
-local portrait = AssetManager.image(AssetManager.UI.HUMAN_MALE)
-local font = AssetManager.font(AssetManager.FONT.BODY, 18, 1)
+## Localization
+
+Localization IDs flatten key paths with underscores: `HUD.WELCOME` is `localization.ID.HUD_WELCOME`.
+
+```luau
+local localization = data.LOCALIZATION
+label.Text = localization.text(localization.ID.HUD_WELCOME, "en", { name = "Player" })
+label.RichText = true
+label.Text = localization.richText(localization.ID.HUD_WELCOME, "en", { name = "Player" })
 ```
 
-The manager validates each loader against the authored category and caches resources only after first use. It supports managed images, linear data images, fonts, shaders, audio sources, text data, validated paths, cache cleanup, and category namespaces such as `TILESET`, `UI`, `IMAGE`, `FONT`, `SHADER`, and `AUDIO`. Tileset PNGs use the ordinary lazy image loader. `AssetManager.destroy()` releases every loaded LÖVE resource.
+`text(id, locale?, parameters?)` returns plain text. `richText(...)` escapes literal text and placeholder values and applies authored styles using Roblox RichText tags. The omitted locale selects the authored default; an explicitly unknown locale fails. Missing translations, missing placeholders, wrong placeholder types, non-finite numbers, and fractional integer placeholders fail instead of falling back.
 
-`UI` is the interface-image category and stores files in `.chisel/assets/UI`. Project data must already use the current category and layout. Replacing an asset source preserves its stable slug, so game code continues using the same generated ID without path changes.
+`segments(...)` returns immutable tokens for custom rendering: text, style start/end, tooltip start/end, and icons. Icon tokens include numeric asset IDs and Roblox content IDs for ImageLabels. Style tokens include their style metadata; tooltip tokens include title/description translation IDs and an optional icon. The plain-text and RichText helpers reject inline icons; use segments for layouts containing images. Tooltip boundaries require custom UI through segments to display interactive help.
 
-## LÖVE Input Adapter
+`KEYS`, `DEFAULT_LOCALE`, `LOCALES`, `STYLES`, `TOOLTIPS`, and `PLACEHOLDERS` retain the authored metadata. Colliding flattened localization constants block export.
 
-When the `input_bindings` system table exists, Chisel generates `gamedata/input.lua`. It provides:
+## Client input
 
-- `actionName(action)`
-- `getActionStrength(action)`
-- `isActionPressed(action)`
-- `isActionJustPressed(action)`
-- `isActionJustReleased(action)`
-- LÖVE callback capture functions
-- `endFrame()` for clearing one-frame input state
+When the input-bindings system table exists, `data.INPUT` exposes `ID` and `new()`. The manifest can be required on the server; creating an input controller requires a client.
 
-The game owns the LÖVE callbacks and explicitly forwards them:
+```luau
+local RunService = game:GetService("RunService")
+local input = data.INPUT.new()
+local connection = RunService.RenderStepped:Connect(function()
+    if input.isActionJustPressed(data.INPUT.ID.CONFIRM) then
+        print("Confirm")
+    end
+    input.endFrame() -- After all action consumers for this frame.
+end)
 
-```lua
-local input = require("gamedata.input")
-
-function love.keypressed(key, scanCode, isRepeat)
-	input.keypressed(key, scanCode, isRepeat)
-end
-
-function love.keyreleased(key, scanCode)
-	input.keyreleased(key, scanCode)
-end
-
-function love.mousepressed(x, y, button, isTouch, presses)
-	input.mousepressed(x, y, button, isTouch, presses)
-end
-
-function love.mousereleased(x, y, button, isTouch, presses)
-	input.mousereleased(x, y, button, isTouch, presses)
-end
-
-function love.wheelmoved(deltaX, deltaY)
-	input.wheelmoved(deltaX, deltaY)
-end
+-- When this controller is no longer needed:
+-- connection:Disconnect()
+-- input.destroy()
 ```
 
-Call `input.endFrame()` once after all gameplay input consumers have run for the frame. The adapter does not replace callbacks or install global state itself.
+Controllers expose `actionName`, `getActionStrength`, `isActionPressed`, `isActionJustPressed`, `isActionJustReleased`, `endFrame`, and `destroy`. Event connections are owned by the controller and disconnected on destruction.
 
-## FARBOUND Content Contract
+Keyboard modifiers map to both sides. Mouse buttons and vertical wheel pulses are supported. UI-processed presses and typing are ignored; focus loss or textbox focus releases held actions. Multiple bindings aggregate into one action, so releasing one binding while another remains down does not release the action. Short taps retain both edges until `endFrame`; wheel release edges are visible in the following frame. Unknown bindings and actions with no bindings fail export. Gamepad and touch bindings are not currently authored by the input table.
 
-FARBOUND uses Chisel as the authority for immutable card, host-family, equipment, inventory-item, encounter, event, narrative, localization, and asset definitions. Chisel does not own installed upgrades, carried item instances, enabled decks, hands, encounter state, or other mutable gameplay state.
+## API references
 
-The universal card framework deliberately exports distinct definition families:
-
-- Upgrade cards install into compatible hosts and never enter the combat hand.
-- Combat cards are reusable actions and are the only cards shuffled, drawn, and played.
-- Equipment-native and upgrade-granted combat actions use explicit reference records rather than fixed `card_1`, `card_2`, and `card_3` columns.
-- Consumables remain physical item definitions and never count toward deck size.
-- Knowledge, evidence, magic, reputation, relationships, contracts, and law remain contextual requirements unless a definition explicitly grants a combat action.
-
-Every exported definition uses a stable slug. References resolve to dense generated indexes for runtime use, while saves and external protocols retain stable identities. Generated numeric IDs must not become durable content identity.
-
-See `FARBOUND_INTEGRATION.md` for the proposed table families, validation contract, source-tracing boundary, and migration from the current placeholder `cards` and `items` tables.
+- [Roblox assets and content IDs](https://create.roblox.com/docs/projects/assets)
+- [Roblox UserInputService](https://create.roblox.com/docs/reference/engine/classes/UserInputService)
+- [Roblox key codes](https://create.roblox.com/docs/reference/engine/enums/KeyCode)
+- [Luau table freezing](https://luau.org/library/#table-library)

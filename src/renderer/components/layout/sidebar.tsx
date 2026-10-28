@@ -1,4 +1,4 @@
-import { Boxes, Database, Grid3X3, Images, Languages, MapPinned, Settings2, type LucideIcon, ListChecks } from "lucide-react";
+import { Boxes, Database, Images, Languages, Settings2, type LucideIcon, ListChecks } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -22,8 +22,6 @@ const routeIcons: Record<RouteEnum, LucideIcon> = {
   [RouteEnum.database]: Database,
   [RouteEnum.localization]: Languages,
   [RouteEnum.imageConversion]: Images,
-  [RouteEnum.terrainGenerator]: Grid3X3,
-  [RouteEnum.terrainAnnotations]: MapPinned,
   [RouteEnum.settings]: Settings2,
   [RouteEnum.todos]: ListChecks
 };

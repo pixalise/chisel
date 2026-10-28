@@ -1,6 +1,5 @@
 import { type DataColumnDefinition, type SystemDataTable } from "../../shared/schemas";
 import { ColumnType, InputKeyEnum } from "../../shared/types";
-import { SYSTEM_TERRAIN_TABLES } from "../../shared/terrain-tables";
 
 export const INPUT_BINDINGS_TABLE_ID = "input_bindings";
 
@@ -91,7 +90,7 @@ export const INPUT_BINDINGS_TABLE = {
       possibleValues: Object.values(InputKeyEnum)
     })
   ],
-  description: "Input actions and bindings exported to supported game runtimes.",
+  description: "Input actions and bindings exported to Roblox.",
   id: INPUT_BINDINGS_TABLE_ID,
   isSystemTable: true,
   kind: "system",
@@ -103,4 +102,4 @@ export const INPUT_BINDINGS_TABLE = {
 } satisfies SystemDataTable;
 
 export const SYSTEM_INPUT_TABLES = [INPUT_BINDINGS_TABLE];
-export const SYSTEM_TABLES = [...SYSTEM_INPUT_TABLES, ...SYSTEM_TERRAIN_TABLES];
+export const SYSTEM_TABLES = [...SYSTEM_INPUT_TABLES];

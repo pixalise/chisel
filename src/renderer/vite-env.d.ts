@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import type { ConvertImages, ConvertedImage, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas";
+import type { LuauExportFile } from "../shared/luau-serialization";
 import type { Asset, FileMetadata } from "../shared/types";
 
 type OpenFileDialogOptions = {
@@ -16,6 +17,7 @@ type OpenFileDialogOptions = {
 declare global {
   interface Window {
     electron: {
+      writeRobloxExport: (input: { projectPath: string; files: LuauExportFile[] }) => Promise<void>;
       openFolderDialog: () => Promise<string | null>;
       openFileDialog: (options?: OpenFileDialogOptions) => Promise<string | null>;
       readFile: <TData>(path: string) => Promise<TData>;

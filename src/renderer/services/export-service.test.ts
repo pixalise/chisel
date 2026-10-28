@@ -1,12 +1,66 @@
-import { describe, expect, it } from "vitest";
-import { INPUT_BINDINGS_TABLE } from "@/constants/system-tables";
-import { SYSTEM_TERRAIN_TABLES } from "../../shared/terrain-tables";
-import { runtimeExportTables } from "./export-service";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AssetCategoryEnum } from "../../shared/types";
+import { nanoid } from "nanoid";
+import { emptyLocalizationDocument } from "../../shared/localization";
+import type { CommittedSourceSnapshot } from "../../shared/source-state";
 
-describe("runtime terrain export", () => {
-  it("keeps raw terrain authoring tables out of generic runtime table modules", () => {
-    const tables = runtimeExportTables([INPUT_BINDINGS_TABLE, ...SYSTEM_TERRAIN_TABLES]);
+const mocks = vi.hoisted(() => ({ latestCommit: vi.fn(), writeRobloxExport: vi.fn() }));
+vi.mock("@/stores/app-store", () => ({ default: { getState: () => ({ computed: { project: { path: "/tmp/roblox-project" } } }) } }));
+vi.mock("@/services/source-state-service", () => ({ default: { getLatestCommit: mocks.latestCommit } }));
+const { default: exportService } = await import("./export-service");
 
-    expect(tables.map((table) => table.id)).toEqual(["input_bindings"]);
+function snapshot(): CommittedSourceSnapshot {
+  return {
+    id: nanoid(),
+    committedAt: "2026-10-28T00:00:00Z",
+    project: { id: nanoid(), name: "Roblox Game" },
+    tables: [],
+    assets: { schemaVersion: 1, assets: [] },
+    localization: emptyLocalizationDocument
+  };
+}
+
+describe("Roblox export service", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("window", { electron: { writeRobloxExport: mocks.writeRobloxExport } });
+  });
+  it("requires a source commit before writing anything", async () => {
+    mocks.latestCommit.mockResolvedValue(undefined);
+    await expect(exportService.exportProject()).rejects.toThrow("Commit");
+    expect(mocks.writeRobloxExport).not.toHaveBeenCalled();
+  });
+  it("exports the committed data to the current project folder", async () => {
+    mocks.latestCommit.mockResolvedValue(snapshot());
+    const result = await exportService.exportProject();
+    expect(result).toMatchObject({ manifestPath: "ChiselData/manifest.luau", outputPath: "/tmp/roblox-project/ChiselData", fileCount: 3 });
+    expect(mocks.writeRobloxExport).toHaveBeenCalledWith({
+      projectPath: "/tmp/roblox-project",
+      files: expect.arrayContaining([
+        expect.objectContaining({ path: "ChiselData/manifest.luau", content: expect.stringContaining('PROJECT_NAME = "Roblox Game"') })
+      ])
+    });
+  });
+  it("does not touch output when an asset is missing its published ID", async () => {
+    const commit = snapshot();
+    commit.assets.assets.push({
+      id: "ICON",
+      name: "ICON",
+      category: AssetCategoryEnum.ui,
+      extension: "png",
+      width: 1,
+      height: 1,
+      sizeBytes: 1,
+      relativePath: ".chisel/assets/UI/ICON.png",
+      formattedBytes: "1 B"
+    });
+    mocks.latestCommit.mockResolvedValue(commit);
+    await expect(exportService.exportProject()).rejects.toThrow("published Roblox asset ID");
+    expect(mocks.writeRobloxExport).not.toHaveBeenCalled();
+  });
+  it("surfaces write failures", async () => {
+    mocks.latestCommit.mockResolvedValue(snapshot());
+    mocks.writeRobloxExport.mockRejectedValueOnce(new Error("Disk full"));
+    await expect(exportService.exportProject()).rejects.toThrow("Disk full");
   });
 });

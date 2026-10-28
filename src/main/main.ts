@@ -4,6 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { importAsset, replaceAssetReferences, replaceAssetSource } from "./asset-store";
 import { convertImagesToPng, createImageConversionPreview } from "./image-conversion";
+import { writeRobloxExport } from "./roblox-export-store";
 import { getFileMetadata } from "./file-metadata";
 import type { ConvertImages, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas";
 
@@ -132,6 +133,7 @@ async function createImagePreview(inputPath: string): Promise<string> {
 }
 
 function registerIpc(): void {
+  ipcMain.handle("project:export-roblox", (_event, input: unknown) => writeRobloxExport(input));
   ipcMain.handle("file:read", async (_event, filePath: string) => {
     const content = await fs.readFile(filePath, "utf8");
     return JSON.parse(content) as unknown;

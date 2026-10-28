@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { ConvertImages, ConvertedImage, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas";
+import type { LuauExportFile } from "../shared/luau-serialization";
 import type { Asset, FileMetadata } from "../shared/types";
 
 function assetUrlFromPath(filePath: string): string {
@@ -9,6 +10,8 @@ function assetUrlFromPath(filePath: string): string {
 }
 
 contextBridge.exposeInMainWorld("electron", {
+  writeRobloxExport: (input: { projectPath: string; files: LuauExportFile[] }): Promise<void> =>
+    ipcRenderer.invoke("project:export-roblox", input) as Promise<void>,
   openFolderDialog: (): Promise<string | null> => ipcRenderer.invoke("project:open-folder-dialog") as Promise<string | null>,
   openFileDialog: (options?: Electron.OpenDialogOptions): Promise<string | null> =>
     ipcRenderer.invoke("project:open-file-dialog", options) as Promise<string | null>,

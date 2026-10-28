@@ -1,9 +1,25 @@
-# Chisel
+# Chisel for Roblox
 
-Chisel is a project-data editor and generation-authoring workspace. Detailed integration, export, and terrain generation documentation lives in [FARBOUND_INTEGRATION.md](./FARBOUND_INTEGRATION.md), [EXPORTS.md](./EXPORTS.md), and [TERRAIN_GENERATOR.md](./TERRAIN_GENERATOR.md).
+Chisel is an Electron desktop workspace for authoring Roblox game data. It manages typed tables, assets with published Roblox IDs, localization, keyboard/mouse input definitions, and project tasks. Roblox Luau is the sole export target.
 
-## Native terrain authoring
+## Development
 
-Terrain authoring is fully contained in Chisel. Import PNG spritesheets as **Tileset** assets, bind concrete sprites to stable gameplay metadata, then paint mixed-size terrain modules under **Terrain → Terrain Generator**. Under **Terrain → Terrain Annotations**, polish approved geography with sparse cell overrides, define global annotation slugs, and tag resolved map cells. Chisel uses exact Wang-style edge sockets, explicit collections and adjacency exceptions, macro templates, deterministic candidate batches, validation, and approved map or submodule revisions. Generator grammar and raw authoring documents remain editor-only; the LÖVE target compiles approved geography and numeric per-cell annotation IDs into a resolved runtime module.
+```sh
+bun install --frozen-lockfile
+bun run dev
+```
 
-Chisel project formats are current-only. When a schema or managed layout changes, every checked-in project is rewritten in the same change; Chisel does not carry runtime migration or legacy-compatibility code.
+Run `bun run check` for policy checks, formatting, lint, tests, and TypeScript. Run `bun run build` for the production renderer and Electron code.
+
+With the [Luau CLI tools](https://github.com/luau-lang/luau/releases) installed together, run `bun run test:roblox` (or `bun run test:roblox /path/to/luau`) to compile generated modules, typecheck standalone modules, and execute runtime checks with Roblox API doubles.
+
+## Roblox workflow
+
+1. Create or open a project pointing at your Roblox source workspace.
+2. Author tables, localization, and input actions. Import source assets and enter their published Roblox asset IDs in the asset editor.
+3. In Settings, **Commit Draft**, then **Export Roblox Luau**.
+4. Map the generated `ChiselData` folder into your Rojo project's `ReplicatedStorage`, or recreate its folder/ModuleScript hierarchy in Studio.
+
+See [EXPORTS.md](./EXPORTS.md) for the output layout, Rojo mapping, asset IDs, runtime APIs, and validation rules.
+
+Project formats are current-only. Schema changes rewrite checked-in project data directly; Chisel does not carry runtime upgrades or compatibility branches.
