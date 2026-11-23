@@ -4,9 +4,15 @@ import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { importAsset, replaceAssetReferences, replaceAssetSource } from "./asset-store"
 import { convertImagesToPng, createImageConversionPreview } from "./image-conversion"
+import { packTexturePackageAsset } from "./texture-packing"
 import { writeRobloxExport } from "./roblox-export-store"
 import { getFileMetadata } from "./file-metadata"
-import type { ConvertImages, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas"
+import type {
+  PackTexturePackage,
+  ConvertImages,
+  ImportAssetInput,
+  ReplaceAssetSourceInput,
+} from "../shared/schemas"
 const APP_NAME = "Chisel"
 const APP_ICON_FILE = "chisel-apple.png"
 let mainWindow: BrowserWindow | null = null
@@ -200,6 +206,9 @@ function registerIpc(): void {
     "asset:replace-references",
     (_event, projectPath: string, assetIdChanges: Record<string, string>) =>
       replaceAssetReferences(projectPath, assetIdChanges)
+  )
+  ipcMain.handle("texture:pack-package", (_event, input: PackTexturePackage) =>
+    packTexturePackageAsset(input)
   )
   ipcMain.handle("image:convert-to-png", (_event, input: ConvertImages) =>
     convertImagesToPng(input)

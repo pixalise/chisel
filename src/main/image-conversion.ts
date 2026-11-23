@@ -1,8 +1,15 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import { convertImagesSchema, type ConvertImages, type ConvertedImage } from "../shared/schemas"
-import { convertSharpImageToPng, createSharpImagePreview } from "./sharp-worker-client"
+import {
+  convertSharpImageToPng,
+  createSharpImagePreview,
+  previewSharpTexturePackage,
+} from "./sharp-worker-client"
 export async function createImageConversionPreview(inputPath: string): Promise<string> {
+  if (path.extname(inputPath).toLowerCase() === ".zpbr") {
+    return previewSharpTexturePackage(inputPath)
+  }
   return createSharpImagePreview(inputPath)
 }
 export async function convertImagesToPng(input: ConvertImages): Promise<ConvertedImage[]> {

@@ -26,6 +26,7 @@ import type { FC } from "react"
 import { NavLink, useLocation } from "react-router"
 const routeIcons: Record<RouteEnum, LucideIcon> = {
   [RouteEnum.ASSETS]: Boxes,
+  [RouteEnum.TEXTURE_PACKING]: Boxes,
   [RouteEnum.DATABASE]: Database,
   [RouteEnum.LOCALIZATION]: Languages,
   [RouteEnum.IMAGE_CONVERSION]: Images,

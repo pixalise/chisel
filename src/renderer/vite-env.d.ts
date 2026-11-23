@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import type {
+  PackTexturePackage,
   ConvertImages,
   ConvertedImage,
   ImportAssetInput,
@@ -41,6 +42,7 @@ declare global {
         projectPath: string,
         assetIdChanges: Record<string, string>
       ) => Promise<boolean>
+      packTexturePackage: (input: PackTexturePackage) => Promise<Asset>
       convertImages: (input: ConvertImages) => Promise<ConvertedImage[]>
       createImageConversionPreview: (inputPath: string) => Promise<string>
       getPathForFile: (file: File) => string

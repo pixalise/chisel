@@ -35,3 +35,10 @@ With the [Luau CLI tools](https://github.com/luau-lang/luau/releases) installed 
 See [EXPORTS.md](./EXPORTS.md) for the output layout, Rojo mapping, asset IDs, runtime APIs, and validation rules.
 
 Project formats are current-only. Schema changes rewrite checked-in project data directly; Chisel does not carry runtime upgrades or compatibility branches.
+
+## Mrak texture packing
+
+Tools → Material Packing creates ZPBR v1 packages from albedo, metallic, normal,
+roughness and emissive-mask PNGs. Packages are managed assets with library previews. See
+[the binary and channel contract](TEXTURE_FORMAT.md). This does not
+implement Zora runtime export or change the existing Roblox exporter.

@@ -1,4 +1,9 @@
-# Chisel Editor Instructions
+# Mrak Editor Instructions
+
+The `mrak` branch is the maintained direction of Chisel. The user authorized
+restoring texture packing, then replacing GPPT with the Zora PBR (`.zpbr`) format.
+Read `TEXTURE_FORMAT.md` for the current channel and file contract. Mrak owns imports/authored
+data; game settings remain game-owned. Existing Roblox export remains available.
 
 Read [agent.md](./agent.md) before changing frontend code. Its supplied React frontend review policy is mandatory and supersedes conflicting legacy conventions. Chisel is an Electron desktop application with a DOM-based React frontend; web rules apply to its renderer, while Electron main/preload and shared runtime-generation code keep their platform ownership.
 
@@ -15,6 +20,6 @@ Read [agent.md](./agent.md) before changing frontend code. Its supplied React fr
 - Chisel table data is saved as one full table JSON document per table. User tables live under `.chisel/tables/user/<table_id>.json`; system tables live under `.chisel/tables/system/...`, for example `.chisel/tables/system/inputs.json`.
 - Keep immutable authored definitions in Chisel and mutable gameplay instances in the consumer. Do not export save-state containers, installed-upgrade instances, enabled deck state, hands, or encounter state as content tables.
 - Export enough stable definition identity and references for the runtime to retain source traces. Generated dense numeric IDs are runtime projections and must not be treated as durable save identity.
-- Chisel targets Roblox exclusively. Generate Luau ModuleScripts under `ChiselData`; do not add other engine targets or WFC terrain authoring.
+- The existing runtime exporter generates Roblox Luau ModuleScripts under `ChiselData`. ZPBR packing is a separate authorized content tool; the future Zora exporter requires its own reviewed contract. Do not restore WFC terrain authoring.
 - Runtime assets use explicitly authored published Roblox asset IDs. Never export local filesystem paths as Roblox content IDs or silently omit unmapped assets.
 - Read `EXPORTS.md` before changing a generated runtime contract. Keep generated definitions immutable and retain stable source slugs alongside numeric runtime IDs.

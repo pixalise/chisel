@@ -16,7 +16,7 @@ import {
 import { assetSlug, chiselAssetRelativePath } from "../shared/asset-paths"
 import { isAssetExtensionAllowed, isImageExtension } from "../shared/types"
 import { ColumnType } from "../enums/column-type"
-import { readImageDimensions } from "./sharp-worker-client"
+import { readImageDimensions, readTexturePackageDimensions } from "./sharp-worker-client"
 async function readAssets(filePath: string): Promise<AssetsJson> {
   try {
     return assetsJsonSchema.parse(JSON.parse(await fs.readFile(filePath, "utf8")) as unknown)
@@ -162,6 +162,9 @@ async function imageDimensions(filePath: string): Promise<{
   width: number
   height: number
 }> {
+  if (path.extname(filePath).toLowerCase() === ".zpbr") {
+    return readTexturePackageDimensions(filePath)
+  }
   if (!isImageExtension(path.extname(filePath).replace(/^\./, ""))) {
     return { width: 0, height: 0 }
   }

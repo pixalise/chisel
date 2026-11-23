@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron"
 import type {
+  PackTexturePackage,
   ConvertImages,
   ConvertedImage,
   ImportAssetInput,
@@ -52,6 +53,8 @@ contextBridge.exposeInMainWorld("electron", {
     assetIdChanges: Record<string, string>
   ): Promise<boolean> =>
     ipcRenderer.invoke("asset:replace-references", projectPath, assetIdChanges) as Promise<boolean>,
+  packTexturePackage: (input: PackTexturePackage): Promise<Asset> =>
+    ipcRenderer.invoke("texture:pack-package", input) as Promise<Asset>,
   convertImages: (input: ConvertImages): Promise<ConvertedImage[]> =>
     ipcRenderer.invoke("image:convert-to-png", input) as Promise<ConvertedImage[]>,
   createImageConversionPreview: (inputPath: string): Promise<string> =>

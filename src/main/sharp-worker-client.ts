@@ -1,10 +1,14 @@
 import { fork } from "node:child_process"
 import path from "node:path"
+import type { TextureMaps } from "../shared/schemas"
 interface ImageDimensions {
   width: number
   height: number
 }
 type SharpWorkerJob =
+  | { type: "packTextureMaps"; maps: TextureMaps }
+  | { type: "inspectTexturePackage"; filePath: string }
+  | { type: "texturePackagePreview"; filePath: string }
   | {
       type: "metadata"
       filePath: string
@@ -54,6 +58,7 @@ function runSharpWorker<T>(request: SharpWorkerJob): Promise<T> {
     env: { ...process.env },
     execPath: workerExecPath(),
     silent: true,
+    serialization: "advanced",
   })
   return new Promise<T>((resolve, reject) => {
     let settled = false
@@ -132,4 +137,23 @@ export async function convertSharpImageToPng(inputPath: string, outputPath: stri
     return
   }
   await runSharpWorker<null>({ type: "convertToPng", inputPath, outputPath })
+}
+
+export async function packSharpTextureMaps(maps: TextureMaps): Promise<Buffer> {
+  if (process.env.VITEST) {
+    return (await import("./texture-packing-images")).packTextureMaps(maps)
+  }
+  return runSharpWorker<Buffer>({ type: "packTextureMaps", maps })
+}
+export async function readTexturePackageDimensions(filePath: string): Promise<ImageDimensions> {
+  if (process.env.VITEST) {
+    return (await import("./texture-packing-images")).inspectTexturePackage(filePath)
+  }
+  return runSharpWorker<ImageDimensions>({ type: "inspectTexturePackage", filePath })
+}
+export async function previewSharpTexturePackage(filePath: string): Promise<string> {
+  if (process.env.VITEST) {
+    return (await import("./texture-packing-images")).createTexturePackagePreview(filePath)
+  }
+  return runSharpWorker<string>({ type: "texturePackagePreview", filePath })
 }

@@ -14,7 +14,7 @@ interface PreviewFactProps {
   label: string
   value: string
 }
-const previewablePathPattern = /\.(?:avif|bmp|gif|jpe?g|png|tiff?|webp)$/i
+const previewablePathPattern = /\.(?:avif|bmp|gif|jpe?g|png|zpbr|tiff?|webp)$/i
 export const AssetPreview: FC<AssetPreviewProps> = (props) => {
   const { asset, className } = props
   const { _project: project } = useAppStore()
