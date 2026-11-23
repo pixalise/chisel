@@ -34,7 +34,7 @@ export const DataTablesPage: FC = () => {
     <section className="flex min-h-full w-full min-w-0 flex-col gap-4">
       <Section
         title="Data Tables"
-        copy="Create and edit user-authored table schemas for Chisel project data."
+        copy="Create and edit user-authored table schemas for Mrak project data."
       >
         <div className="flex min-h-64 flex-col border border-border bg-card">
           <TableTabs

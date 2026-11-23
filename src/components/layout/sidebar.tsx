@@ -45,7 +45,7 @@ const EditorSidebar: FC = () => {
           <img alt="" className="size-8 shrink-0" src="assets/chisel-shrinked.png" />
           <div>
             <h1 className="truncate text-sm font-bold group-data-[collapsible=icon]:hidden">
-              Chisel Editor
+              Mrak Editor
             </h1>
             <p className="truncate text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
               Working in <strong>{project.name}</strong>

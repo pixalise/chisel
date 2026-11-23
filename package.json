@@ -1,13 +1,13 @@
 {
-  "name": "chisel",
-  "productName": "Chisel",
+  "name": "mrak",
+  "productName": "Mrak",
   "version": "0.1.0",
   "private": true,
   "packageManager": "bun@1.3.4",
   "main": "dist-electron/main/main.js",
   "scripts": {
-    "dev": "bun scripts/dev.mjs",
-    "build": "bun run typecheck && bun scripts/clean.mjs && vite build && tsc -p tsconfig.electron.json",
+    "dev": "bun scripts/prepare-zora-tools.mjs && bun scripts/dev.mjs",
+    "build": "bun run typecheck && bun scripts/prepare-zora-tools.mjs && bun scripts/clean.mjs && vite build && tsc -p tsconfig.electron.json",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "lint": "node scripts/lint.mjs",
     "format": "prettier --write .",
@@ -16,7 +16,6 @@
     "unused:check": "bun scripts/check-unused.mjs",
     "filenames:check": "bun scripts/check-file-names.mjs",
     "test": "vitest run src",
-    "test:roblox": "bun scripts/check-roblox-runtime.mjs",
     "check": "bun scripts/check.mjs"
   },
   "dependencies": {

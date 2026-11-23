@@ -1,7 +1,7 @@
 import { ColumnType } from "../enums/column-type"
-import { InputKeyEnum } from "../enums/input-key-enum"
+import { AssetCategoryEnum } from "../enums/asset-category-enum"
 import { type DataColumnDefinition, type SystemDataTable } from "../shared/schemas"
-export const INPUT_BINDINGS_TABLE_ID = "input_bindings"
+
 const SYSTEM_TABLE_TIMESTAMP = "1970-01-01T00:00:00.000Z"
 interface SystemColumnOptions {
   defaultValue?: DataColumnDefinition["defaultValue"]
@@ -83,24 +83,56 @@ function column(
   }
   return definition
 }
-export const INPUT_BINDINGS_TABLE = {
+export const MATERIALS_TABLE = {
   columns: [
-    column("input_sort_order", "sort_order", ColumnType.INTEGER, { defaultValue: 0, min: 0 }),
-    column("input_bindings", "bindings", ColumnType.ENUM_ARRAY, {
-      defaultValue: [],
-      max: 8,
-      possibleValues: Object.values(InputKeyEnum),
+    {
+      ...column("material_textures", "textures", ColumnType.ASSET_REF),
+      assetCategory: AssetCategoryEnum.TERRAIN_TEXTURE,
+    },
+    column("material_base_color", "base_color", ColumnType.VECTOR_3, {
+      defaultValue: [1, 1, 1],
+      min: 0,
     }),
+    column("material_metallic", "metallic", ColumnType.DECIMAL, {
+      defaultValue: 1,
+      min: 0,
+      max: 1,
+    }),
+    column("material_roughness", "roughness", ColumnType.DECIMAL, {
+      defaultValue: 1,
+      min: 0,
+      max: 1,
+    }),
+    column("material_normal", "normal_strength", ColumnType.DECIMAL, { defaultValue: 1, min: 0 }),
+    column("material_glow", "glow_tint", ColumnType.VECTOR_3, { defaultValue: [0, 0, 0], min: 0 }),
   ],
-  description: "Input actions and bindings exported to Roblox.",
-  id: INPUT_BINDINGS_TABLE_ID,
+  description: "Zora PBR materials. Color factors and glow tint are linear RGB.",
+  id: "materials",
   isSystemTable: true,
   kind: "system",
   lastChangeAt: SYSTEM_TABLE_TIMESTAMP,
-  moduleId: "input",
-  name: "Input Bindings",
+  moduleId: "rendering",
+  name: "Materials",
   rows: [],
   version: 1,
 } satisfies SystemDataTable
-export const SYSTEM_INPUT_TABLES = [INPUT_BINDINGS_TABLE]
-export const SYSTEM_TABLES = [...SYSTEM_INPUT_TABLES]
+export const MODEL_MATERIALS_TABLE = {
+  columns: [
+    {
+      ...column("binding_model", "model", ColumnType.ASSET_REF),
+      assetCategory: AssetCategoryEnum.MESH,
+    },
+    column("binding_slot", "slot", ColumnType.STRING),
+    { ...column("binding_material", "material", ColumnType.REF), refTableId: "materials" },
+  ],
+  description: "Bind Blender material slot names to Zora material definitions.",
+  id: "model_materials",
+  isSystemTable: true,
+  kind: "system",
+  lastChangeAt: SYSTEM_TABLE_TIMESTAMP,
+  moduleId: "rendering",
+  name: "Model Materials",
+  rows: [],
+  version: 1,
+} satisfies SystemDataTable
+export const SYSTEM_TABLES = [MATERIALS_TABLE, MODEL_MATERIALS_TABLE]

@@ -49,7 +49,7 @@ const CreateProjectDialogButton: FC = () => {
             <ShieldCheck className="h-5 w-5" />
             Create Project
           </DialogTitle>
-          <DialogDescription>Name the Roblox project in the selected folder.</DialogDescription>
+          <DialogDescription>Name the Zora project in the selected folder.</DialogDescription>
         </DialogHeader>
         {isOpen && (
           <ProjectForm

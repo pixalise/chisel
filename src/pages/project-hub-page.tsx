@@ -32,7 +32,7 @@ const ProjectHubPage: FC = () => {
     <main className="w-screen h-screen flex items-center justify-center">
       <Card className="w-[36rem]">
         <CardContent className="pt-6">
-          <Section title="Project Hub" copy="Select a Chisel project to be loaded.">
+          <Section title="Project Hub" copy="Select a Mrak project to be loaded.">
             <div className="space-y-2">
               <div className="space-y-2 overflow-y-auto bg-background p-2 max-h-48">
                 {isEmpty(projects) && (

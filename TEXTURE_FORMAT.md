@@ -77,3 +77,6 @@ The initial implementation was recovered from Chisel's `texture-packing.ts` at
 `0299fa0`, before deletion in `5de2b55` (earlier restoration: `daac11a`). GPPT v1
 stored albedo-height and normal-roughness. ZPBR deliberately replaces that
 contract rather than silently repurposing its channels or retaining a legacy loader.
+
+Zora export now prepares BC7 KTX mip chains from this source package. See
+[EXPORTS.md](EXPORTS.md) for runtime packaging, filtering and ownership.

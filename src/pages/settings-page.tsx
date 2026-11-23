@@ -35,7 +35,7 @@ export const SettingsPage: FC = () => {
   }
   async function onRollbackCommit(commitId: string): Promise<void> {
     const shouldRollback = window.confirm(
-      "Roll back the current draft to this committed Chisel source state?"
+      "Roll back the current draft to this committed Mrak source state?"
     )
     if (!shouldRollback) {
       return
@@ -60,7 +60,7 @@ export const SettingsPage: FC = () => {
       const result = await exportProject()
       setLastExport(result)
       toast({
-        title: "Roblox data exported",
+        title: "Zora content exported",
         description: `${result.fileCount} files written to ${result.outputPath}.`,
       })
     } catch (error) {
@@ -77,12 +77,12 @@ export const SettingsPage: FC = () => {
     <section className="flex min-h-full w-full min-w-0 flex-col gap-4">
       <Section
         title="Settings"
-        copy="Inspect the active Chisel project and its authoritative Chisel files."
+        copy="Inspect the active Mrak project and its authoritative Mrak files."
       >
         <div className="grid grid-cols-2 gap-4 max-[1120px]:grid-cols-1">
           <Section
             title="Authoring Data"
-            copy="Each Chisel domain is stored independently inside .chisel."
+            copy="Each Mrak domain is stored independently inside .chisel."
           >
             <SettingsRow label="Project" value=".chisel/chisel.json" />
             <SettingsRow label="Assets" value=".chisel/assets.json" />
@@ -144,12 +144,11 @@ export const SettingsPage: FC = () => {
           </Section>
           <Section
             title="Game Data Export"
-            copy="Generate data-oriented runtime modules from the latest committed Chisel state."
+            copy="Generate data-oriented runtime modules from the latest committed Mrak state."
           >
-            <SettingsRow label="Roblox Luau" value="ChiselData/manifest.luau" />
+            <SettingsRow label="Zora" value="ZoraData/catalog.json" />
             <p className="text-xs text-muted-foreground">
-              Map ChiselData into ReplicatedStorage with Rojo, or import its ModuleScripts into
-              Studio. Assets require published Roblox IDs.
+              Export assets, typed D definitions and Lua content from the committed draft.
             </p>
             {lastExport && <SettingsRow label="Last export" value={lastExport.exportedAt} />}
             {lastExport && <SettingsRow label="Files" value={String(lastExport.fileCount)} />}
@@ -161,7 +160,7 @@ export const SettingsPage: FC = () => {
                 onClick={onExportProject}
                 type="button"
               >
-                {isExportProjectLoading ? "Exporting..." : "Export Roblox Luau"}
+                {isExportProjectLoading ? "Exporting..." : "Export Zora"}
               </Button>
             </div>
           </Section>

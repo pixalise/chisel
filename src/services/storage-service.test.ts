@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import storageService from "./storage-service"
 
 const values = new Map<string, string>()
-const project = { id: nanoid(), name: "Roblox Game", path: "/tmp/roblox-game" }
+const project = { id: nanoid(), name: "Zora Game", path: "/tmp/zora-game" }
 
 describe("project hub storage", () => {
   beforeEach(() => {

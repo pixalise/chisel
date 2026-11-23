@@ -1,44 +1,42 @@
-# Chisel for Roblox
+# Mrak for Zora
 
-Chisel is an Electron desktop workspace for authoring Roblox game data. It manages typed tables, assets with published Roblox IDs, localization, keyboard/mouse input definitions, and project tasks. Roblox Luau is the sole export target.
+Mrak is an Electron desktop workspace for importing assets and authoring typed
+content tables and localization. Zora is its only runtime export target. Game
+settings and mutable gameplay state belong to the game.
 
 ## Development
 
 ```sh
 bun install --frozen-lockfile
 bun run dev
+bun run check
+bun run build
 ```
 
-Run `bun run check` for policy checks, formatting, lint, tests, and TypeScript. Run `bun run build` for the production renderer and Electron code.
+Development/build copies Zora's pinned bgfx `texturec` from the sibling
+`vox_engine/vcpkg_installed/<triplet>/tools/bgfx/texturec` into `resources/texturec`.
+Run the engine's setup first, or set `MRAK_TEXTUREC` to that executable elsewhere.
+Keep `resources/texturec` with the built application. Sharp and texture preparation
+run in the existing Node worker, outside Electron's native-module ABI.
 
-Read [AGENTS.md](./AGENTS.md) and the supplied [frontend policy](./agent.md) before changing code. `bun run unused:check` verifies that application entries, tests, and registered native workers connect the retained source and production dependencies.
+Tests run generated Lua using Lua 5.5 (`MRAK_LUA`, default `lua`). Set `MRAK_LDC`
+to Zora's pinned LDC executable and `MRAK_ZORA_ROOT` to its checkout to also compile
+and execute generated D definitions against the engine's content reader.
 
-## Source layout
+Read [AGENTS.md](AGENTS.md), [agent.md](agent.md), and [EXPORTS.md](EXPORTS.md).
+Project storage retains `.chisel`; source formats are current-only.
 
-- `src/pages`: routed React web pages.
-- `src/components`, `src/hooks`, `src/services`, `src/stores`, `src/utils`, and `src/enums`: application owners shared across pages.
-- `src/shared`: canonical content schemas, validation, and Roblox runtime generation used by both Electron and the frontend.
-- `src/main` and `src/preload`: native filesystem, asset, worker, and IPC integration.
-- `src/renderer`: browser entry point, global styles, and Electron window declarations.
+## Workflow
 
-The TypeScript and Vite `@/` aliases both resolve to `src/`. Stored project IDs, enum values, and Roblox runtime contracts remain independent of this source layout.
+1. Export static GLB models from Blender with named objects/empties and material slots.
+2. Import models, fonts, images and other content; pack PBR source maps as `.zpbr`.
+3. Author Materials and Model Materials rows, plus your own content tables.
+4. **Commit Draft**, then **Export Zora** in Settings.
+5. Use `ZoraData` in the game. Its generated definitions expose string asset IDs,
+   typed table accessors and Lua completion annotations.
 
-With the [Luau CLI tools](https://github.com/luau-lang/luau/releases) installed together, run `bun run test:roblox` (or `bun run test:roblox /path/to/luau`) to compile generated modules, typecheck standalone modules, and execute runtime checks with Roblox API doubles.
+Blender supplies hierarchy, transforms and attachment names. The game interprets
+those names and assigns behavior. Mrak owns content preparation and references.
 
-## Roblox workflow
-
-1. Create or open a project pointing at your Roblox source workspace.
-2. Author tables, localization, and input actions. Import source assets and enter their published Roblox asset IDs in the asset editor.
-3. In Settings, **Commit Draft**, then **Export Roblox Luau**.
-4. Map the generated `ChiselData` folder into your Rojo project's `ReplicatedStorage`, or recreate its folder/ModuleScript hierarchy in Studio.
-
-See [EXPORTS.md](./EXPORTS.md) for the output layout, Rojo mapping, asset IDs, runtime APIs, and validation rules.
-
-Project formats are current-only. Schema changes rewrite checked-in project data directly; Chisel does not carry runtime upgrades or compatibility branches.
-
-## Mrak texture packing
-
-Tools → Material Packing creates ZPBR v1 packages from albedo, metallic, normal,
-roughness and emissive-mask PNGs. Packages are managed assets with library previews. See
-[the binary and channel contract](TEXTURE_FORMAT.md). This does not
-implement Zora runtime export or change the existing Roblox exporter.
+Material Packing creates ZPBR v1 from albedo, metallic, normal, roughness and
+emissive-mask PNGs. See [TEXTURE_FORMAT.md](TEXTURE_FORMAT.md).

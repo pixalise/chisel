@@ -6,6 +6,7 @@ interface ImageDimensions {
   height: number
 }
 type SharpWorkerJob =
+  | { type: "prepareZoraTextures"; data: Buffer; directory: string; slug: string; compiler: string }
   | { type: "packTextureMaps"; maps: TextureMaps }
   | { type: "inspectTexturePackage"; filePath: string }
   | { type: "texturePackagePreview"; filePath: string }
@@ -63,13 +64,17 @@ function runSharpWorker<T>(request: SharpWorkerJob): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     let settled = false
     let stderr = ""
+    let timeoutMs = DEFAULT_TIMEOUT_MS
+    if (request.type === "prepareZoraTextures") {
+      timeoutMs = 3600000
+    }
     const timeout = setTimeout(() => {
       settle(() => {
         reject(
           new Error(sharpFailureMessage(request, `Worker timed out after ${DEFAULT_TIMEOUT_MS}ms.`))
         )
       })
-    }, DEFAULT_TIMEOUT_MS)
+    }, timeoutMs)
     function settle(callback: () => void): void {
       if (settled) {
         return
@@ -156,4 +161,16 @@ export async function previewSharpTexturePackage(filePath: string): Promise<stri
     return (await import("./texture-packing-images")).createTexturePackagePreview(filePath)
   }
   return runSharpWorker<string>({ type: "texturePackagePreview", filePath })
+}
+
+export async function prepareSharpZoraTextures(
+  data: Buffer,
+  directory: string,
+  slug: string,
+  compiler: string
+): Promise<void> {
+  if (process.env.VITEST) {
+    return (await import("./zora-textures")).prepareZoraTextures(data, directory, slug, compiler)
+  }
+  await runSharpWorker<null>({ type: "prepareZoraTextures", data, directory, slug, compiler })
 }

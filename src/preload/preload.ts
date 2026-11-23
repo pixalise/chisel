@@ -6,7 +6,7 @@ import type {
   ImportAssetInput,
   ReplaceAssetSourceInput,
 } from "../shared/schemas"
-import type { LuauExportFile } from "../shared/luau-serialization"
+import type { ZoraExportBundle } from "../shared/zora-export"
 import type { Asset, FileMetadata } from "../shared/types"
 function assetUrlFromPath(filePath: string): string {
   if (filePath.includes("\0")) {
@@ -18,8 +18,13 @@ function assetUrlFromPath(filePath: string): string {
   return `chisel-asset://local/${encodeURIComponent(filePath)}`
 }
 contextBridge.exposeInMainWorld("electron", {
-  writeRobloxExport: (input: { projectPath: string; files: LuauExportFile[] }): Promise<void> =>
-    ipcRenderer.invoke("project:export-roblox", input) as Promise<void>,
+  fingerprintAssets: (input: {
+    projectPath: string
+    assets: Asset[]
+  }): Promise<Record<string, string>> =>
+    ipcRenderer.invoke("asset:fingerprints", input) as Promise<Record<string, string>>,
+  writeZoraExport: (input: ZoraExportBundle & { projectPath: string }): Promise<void> =>
+    ipcRenderer.invoke("project:export-zora", input) as Promise<void>,
   openFolderDialog: (): Promise<string | null> =>
     ipcRenderer.invoke("project:open-folder-dialog") as Promise<string | null>,
   openFileDialog: (options?: Electron.OpenDialogOptions): Promise<string | null> =>

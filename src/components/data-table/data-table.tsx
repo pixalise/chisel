@@ -12,7 +12,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { INPUT_BINDINGS_TABLE_ID } from "@/constants/system-tables"
 import { ColumnType } from "@/enums/column-type"
 import useListTablesQuery from "@/hooks/use-list-tables-query"
 import useSaveTableRowsMutation from "@/hooks/use-save-table-rows-mutation"
@@ -23,6 +22,7 @@ import {
   type DataColumnDefinition,
   type DataTableRow,
 } from "@/shared/schemas"
+import { isNil } from "lodash"
 import { Info } from "lucide-react"
 import { nanoid } from "nanoid"
 import { useEffect, useMemo, useRef, useState, type FC } from "react"
@@ -70,9 +70,6 @@ function rowsForTable(table: RefLookupTable | undefined): RefLookupRow[] {
 }
 function isSystemTable(table: TableTabEntry): boolean {
   return "isSystemTable" in table && table.isSystemTable
-}
-function canMutateRows(table: TableTabEntry): boolean {
-  return !isSystemTable(table) || table.id === INPUT_BINDINGS_TABLE_ID
 }
 function nextDefaultSlug(rows: EditorRow[]): string {
   const existingSlugs = new Set(rows.map((row) => row.slug))
@@ -462,7 +459,7 @@ const DataTable: FC<DataTableProps> = (props) => {
   const { tables } = useListTablesQuery()
   const { isSaveTableRowsLoading, saveTableRows } = useSaveTableRowsMutation()
   const tableKey = table ? tableTabKey(table) : ""
-  const canMutateTableRows = table ? canMutateRows(table) : false
+  const canMutateTableRows = !isNil(table)
   const refTables = useMemo<RefLookupTable[]>(() => {
     const lookupTables = tables.map((entry) => ({
       id: entry.id,
