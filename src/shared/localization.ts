@@ -737,7 +737,7 @@ function validateGeneratedTypedPaths(keys: LocalizationKey[]): LocalizationProbl
       problems.push({
         severity: LocalizationProblemSeverity.ERROR,
         path: `keys.${index}.path`,
-        message: `Localization key ${key.path} collides with generated Luau ID ${existing}`,
+        message: `Localization key ${key.path} collides with generated localization constant ${existing}`,
       })
     }
     seen.set(constant, key.path)

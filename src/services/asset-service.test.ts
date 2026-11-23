@@ -27,7 +27,6 @@ const asset: Asset = {
   relativePath: ".chisel/assets/UI/ICON.png",
   sizeBytes: 1,
   width: 1,
-  robloxAssetId: "123456789",
 }
 describe("asset service", () => {
   beforeEach(() => {
@@ -76,12 +75,12 @@ describe("asset service", () => {
     await expect(assetService.removeAsset("ICON")).rejects.toThrow("Items.SWORD.icon")
     expect(mocks.deleteProjectFile).not.toHaveBeenCalled()
   })
-  it("preserves the published Roblox ID when metadata is saved", async () => {
+  it("preserves the asset slug when metadata is saved", async () => {
     await assetService.updateAsset("ICON", { ...asset, note: "Updated" })
     expect(mocks.writeAssetsJson).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        assets: [expect.objectContaining({ robloxAssetId: "123456789", note: "Updated" })],
+        assets: [expect.objectContaining({ id: "ICON", note: "Updated" })],
       })
     )
   })

@@ -16,6 +16,9 @@ import type { FileMetadata } from "@/shared/types"
 import { isNil } from "lodash"
 import { FilePathEnum } from "../enums/file-path-enum"
 class FileService {
+  public getPathForFile(file: File): string {
+    return window.electron.getPathForFile(file)
+  }
   private async writeJsonFile(path: string, value: unknown): Promise<void> {
     await window.electron.writeFile(path, value)
   }

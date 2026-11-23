@@ -72,10 +72,6 @@ const assetInputFields = {
   width: z.number(),
   height: z.number(),
   tileSize: z.int().positive().optional(),
-  robloxAssetId: z
-    .string()
-    .regex(/^(?:[1-9][0-9]*|)$/, "Use a positive Roblox asset ID (digits only)")
-    .optional(),
   extension: z.string(),
 }
 function validateTilesetAsset(
@@ -199,6 +195,27 @@ export const dataTableIdSchema = z
   .min(1)
   .max(96)
   .regex(/^[A-Za-z0-9_-]+$/)
+const textureMapPathSchema = filePathSchema.refine(
+  (value) => /\.png$/i.test(value),
+  "Map must be a PNG file"
+)
+export const textureMapsSchema = z.object({
+  albedo: textureMapPathSchema,
+  metallic: textureMapPathSchema,
+  normal: textureMapPathSchema,
+  roughness: textureMapPathSchema,
+  emissive: textureMapPathSchema,
+})
+export type TextureMaps = z.infer<typeof textureMapsSchema>
+export const texturePackingFormSchema = textureMapsSchema.extend({
+  name: assetSlugSchema,
+  note: z.string().optional(),
+})
+export type TexturePackingForm = z.infer<typeof texturePackingFormSchema>
+export const packTexturePackageSchema = texturePackingFormSchema.extend({
+  projectPath: filePathSchema,
+})
+export type PackTexturePackage = z.infer<typeof packTexturePackageSchema>
 export const convertImagesSchema = z.object({
   inputPaths: z.array(filePathSchema).min(1, "Choose at least one image"),
   outputFolder: filePathSchema,

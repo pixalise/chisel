@@ -4,10 +4,17 @@ import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { importAsset, replaceAssetReferences, replaceAssetSource } from "./asset-store"
 import { convertImagesToPng, createImageConversionPreview } from "./image-conversion"
-import { writeRobloxExport } from "./roblox-export-store"
+import { packTexturePackageAsset } from "./texture-packing"
+import { fingerprintAssets } from "./asset-fingerprints"
+import { writeZoraExport } from "./zora-export-store"
 import { getFileMetadata } from "./file-metadata"
-import type { ConvertImages, ImportAssetInput, ReplaceAssetSourceInput } from "../shared/schemas"
-const APP_NAME = "Chisel"
+import type {
+  PackTexturePackage,
+  ConvertImages,
+  ImportAssetInput,
+  ReplaceAssetSourceInput,
+} from "../shared/schemas"
+const APP_NAME = "Mrak"
 const APP_ICON_FILE = "chisel-apple.png"
 let mainWindow: BrowserWindow | null = null
 app.setName(APP_NAME)
@@ -126,7 +133,8 @@ async function createImagePreview(inputPath: string): Promise<string> {
   return preview.toDataURL()
 }
 function registerIpc(): void {
-  ipcMain.handle("project:export-roblox", (_event, input: unknown) => writeRobloxExport(input))
+  ipcMain.handle("asset:fingerprints", (_event, input: unknown) => fingerprintAssets(input))
+  ipcMain.handle("project:export-zora", (_event, input: unknown) => writeZoraExport(input))
   ipcMain.handle("file:read", async (_event, filePath: string) => {
     const content = await fs.readFile(filePath, "utf8")
     return JSON.parse(content) as unknown
@@ -200,6 +208,9 @@ function registerIpc(): void {
     "asset:replace-references",
     (_event, projectPath: string, assetIdChanges: Record<string, string>) =>
       replaceAssetReferences(projectPath, assetIdChanges)
+  )
+  ipcMain.handle("texture:pack-package", (_event, input: PackTexturePackage) =>
+    packTexturePackageAsset(input)
   )
   ipcMain.handle("image:convert-to-png", (_event, input: ConvertImages) =>
     convertImagesToPng(input)

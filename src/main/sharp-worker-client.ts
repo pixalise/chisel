@@ -1,10 +1,15 @@
 import { fork } from "node:child_process"
 import path from "node:path"
+import type { TextureMaps } from "../shared/schemas"
 interface ImageDimensions {
   width: number
   height: number
 }
 type SharpWorkerJob =
+  | { type: "prepareZoraTextures"; data: Buffer; directory: string; slug: string; compiler: string }
+  | { type: "packTextureMaps"; maps: TextureMaps }
+  | { type: "inspectTexturePackage"; filePath: string }
+  | { type: "texturePackagePreview"; filePath: string }
   | {
       type: "metadata"
       filePath: string
@@ -54,17 +59,22 @@ function runSharpWorker<T>(request: SharpWorkerJob): Promise<T> {
     env: { ...process.env },
     execPath: workerExecPath(),
     silent: true,
+    serialization: "advanced",
   })
   return new Promise<T>((resolve, reject) => {
     let settled = false
     let stderr = ""
+    let timeoutMs = DEFAULT_TIMEOUT_MS
+    if (request.type === "prepareZoraTextures") {
+      timeoutMs = 3600000
+    }
     const timeout = setTimeout(() => {
       settle(() => {
         reject(
           new Error(sharpFailureMessage(request, `Worker timed out after ${DEFAULT_TIMEOUT_MS}ms.`))
         )
       })
-    }, DEFAULT_TIMEOUT_MS)
+    }, timeoutMs)
     function settle(callback: () => void): void {
       if (settled) {
         return
@@ -132,4 +142,35 @@ export async function convertSharpImageToPng(inputPath: string, outputPath: stri
     return
   }
   await runSharpWorker<null>({ type: "convertToPng", inputPath, outputPath })
+}
+
+export async function packSharpTextureMaps(maps: TextureMaps): Promise<Buffer> {
+  if (process.env.VITEST) {
+    return (await import("./texture-packing-images")).packTextureMaps(maps)
+  }
+  return runSharpWorker<Buffer>({ type: "packTextureMaps", maps })
+}
+export async function readTexturePackageDimensions(filePath: string): Promise<ImageDimensions> {
+  if (process.env.VITEST) {
+    return (await import("./texture-packing-images")).inspectTexturePackage(filePath)
+  }
+  return runSharpWorker<ImageDimensions>({ type: "inspectTexturePackage", filePath })
+}
+export async function previewSharpTexturePackage(filePath: string): Promise<string> {
+  if (process.env.VITEST) {
+    return (await import("./texture-packing-images")).createTexturePackagePreview(filePath)
+  }
+  return runSharpWorker<string>({ type: "texturePackagePreview", filePath })
+}
+
+export async function prepareSharpZoraTextures(
+  data: Buffer,
+  directory: string,
+  slug: string,
+  compiler: string
+): Promise<void> {
+  if (process.env.VITEST) {
+    return (await import("./zora-textures")).prepareZoraTextures(data, directory, slug, compiler)
+  }
+  await runSharpWorker<null>({ type: "prepareZoraTextures", data, directory, slug, compiler })
 }

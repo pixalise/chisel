@@ -126,7 +126,7 @@ const LocalizationWorkspace: FC<LocalizationScreenContentProps> = (props) => {
   return (
     <Section
       title="Localization"
-      copy="Key/value translation matrix with typed placeholders, reusable rich styles, tooltips, and Roblox Luau exports."
+      copy="Key/value translation matrix with typed placeholders, reusable rich styles, tooltips, and Zora exports."
       actions={[
         <Button
           disabled={isLocalizationLoading || isSaveLocalizationLoading || errorCount > 0}

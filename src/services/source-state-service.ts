@@ -41,10 +41,11 @@ class SourceStateService {
         assets,
       }),
       localization,
+      assetHashes: await window.electron.fingerprintAssets({ projectPath: project.path, assets }),
     })
     const sourceState = await this.readSourceState()
     await this.writeSourceState({
-      schemaVersion: 3,
+      schemaVersion: 4,
       commits: [commit, ...sourceState.commits].slice(0, maxCommitCount),
     })
     return commit

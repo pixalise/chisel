@@ -70,12 +70,12 @@ const mocks = vi.hoisted(() => {
             unique: false,
           },
         ],
-        description: "Input bindings",
-        id: "input_bindings",
+        description: "Model bindings",
+        id: "model_materials",
         kind: "system",
         lastChangeAt: "2026-01-01T00:00:00.000Z",
-        moduleId: "input",
-        name: "Input Bindings",
+        moduleId: "rendering",
+        name: "Model Materials",
         rows: [],
         version: 1,
       },
@@ -130,6 +130,9 @@ vi.mock("@/services/localization-service", () => ({
 const { default: sourceStateService } = await import("@/services/source-state-service")
 describe("source state service", () => {
   beforeEach(() => {
+    vi.stubGlobal("window", {
+      electron: { fingerprintAssets: vi.fn().mockResolvedValue({ UNIT_ICON: "a".repeat(64) }) },
+    })
     mocks.sourceState = undefined
     mocks.setProject.mockReset()
     mocks.tryReadSourceStateJson.mockReset()
@@ -180,7 +183,7 @@ describe("source state service", () => {
     )
     expect(mocks.writeSystemTableDataJson).toHaveBeenCalledWith(
       expect.anything(),
-      "input_bindings",
+      "model_materials",
       expect.anything()
     )
     expect(mocks.writeAssetsJson).toHaveBeenCalledWith(expect.anything(), commit.assets)

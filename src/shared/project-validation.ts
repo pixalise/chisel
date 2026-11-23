@@ -223,7 +223,11 @@ export function findAssetReferences(tables: AnyDataTable[], assetId: string): As
   return hits
 }
 function columnValue(row: DataTableRow, column: DataColumnDefinition): unknown {
-  return row.values.find((entry) => entry.columnId === column.id)?.value ?? column.defaultValue
+  const cell = row.values.find((entry) => entry.columnId === column.id)
+  if (cell && cell.value !== undefined) {
+    return cell.value
+  }
+  return column.defaultValue
 }
 function isEmptyReferenceValue(value: unknown): boolean {
   return (

@@ -1,4 +1,5 @@
 export enum HookKeysEnum {
+  PACK_TEXTURE_MUTATION = "packTextureMutation",
   CREATE_OR_UPDATE_PROJECT_MUTATION = "createOrUpdateProjectMutation",
   EXPORT_PROJECT_MUTATION = "exportProjectMutation",
   IMPORT_ASSET_MUTATION = "importAssetMutation",

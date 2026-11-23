@@ -37,15 +37,6 @@ const AssetForm: FC<AssetFormProps> = (props) => {
         />
       </div>
 
-      <ControlledInput
-        control={form.control}
-        disabled={disabled}
-        inputMode="numeric"
-        label="Roblox asset ID"
-        name="robloxAssetId"
-        placeholder="Published asset ID, required for export"
-      />
-
       {category === AssetCategoryEnum.TILESET && (
         <ControlledInput
           control={form.control}

@@ -1,5 +1,23 @@
 import sharp from "sharp"
+import { prepareZoraTextures } from "./zora-textures"
+import type { TextureMaps } from "../shared/schemas"
+import {
+  packTextureMaps,
+  inspectTexturePackage,
+  createTexturePackagePreview,
+} from "./texture-packing-images"
 type SharpWorkerRequest =
+  | {
+      id: number
+      type: "prepareZoraTextures"
+      data: Buffer
+      directory: string
+      slug: string
+      compiler: string
+    }
+  | { id: number; type: "packTextureMaps"; maps: TextureMaps }
+  | { id: number; type: "inspectTexturePackage"; filePath: string }
+  | { id: number; type: "texturePackagePreview"; filePath: string }
   | {
       id: number
       type: "metadata"
@@ -29,6 +47,15 @@ type SharpWorkerResponse =
     }
 async function handleRequest(request: SharpWorkerRequest): Promise<unknown> {
   switch (request.type) {
+    case "prepareZoraTextures":
+      await prepareZoraTextures(request.data, request.directory, request.slug, request.compiler)
+      return null
+    case "packTextureMaps":
+      return packTextureMaps(request.maps)
+    case "inspectTexturePackage":
+      return inspectTexturePackage(request.filePath)
+    case "texturePackagePreview":
+      return createTexturePackagePreview(request.filePath)
     case "metadata": {
       const metadata = await sharp(request.filePath).metadata()
       return { width: metadata.width ?? 0, height: metadata.height ?? 0 }

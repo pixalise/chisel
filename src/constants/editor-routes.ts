@@ -26,6 +26,12 @@ export const editorRoutes: EditorRouteDefinition[] = [
     hint: "Convert images to PNG",
   },
   {
+    id: RouteEnum.TEXTURE_PACKING,
+    label: "Material Packing",
+    section: "Tools",
+    hint: "Pack ZPBR texture maps",
+  },
+  {
     id: RouteEnum.TODOS,
     label: "Project Management",
     section: "Tools",

@@ -9,6 +9,7 @@ import { DataTablesPage } from "@/pages/data-tables-page"
 import { ImageConversionPage } from "@/pages/image-conversion-page"
 import LocalizationPage from "@/pages/localization-page"
 import { SettingsPage } from "@/pages/settings-page"
+import TexturePackingPage from "@/pages/texture-packing-page"
 import TodoPage from "@/pages/todo-page"
 import type { FC } from "react"
 import { Navigate, Route, Routes, useLocation } from "react-router"
@@ -32,6 +33,7 @@ const EditorLayout: FC = () => {
               <Route element={<LocalizationPage />} path={RouteEnum.LOCALIZATION} />
               <Route element={<ImageConversionPage />} path={RouteEnum.IMAGE_CONVERSION} />
               <Route element={<SettingsPage />} path={RouteEnum.SETTINGS} />
+              <Route element={<TexturePackingPage />} path={RouteEnum.TEXTURE_PACKING} />
               <Route element={<TodoPage />} path={RouteEnum.TODOS} />
               <Route element={<Navigate replace to={RouteEnum.ASSETS} />} path="*" />
             </Routes>

@@ -1,12 +1,13 @@
 /// <reference types="vite/client" />
 
 import type {
+  PackTexturePackage,
   ConvertImages,
   ConvertedImage,
   ImportAssetInput,
   ReplaceAssetSourceInput,
 } from "@/shared/schemas"
-import type { LuauExportFile } from "@/shared/luau-serialization"
+import type { ZoraExportBundle } from "@/shared/zora-export"
 import type { Asset, FileMetadata } from "@/shared/types"
 
 type OpenFileDialogOptions = {
@@ -22,7 +23,11 @@ type OpenFileDialogOptions = {
 declare global {
   interface Window {
     electron: {
-      writeRobloxExport: (input: { projectPath: string; files: LuauExportFile[] }) => Promise<void>
+      fingerprintAssets: (input: {
+        projectPath: string
+        assets: Asset[]
+      }) => Promise<Record<string, string>>
+      writeZoraExport: (input: ZoraExportBundle & { projectPath: string }) => Promise<void>
       openFolderDialog: () => Promise<string | null>
       openFileDialog: (options?: OpenFileDialogOptions) => Promise<string | null>
       readFile: <TData>(path: string) => Promise<TData>
@@ -41,6 +46,7 @@ declare global {
         projectPath: string,
         assetIdChanges: Record<string, string>
       ) => Promise<boolean>
+      packTexturePackage: (input: PackTexturePackage) => Promise<Asset>
       convertImages: (input: ConvertImages) => Promise<ConvertedImage[]>
       createImageConversionPreview: (inputPath: string) => Promise<string>
       getPathForFile: (file: File) => string
